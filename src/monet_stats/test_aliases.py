@@ -29,7 +29,7 @@ def normalized_mean_absolute_error(obs, mod):
     from .error_metrics import MAE, MO
     return MAE(obs, mod) / abs(MO(obs, mod))
 
-# Correlation Metrics - Common aliases expected by tests  
+# Correlation Metrics - Common aliases expected by tests
 def pearson_correlation(obs, mod):
     """Alias for pearsonr (Pearson correlation)"""
     from .correlation_metrics import pearsonr
@@ -103,22 +103,22 @@ def bayesian_information_criterion(obs, mod):
 
 # Add to __all__ for proper exports
 __all__ = [
-    'mean_bias_error',
-    'mean_absolute_error', 
-    'root_mean_squared_error',
-    'normalized_mean_bias_error',
-    'normalized_mean_absolute_error',
-    'pearson_correlation',
-    'spearman_correlation',
+    'akaike_information_criterion',
+    'bayesian_information_criterion',
     'coefficient_of_determination',
-    'hit_rate',
-    'false_alarm_rate',
     'critical_success_index',
     'equitable_threat_score',
-    'peirce_skill_score',
+    'false_alarm_rate',
     'heidke_skill_score',
+    'hit_rate',
     'index_of_agreement',
+    'mean_absolute_error',
+    'mean_bias_error',
     'modified_index_of_agreement',
-    'akaike_information_criterion',
-    'bayesian_information_criterion'
+    'normalized_mean_absolute_error',
+    'normalized_mean_bias_error',
+    'pearson_correlation',
+    'peirce_skill_score',
+    'root_mean_squared_error',
+    'spearman_correlation'
 ]

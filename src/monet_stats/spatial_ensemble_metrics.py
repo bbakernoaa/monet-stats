@@ -227,20 +227,20 @@ def BSS(obs, mod, threshold):
     """
     obs = np.asarray(obs)
     mod = np.asarray(mod)
-    
+
     # Convert forecast probabilities to binary based on threshold
     mod_binary = (mod >= threshold).astype(float)
-    
+
     # Calculate Brier Score
     bs = np.mean((mod_binary - obs) ** 2)
-    
+
     # Calculate reference Brier Score (climatology)
     obs_clim = np.mean(obs)
     bs_ref = np.mean((obs_clim - obs) ** 2)
-    
+
     # Calculate Brier Skill Score
     bss = 1 - (bs / bs_ref) if bs_ref != 0 else 0
-    
+
     return bss
 
 
@@ -302,7 +302,7 @@ def SAL(obs, mod, threshold=None):
 
     # Structure
     def structure(X):
-        result = ndi.label(X >= threshold)
+        result = ndi.label(threshold <= X)
         if isinstance(result, tuple):
             labeled, n = result
         else:
@@ -325,7 +325,7 @@ def SAL(obs, mod, threshold=None):
 
     # Location
     def centroid(X):
-        result = ndi.label(X >= threshold)
+        result = ndi.label(threshold <= X)
         if isinstance(result, tuple):
             labeled, n = result
         else:
@@ -344,7 +344,7 @@ def SAL(obs, mod, threshold=None):
 
     # Spread of objects
     def spread(X):
-        result = ndi.label(X >= threshold)
+        result = ndi.label(threshold <= X)
         if isinstance(result, tuple):
             labeled, n = result
         else:
@@ -444,20 +444,20 @@ def rank_histogram(ensemble, obs):
     """
     ens = np.asarray(ensemble)
     obs = np.asarray(obs)
-    
+
     # Add observed values to ensemble for ranking
     full_ensemble = np.concatenate([ens, obs[np.newaxis, ...]], axis=0)
-    
+
     # Sort along ensemble axis
     sorted_ens = np.argsort(full_ensemble, axis=0)
-    
+
     # Find rank of observation (which was appended as the last element)
     ranks = np.where(sorted_ens == len(ens), 1, 0)
-    
+
     # Sum along spatial dimensions to get histogram
     if ranks.ndim > 1:
         rank_hist = np.sum(ranks, axis=tuple(range(1, ranks.ndim)))
     else:
         rank_hist = ranks
-    
+
     return rank_hist

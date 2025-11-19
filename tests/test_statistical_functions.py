@@ -4,69 +4,74 @@ Comprehensive unit tests for all statistical functions in monet_stats.
 
 import numpy as np
 import pytest
-import xarray as xr
 from scipy.stats import pearsonr
 
-from src.monet_stats.error_metrics import (
-    MAE, RMSE, MB, NRMSE, MAPE, MASE, MedAE, sMAPE,
-    RMSE_m, IOA_m, NMSE, LOG_ERROR, COE, VOLUMETRIC_ERROR, CORR_INDEX
+from src.monet_stats.contingency_metrics import (
+    FAR,
+    POD,
 )
 from src.monet_stats.correlation_metrics import (
-    R2, pearsonr as stats_pearsonr, spearmanr, kendalltau,
-    AC, WDAC, taylor_skill, KGE, CCC, E1_prime, IOA_prime
+    AC,
+    R2,
 )
-from src.monet_stats.efficiency_metrics import (
-    NSE as eff_NSE, NSEm as eff_NSEm, NSElog as eff_NSElog,
-    rNSE as eff_rNSE, mNSE as eff_mNSE
-)
-from src.monet_stats.contingency_metrics import (
-    HSS, ETS, CSI, POD, FAR, FBI, TSS, BSS_binary
+from src.monet_stats.correlation_metrics import pearsonr as stats_pearsonr
+from src.monet_stats.efficiency_metrics import NSE as eff_NSE
+from src.monet_stats.error_metrics import (
+    LOG_ERROR,
+    MAE,
+    MAPE,
+    MASE,
+    MB,
+    NMSE,
+    NRMSE,
+    RMSE,
+    MedAE,
+    sMAPE,
 )
 from src.monet_stats.relative_metrics import (
-    NMB, NMdnB, FB, ME, MdnE, NME_m, NME_m_ABS, NME, NMdnE,
-    FE, USUTPB, USUTPE, MNPB, MdnNPB, MNPE, MdnNPE, NMPB,
-    NMdnPB, NMPE as rel_NMPE, NMdnPE
+    NMB,
 )
 from src.monet_stats.spatial_ensemble_metrics import (
-    FSS, EDS, CRPS, BSS, SAL, ensemble_mean, ensemble_std
+    CRPS,
+    FSS,
 )
 from src.monet_stats.utils_stats import (
-    matchedcompressed, matchmasks, circlebias, circlebias_m,
-    rmse, mae, correlation
+    mae,
+    rmse,
 )
 
 
 class TestErrorMetrics:
     """Test error metrics functions."""
-    
+
     @pytest.fixture
     def sample_data(self):
         """Create sample data for testing."""
         obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod = np.array([1.1, 1.9, 3.1, 3.9, 5.2])
         return obs, mod
-    
+
     def test_MAE(self, sample_data):
         """Test Mean Absolute Error."""
         obs, mod = sample_data
         result = MAE(obs, mod)
         expected = np.mean(np.abs(obs - mod))
         assert np.isclose(result, expected)
-    
+
     def test_RMSE(self, sample_data):
         """Test Root Mean Square Error."""
         obs, mod = sample_data
         result = RMSE(obs, mod)
         expected = np.sqrt(np.mean((obs - mod) ** 2))
         assert np.isclose(result, expected)
-    
+
     def test_MB(self, sample_data):
         """Test Mean Bias."""
         obs, mod = sample_data
         result = MB(obs, mod)
         expected = np.mean(obs - mod)
         assert np.isclose(result, expected)
-    
+
     def test_NRMSE(self, sample_data):
         """Test Normalized Root Mean Square Error."""
         obs, mod = sample_data
@@ -75,14 +80,14 @@ class TestErrorMetrics:
         obs_range = np.max(obs) - np.min(obs)
         expected = rmse_val / obs_range
         assert np.isclose(result, expected)
-    
+
     def test_MAPE(self, sample_data):
         """Test Mean Absolute Percentage Error."""
         obs, mod = sample_data
         result = MAPE(obs, mod)
         expected = np.mean(np.abs((mod - obs) / obs)) * 100
         assert np.isclose(result, expected)
-    
+
     def test_MASE(self, sample_data):
         """Test Mean Absolute Scaled Error."""
         obs, mod = sample_data
@@ -93,21 +98,21 @@ class TestErrorMetrics:
         naive_error = np.mean(np.abs(naive_diff))
         expected = model_error / naive_error
         assert np.isclose(result, expected)
-    
+
     def test_MedAE(self, sample_data):
         """Test Median Absolute Error."""
         obs, mod = sample_data
         result = MedAE(obs, mod)
         expected = np.median(np.abs(obs - mod))
         assert np.isclose(result, expected)
-    
+
     def test_sMAPE(self, sample_data):
         """Test Symmetric Mean Absolute Percentage Error."""
         obs, mod = sample_data
         result = sMAPE(obs, mod)
         expected = np.mean(200 * np.abs(mod - obs) / (np.abs(mod) + np.abs(obs)))
         assert np.isclose(result, expected)
-    
+
     def test_NMSE(self, sample_data):
         """Test Normalized Mean Square Error."""
         obs, mod = sample_data
@@ -116,7 +121,7 @@ class TestErrorMetrics:
         obs_var = np.var(obs)
         expected = mse / obs_var
         assert np.isclose(result, expected)
-    
+
     def test_LOG_ERROR(self, sample_data):
         """Test Logarithmic Error Metric."""
         obs, mod = sample_data
@@ -132,14 +137,14 @@ class TestErrorMetrics:
 
 class TestCorrelationMetrics:
     """Test correlation metrics functions."""
-    
+
     @pytest.fixture
     def sample_data(self):
         """Create sample data for testing."""
         obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod = np.array([1.1, 1.9, 3.1, 3.9, 5.2])
         return obs, mod
-    
+
     def test_R2(self, sample_data):
         """Test Coefficient of Determination."""
         obs, mod = sample_data
@@ -153,14 +158,14 @@ class TestCorrelationMetrics:
             r_val = list(r_val)[0]
         expected = float(r_val) ** 2
         assert np.isclose(result, expected, rtol=1e-10)
-    
+
     def test_pearsonr(self, sample_data):
         """Test Pearson correlation coefficient."""
         obs, mod = sample_data
         result = stats_pearsonr(obs, mod)
         expected, _ = pearsonr(obs, mod)
         assert np.isclose(result, expected)
-    
+
     def test_AC(self, sample_data):
         """Test Anomaly Correlation."""
         obs, mod = sample_data
@@ -178,7 +183,7 @@ class TestCorrelationMetrics:
 
 class TestContingencyMetrics:
     """Test contingency table metrics."""
-    
+
     @pytest.fixture
     def contingency_data(self):
         """Create contingency table data for testing."""
@@ -186,14 +191,14 @@ class TestContingencyMetrics:
         obs = np.array([1, 1, 0, 0])  # 2 events, 2 non-events
         mod = np.array([1, 1, 0, 0])  # Perfect forecast
         return obs, mod
-    
+
     def test_POD(self, contingency_data):
         """Test Probability of Detection."""
         obs, mod = contingency_data
         result = POD(obs, mod, 0.5)  # Threshold
         # With our test data, this should be 1.0 (perfect detection)
         assert np.isclose(result, 1.0)
-    
+
     def test_FAR(self, contingency_data):
         """Test False Alarm Rate."""
         obs, mod = contingency_data
@@ -204,14 +209,14 @@ class TestContingencyMetrics:
 
 class TestEfficiencyMetrics:
     """Test efficiency metrics."""
-    
+
     @pytest.fixture
     def sample_data(self):
         """Create sample data for testing."""
         obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod = np.array([1.1, 1.9, 3.1, 3.9, 5.2])
         return obs, mod
-    
+
     def test_NSE(self, sample_data):
         """Test Nash-Sutcliffe Efficiency."""
         obs, mod = sample_data
@@ -224,14 +229,14 @@ class TestEfficiencyMetrics:
 
 class TestRelativeMetrics:
     """Test relative metrics."""
-    
+
     @pytest.fixture
     def sample_data(self):
         """Create sample data for testing."""
         obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod = np.array([1.1, 1.9, 3.1, 3.9, 5.2])
         return obs, mod
-    
+
     def test_NMB(self, sample_data):
         """Test Normalized Mean Bias."""
         obs, mod = sample_data
@@ -242,21 +247,21 @@ class TestRelativeMetrics:
 
 class TestUtilsStats:
     """Test utility functions."""
-    
+
     @pytest.fixture
     def sample_data(self):
         """Create sample data for testing."""
         obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod = np.array([1.1, 1.9, 3.1, 3.9, 5.2])
         return obs, mod
-    
+
     def test_rmse(self, sample_data):
         """Test RMSE utility function."""
         obs, mod = sample_data
         result = rmse(obs, mod)
         expected = np.sqrt(np.mean((obs - mod) ** 2))
         assert np.isclose(result, expected)
-    
+
     def test_mae(self, sample_data):
         """Test MAE utility function."""
         obs, mod = sample_data
@@ -267,7 +272,7 @@ class TestUtilsStats:
 
 class TestSpatialEnsembleMetrics:
     """Test spatial and ensemble metrics."""
-    
+
     def test_FSS(self):
         """Test Fractions Skill Score."""
         # Simple 2D arrays for testing
@@ -276,7 +281,7 @@ class TestSpatialEnsembleMetrics:
         result = FSS(obs, mod, window=1, threshold=0.5)
         # Perfect match should give high FSS
         assert 0 <= result <= 1
-    
+
     def test_CRPS(self):
         """Test Continuous Ranked Probability Score."""
         # Ensemble with 3 members

@@ -6,7 +6,7 @@ for the statistical functions in the Monet Stats package.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union
+from typing import Union
 
 import numpy as np
 import xarray as xr
@@ -20,10 +20,10 @@ class StatisticalMetric(ABC):
     in the Monet Stats package, ensuring consistency across different
     types of metrics (error, correlation, efficiency, etc.).
     """
-    
+
     @abstractmethod
-    def compute(self, obs: Union[np.ndarray, xr.DataArray], 
-                mod: Union[np.ndarray, xr.DataArray], 
+    def compute(self, obs: Union[np.ndarray, xr.DataArray],
+                mod: Union[np.ndarray, xr.DataArray],
                 **kwargs) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute the statistical metric.
@@ -42,11 +42,10 @@ class StatisticalMetric(ABC):
         float or array-like or xarray.DataArray
             The computed metric value(s).
         """
-        pass
-    
+
     @abstractmethod
-    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray], 
-                       mod: Union[np.ndarray, xr.DataArray], 
+    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray],
+                       mod: Union[np.ndarray, xr.DataArray],
                        **kwargs) -> bool:
         """
         Validate input parameters for the metric.
@@ -65,20 +64,19 @@ class StatisticalMetric(ABC):
         bool
             True if inputs are valid, False otherwise.
         """
-        pass
 
 
 class BaseStatisticalMetric(StatisticalMetric):
     """
     Base implementation for statistical metrics with common functionality.
     """
-    
+
     def __init__(self):
         self.name = self.__class__.__name__
         self.description = self.__doc__ or "Statistical metric"
-    
-    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray], 
-                       mod: Union[np.ndarray, xr.DataArray], 
+
+    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray],
+                       mod: Union[np.ndarray, xr.DataArray],
                        **kwargs) -> bool:
         """
         Validate input parameters for the metric.
@@ -98,25 +96,25 @@ class BaseStatisticalMetric(StatisticalMetric):
             True if inputs are valid, False otherwise.
         """
         # Check if inputs are arrays or xarray DataArrays
-        if not (isinstance(obs, (np.ndarray, xr.DataArray)) and 
+        if not (isinstance(obs, (np.ndarray, xr.DataArray)) and
                 isinstance(mod, (np.ndarray, xr.DataArray))):
             raise TypeError("obs and mod must be numpy arrays or xarray DataArrays")
-        
+
         # Check if shapes match
         if hasattr(obs, 'shape') and hasattr(mod, 'shape'):
             if obs.shape != mod.shape:
                 raise ValueError(f"obs and mod must have the same shape, got {obs.shape} and {mod.shape}")
-        
+
         # Check for finite values
         obs_finite = np.isfinite(obs) if isinstance(obs, np.ndarray) else np.isfinite(obs.values)
         mod_finite = np.isfinite(mod) if isinstance(mod, np.ndarray) else np.isfinite(mod.values)
-        
+
         if not np.any(obs_finite) or not np.any(mod_finite):
             raise ValueError("No finite values in obs or mod")
-        
+
         return True
-    
-    def _handle_xarray(self, obs: xr.DataArray, mod: xr.DataArray, 
+
+    def _handle_xarray(self, obs: xr.DataArray, mod: xr.DataArray,
                       func, axis=None, **kwargs):
         """
         Handle xarray DataArray inputs by aligning and applying function.
@@ -140,7 +138,7 @@ class BaseStatisticalMetric(StatisticalMetric):
             Result of applying the function.
         """
         obs, mod = xr.align(obs, mod, join="inner")
-        
+
         if axis is not None:
             # Handle axis parameter for xarray
             if isinstance(axis, int):
@@ -150,8 +148,8 @@ class BaseStatisticalMetric(StatisticalMetric):
             return func(obs, mod, dim=dim, **kwargs)
         else:
             return func(obs, mod, **kwargs)
-    
-    def _handle_numpy(self, obs: np.ndarray, mod: np.ndarray, 
+
+    def _handle_numpy(self, obs: np.ndarray, mod: np.ndarray,
                      func, axis=None, **kwargs):
         """
         Handle numpy array inputs by applying function.
@@ -175,8 +173,8 @@ class BaseStatisticalMetric(StatisticalMetric):
             Result of applying the function.
         """
         return func(obs, mod, axis=axis, **kwargs)
-    
-    def _handle_masked_arrays(self, obs: np.ndarray, mod: np.ndarray, 
+
+    def _handle_masked_arrays(self, obs: np.ndarray, mod: np.ndarray,
                              func, axis=None, **kwargs):
         """
         Handle masked array inputs by applying function.
@@ -209,7 +207,7 @@ class DataProcessor:
     """
     Data processing utilities for handling different data formats.
     """
-    
+
     @staticmethod
     def to_numpy(data: Union[np.ndarray, xr.DataArray, list]) -> np.ndarray:
         """
@@ -231,9 +229,9 @@ class DataProcessor:
             return np.array(data)
         else:
             return np.asarray(data)
-    
+
     @staticmethod
-    def align_arrays(obs: Union[np.ndarray, xr.DataArray], 
+    def align_arrays(obs: Union[np.ndarray, xr.DataArray],
                     mod: Union[np.ndarray, xr.DataArray]) -> tuple:
         """
         Align two arrays for comparison.
@@ -257,14 +255,14 @@ class DataProcessor:
             # For numpy arrays, ensure they have the same shape
             obs = DataProcessor.to_numpy(obs)
             mod = DataProcessor.to_numpy(mod)
-            
+
             if obs.shape != mod.shape:
                 raise ValueError(f"Arrays must have the same shape, got {obs.shape} and {mod.shape}")
-            
+
             return obs, mod
-    
+
     @staticmethod
-    def handle_missing_values(obs: np.ndarray, mod: np.ndarray, 
+    def handle_missing_values(obs: np.ndarray, mod: np.ndarray,
                              strategy: str = "pairwise") -> tuple:
         """
         Handle missing values in arrays.
@@ -299,7 +297,7 @@ class PerformanceOptimizer:
     """
     Performance optimization utilities for statistical computations.
     """
-    
+
     @staticmethod
     def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
         """
@@ -319,11 +317,11 @@ class PerformanceOptimizer:
         """
         if arr.size <= chunk_size:
             return [arr]
-        
+
         num_chunks = int(np.ceil(arr.size / chunk_size))
         chunks = np.array_split(arr, num_chunks)
         return chunks
-    
+
     @staticmethod
     def vectorize_function(func, *args, **kwargs):
         """
@@ -350,15 +348,14 @@ class PluginInterface(ABC):
     """
     Interface for creating custom statistical metrics as plugins.
     """
-    
+
     @abstractmethod
     def name(self) -> str:
         """Return the name of the metric."""
-        pass
-    
+
     @abstractmethod
-    def compute(self, obs: Union[np.ndarray, xr.DataArray], 
-                mod: Union[np.ndarray, xr.DataArray], 
+    def compute(self, obs: Union[np.ndarray, xr.DataArray],
+                mod: Union[np.ndarray, xr.DataArray],
                 **kwargs) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute the custom metric.
@@ -377,16 +374,14 @@ class PluginInterface(ABC):
         float or array-like or xarray.DataArray
             Computed metric value(s).
         """
-        pass
-    
+
     @abstractmethod
     def description(self) -> str:
         """Return the description of the metric."""
-        pass
-    
+
     @abstractmethod
-    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray], 
-                       mod: Union[np.ndarray, xr.DataArray], 
+    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray],
+                       mod: Union[np.ndarray, xr.DataArray],
                        **kwargs) -> bool:
         """
         Validate inputs for the metric.
@@ -405,4 +400,3 @@ class PluginInterface(ABC):
         bool
             True if inputs are valid, False otherwise.
         """
-        pass

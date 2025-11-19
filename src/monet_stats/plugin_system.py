@@ -3,7 +3,8 @@ Plugin system architecture for extending statistical metrics.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
+
 import numpy as np
 import xarray as xr
 
@@ -12,15 +13,14 @@ class PluginInterface(ABC):
     """
     Interface for creating custom statistical metrics as plugins.
     """
-    
+
     @abstractmethod
     def name(self) -> str:
         """Return the name of the metric."""
-        pass
-    
+
     @abstractmethod
-    def compute(self, obs: Union[np.ndarray, xr.DataArray], 
-                mod: Union[np.ndarray, xr.DataArray], 
+    def compute(self, obs: Union[np.ndarray, xr.DataArray],
+                mod: Union[np.ndarray, xr.DataArray],
                 **kwargs) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute the custom metric.
@@ -39,16 +39,14 @@ class PluginInterface(ABC):
         float or array-like or xarray.DataArray
             Computed metric value(s).
         """
-        pass
-    
+
     @abstractmethod
     def description(self) -> str:
         """Return the description of the metric."""
-        pass
-    
+
     @abstractmethod
-    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray], 
-                       mod: Union[np.ndarray, xr.DataArray], 
+    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray],
+                       mod: Union[np.ndarray, xr.DataArray],
                        **kwargs) -> bool:
         """
         Validate inputs for the metric.
@@ -67,17 +65,16 @@ class PluginInterface(ABC):
         bool
             True if inputs are valid, False otherwise.
         """
-        pass
 
 
 class PluginManager:
     """
     Manager for registering and executing plugins.
     """
-    
+
     def __init__(self):
         self._plugins: Dict[str, PluginInterface] = {}
-    
+
     def register_plugin(self, plugin: PluginInterface) -> None:
         """
         Register a plugin.
@@ -88,7 +85,7 @@ class PluginManager:
             Plugin to register.
         """
         self._plugins[plugin.name()] = plugin
-    
+
     def unregister_plugin(self, name: str) -> None:
         """
         Unregister a plugin by name.
@@ -100,7 +97,7 @@ class PluginManager:
         """
         if name in self._plugins:
             del self._plugins[name]
-    
+
     def get_plugin(self, name: str) -> Optional[PluginInterface]:
         """
         Get a registered plugin by name.
@@ -116,7 +113,7 @@ class PluginManager:
             The requested plugin or None if not found.
         """
         return self._plugins.get(name)
-    
+
     def list_plugins(self) -> List[str]:
         """
         List all registered plugin names.
@@ -127,9 +124,9 @@ class PluginManager:
             Names of all registered plugins.
         """
         return list(self._plugins.keys())
-    
-    def compute_metric(self, name: str, obs: Union[np.ndarray, xr.DataArray], 
-                      mod: Union[np.ndarray, xr.DataArray], 
+
+    def compute_metric(self, name: str, obs: Union[np.ndarray, xr.DataArray],
+                      mod: Union[np.ndarray, xr.DataArray],
                       **kwargs) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute a metric using a registered plugin.
@@ -153,10 +150,10 @@ class PluginManager:
         plugin = self.get_plugin(name)
         if plugin is None:
             raise ValueError(f"Plugin '{name}' not found")
-        
+
         if not plugin.validate_inputs(obs, mod, **kwargs):
             raise ValueError(f"Invalid inputs for plugin '{name}'")
-        
+
         return plugin.compute(obs, mod, **kwargs)
 
 
@@ -164,20 +161,20 @@ class CustomMetric(PluginInterface):
     """
     Example implementation of a custom metric plugin.
     """
-    
+
     def __init__(self, name: str, description: str, func):
         self._name = name
         self._description = description
         self._func = func
-    
+
     def name(self) -> str:
         return self._name
-    
+
     def description(self) -> str:
         return self._description
-    
-    def compute(self, obs: Union[np.ndarray, xr.DataArray], 
-                mod: Union[np.ndarray, xr.DataArray], 
+
+    def compute(self, obs: Union[np.ndarray, xr.DataArray],
+                mod: Union[np.ndarray, xr.DataArray],
                 **kwargs) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute the custom metric using the provided function.
@@ -186,29 +183,29 @@ class CustomMetric(PluginInterface):
             import xarray as xr
         except ImportError:
             xr = None
-        
+
         if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
             obs, mod = xr.align(obs, mod, join="inner")
             return self._func(obs, mod, **kwargs)
         else:
             return self._func(obs, mod, **kwargs)
-    
-    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray], 
-                       mod: Union[np.ndarray, xr.DataArray], 
+
+    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray],
+                       mod: Union[np.ndarray, xr.DataArray],
                        **kwargs) -> bool:
         """
         Validate inputs for the custom metric.
         """
         # Check if inputs are arrays or xarray DataArrays
-        if not (isinstance(obs, (np.ndarray, xr.DataArray)) and 
+        if not (isinstance(obs, (np.ndarray, xr.DataArray)) and
                 isinstance(mod, (np.ndarray, xr.DataArray))):
             return False
-        
+
         # Check if shapes match
         if hasattr(obs, 'shape') and hasattr(mod, 'shape'):
             if obs.shape != mod.shape:
                 return False
-        
+
         return True
 
 
@@ -216,7 +213,7 @@ class ExampleMetrics:
     """
     Example implementations of statistical metrics as plugins.
     """
-    
+
     @staticmethod
     def wmape_plugin():
         """Weighted Mean Absolute Percentage Error (WMAPE) as a plugin."""
@@ -225,7 +222,7 @@ class ExampleMetrics:
                 import xarray as xr
             except ImportError:
                 xr = None
-            
+
             if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
                 obs, mod = xr.align(obs, mod, join="inner")
                 numerator = (abs(mod - obs)).sum(dim=axis)
@@ -235,13 +232,13 @@ class ExampleMetrics:
                 numerator = np.sum(np.abs(mod - obs), axis=axis)
                 denominator = np.sum(np.abs(obs), axis=axis)
                 return (numerator / denominator) * 100.0
-        
+
         return CustomMetric(
             name="WMAPE",
             description="Weighted Mean Absolute Percentage Error",
             func=wmape_func
         )
-    
+
     @staticmethod
     def mape_bias_plugin():
         """MAPE Bias as a plugin."""
@@ -250,7 +247,7 @@ class ExampleMetrics:
                 import xarray as xr
             except ImportError:
                 xr = None
-            
+
             if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
                 obs, mod = xr.align(obs, mod, join="inner")
                 positive_errors = ((mod >= obs) * abs(mod - obs) / abs(obs)).mean(dim=axis)
@@ -267,7 +264,7 @@ class ExampleMetrics:
                     axis=axis
                 )
                 return positive_errors - negative_errors
-        
+
         return CustomMetric(
             name="MAPE_Bias",
             description="MAPE Bias - difference between positive and negative percentage errors",
@@ -283,7 +280,7 @@ def register_builtin_plugins():
     """Register built-in example plugins."""
     wmape_plugin = ExampleMetrics.wmape_plugin()
     mape_bias_plugin = ExampleMetrics.mape_bias_plugin()
-    
+
     plugin_manager.register_plugin(wmape_plugin)
     plugin_manager.register_plugin(mape_bias_plugin)
 

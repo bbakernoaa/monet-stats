@@ -1,10 +1,8 @@
 """
 Tests for benchmarks.py module.
 """
-import numpy as np
-import pytest
 
-from src.monet_stats.benchmarks import PerformanceBenchmark, AccuracyVerification
+from src.monet_stats.benchmarks import AccuracyVerification, PerformanceBenchmark
 
 
 class TestPerformanceBenchmark:

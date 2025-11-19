@@ -2,10 +2,12 @@
 Tests for interfaces.py module.
 """
 import numpy as np
-import pytest
-import xarray as xr
 
-from src.monet_stats.interfaces import BaseStatisticalMetric, DataProcessor, PerformanceOptimizer
+from src.monet_stats.interfaces import (
+    BaseStatisticalMetric,
+    DataProcessor,
+    PerformanceOptimizer,
+)
 
 
 class TestBaseStatisticalMetric(BaseStatisticalMetric):

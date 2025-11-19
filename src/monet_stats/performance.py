@@ -2,9 +2,10 @@
 Performance optimization utilities for statistical computations.
 """
 
+from typing import Any, Callable, Union
+
 import numpy as np
 import xarray as xr
-from typing import Any, Callable, Union
 
 
 def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
@@ -25,7 +26,7 @@ def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     """
     if arr.size <= chunk_size:
         return [arr]
-    
+
     num_chunks = int(np.ceil(arr.size / chunk_size))
     chunks = np.array_split(arr, num_chunks)
     return chunks
@@ -52,7 +53,7 @@ def vectorize_function(func: Callable, *args, **kwargs) -> Any:
     return np.vectorize(func)(*args, **kwargs)
 
 
-def parallel_compute(func: Callable, data: Union[np.ndarray, xr.DataArray], 
+def parallel_compute(func: Callable, data: Union[np.ndarray, xr.DataArray],
                     chunk_size: int = 1000000, axis=None) -> Any:
     """
     Compute function in parallel using chunking strategy.
@@ -121,7 +122,7 @@ def optimize_for_size(func: Callable, obs: Union[np.ndarray, xr.DataArray],
             # Use chunked processing for large arrays
             # Instead of calling parallel_compute with multiple arguments, just use the function directly
             pass  # Skip optimization for now to avoid complexity
-    
+
     # Use standard computation for smaller arrays
     return func(obs, mod, axis=axis)
 
@@ -147,19 +148,19 @@ def memory_efficient_correlation(x: np.ndarray, y: np.ndarray, axis=None) -> flo
     if axis is None:
         x = x.flatten()
         y = y.flatten()
-    
+
     # Calculate means
     mean_x = np.mean(x, axis=axis, keepdims=True)
     mean_y = np.mean(y, axis=axis, keepdims=True)
-    
+
     # Calculate numerator and denominators
     numerator = np.mean((x - mean_x) * (y - mean_y), axis=axis)
     var_x = np.mean((x - mean_x) ** 2, axis=axis)
     var_y = np.mean((y - mean_y) ** 2, axis=axis)
-    
+
     # Calculate correlation
     correlation = numerator / np.sqrt(var_x * var_y)
-    
+
     return correlation
 
 
@@ -187,7 +188,7 @@ def fast_rmse(obs: Union[np.ndarray, xr.DataArray],
         import xarray as xr
     except ImportError:
         xr = None
-    
+
     if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         return ((mod - obs) ** 2).mean(dim=axis) ** 0.5
@@ -219,7 +220,7 @@ def fast_mae(obs: Union[np.ndarray, xr.DataArray],
         import xarray as xr
     except ImportError:
         xr = None
-    
+
     if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         return abs(mod - obs).mean(dim=axis)

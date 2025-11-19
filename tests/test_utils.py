@@ -2,12 +2,11 @@
 Test utilities and helper functions for monet-stats testing framework.
 """
 import numpy as np
-import pytest
 
 
 class TestDataGenerator:
     """Utility class for generating synthetic test data."""
-    
+
     @staticmethod
     def generate_correlated_data(n_samples=100, correlation=0.8, noise_level=0.1, seed=42):
         """
@@ -30,16 +29,16 @@ class TestDataGenerator:
             (obs, mod) arrays with specified correlation
         """
         np.random.seed(seed)
-        
+
         # Generate base signal
         signal = np.random.normal(0, 1, n_samples)
-        
+
         # Create correlated data
         obs = signal + np.random.normal(0, noise_level, n_samples)
         mod = correlation * signal + np.random.normal(0, np.sqrt(1 - correlation**2) * noise_level, n_samples)
-        
+
         return obs, mod
-    
+
     @staticmethod
     def generate_perfect_relationship(n_samples=50, relationship='linear'):
         """
@@ -58,7 +57,7 @@ class TestDataGenerator:
             (x, y) arrays with perfect relationship
         """
         x = np.linspace(0, 10, n_samples)
-        
+
         if relationship == 'linear':
             y = 2 * x + 1
         elif relationship == 'quadratic':
@@ -67,9 +66,9 @@ class TestDataGenerator:
             y = np.exp(x / 5)
         else:
             raise ValueError(f"Unknown relationship: {relationship}")
-            
+
         return x, y
-    
+
     @staticmethod
     def generate_edge_cases():
         """Generate various edge case datasets."""
@@ -84,7 +83,7 @@ class TestDataGenerator:
             'two_values': np.array([1, 2]),
             'alternating': np.array([0, 1] * 25),
         }
-    
+
     @staticmethod
     def generate_contingency_data(n_categories=3, n_samples=100, seed=42):
         """
@@ -105,12 +104,12 @@ class TestDataGenerator:
             (obs_categories, mod_categories) arrays
         """
         np.random.seed(seed)
-        
+
         obs_categories = np.random.choice(n_categories, n_samples)
         mod_categories = np.random.choice(n_categories, n_samples)
-        
+
         return obs_categories, mod_categories
-    
+
     @staticmethod
     def generate_spatial_data(shape=(20, 30), spatial_correlation=True, seed=42):
         """
@@ -131,18 +130,18 @@ class TestDataGenerator:
             (obs_grid, mod_grid) 2D arrays
         """
         np.random.seed(seed)
-        
+
         ny, nx = shape
         obs_grid = np.random.normal(0, 1, shape)
-        
+
         if spatial_correlation:
             # Add spatial smoothing to create correlation
             from scipy.ndimage import gaussian_filter
             obs_grid = gaussian_filter(obs_grid, sigma=2)
-        
+
         # Add noise for model data
         mod_grid = obs_grid + np.random.normal(0, 0.1, shape)
-        
+
         return obs_grid, mod_grid
 
 
@@ -168,10 +167,10 @@ def assert_statistical_property(value, expected_value, tolerance=1e-10, name="st
     """
     if np.isnan(value).any() or np.isnan(expected_value).any():
         raise AssertionError(f"{name} contains NaN values")
-    
+
     if np.isinf(value).any() or np.isinf(expected_value).any():
         raise AssertionError(f"{name} contains infinite values")
-    
+
     if not np.allclose(value, expected_value, atol=tolerance, rtol=1e-12):
         raise AssertionError(
             f"{name} = {value}, expected {expected_value}, "
@@ -233,59 +232,59 @@ def validate_metric_output(metric_func, obs, mod, expected_type=None, **kwargs):
     """
     obs = np.asarray(obs)
     mod = np.asarray(mod)
-    
+
     # Test with valid data
     try:
         result = metric_func(obs, mod, **kwargs)
     except Exception as e:
         raise AssertionError(f"Metric function failed with valid data: {e}")
-    
+
     # Check return type
     if expected_type is not None and not isinstance(result, expected_type):
         raise AssertionError(f"Expected return type {expected_type}, got {type(result)}")
-    
+
     # Check for NaN/inf values
     if np.any(np.isnan(result)) or np.any(np.isinf(result)):
         raise AssertionError(f"Metric result contains NaN or inf values: {result}")
-    
+
     return result
 
 
 class MetricTester:
     """Helper class for testing statistical metrics."""
-    
+
     def __init__(self, metric_func, metric_name):
         self.metric_func = metric_func
         self.metric_name = metric_name
         self.data_gen = TestDataGenerator()
-    
+
     def test_perfect_agreement(self):
         """Test metric with perfectly agreeing data."""
         obs, mod = self.data_gen.generate_perfect_relationship(relationship='linear')
         result = validate_metric_output(self.metric_func, obs, mod)
         return result
-    
+
     def test_perfect_correlation(self):
         """Test metric with perfectly correlated data."""
         obs, mod = self.data_gen.generate_correlated_data(correlation=1.0)
         result = validate_metric_output(self.metric_func, obs, mod)
         return result
-    
+
     def test_no_correlation(self):
         """Test metric with uncorrelated data."""
         obs, mod = self.data_gen.generate_correlated_data(correlation=0.0)
         result = validate_metric_output(self.metric_func, obs, mod)
         return result
-    
+
     def test_edge_cases(self):
         """Test metric with various edge cases."""
         edge_cases = self.data_gen.generate_edge_cases()
-        
+
         results = {}
         for case_name, case_data in edge_cases.items():
             if len(case_data) == 0:  # Skip empty arrays
                 continue
-                
+
             try:
                 # Test with obs=case_data, mod=normal_data
                 normal_data = np.random.normal(0, 1, len(case_data))
@@ -293,5 +292,5 @@ class MetricTester:
                 results[case_name] = result
             except Exception as e:
                 results[case_name] = f"Error: {e}"
-        
+
         return results

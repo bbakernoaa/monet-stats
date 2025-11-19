@@ -349,21 +349,21 @@ def BSS_binary(obs, mod, threshold):
     """
     obs = np.asarray(obs)
     mod = np.asarray(mod)
-    
+
     # Convert to binary based on threshold
     obs_binary = (obs >= threshold).astype(int)
     mod_binary = (mod >= threshold).astype(int)
-    
+
     # Calculate Brier Score
     bs = np.mean((mod_binary - obs_binary) ** 2)
-    
+
     # Calculate reference Brier Score (climatology)
     obs_clim = np.mean(obs_binary)
     bs_ref = np.mean((obs_clim - obs_binary) ** 2)
-    
+
     # Calculate Brier Skill Score
     bss = 1 - (bs / bs_ref) if bs_ref != 0 else 0
-    
+
     return bss
 
 
@@ -474,16 +474,16 @@ def HSS_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
     """
     thresholds = np.arange(minval_range, maxval_range, step_size)
     hss_values = []
-    
+
     for threshold in thresholds:
         hss_val = HSS(obs, mod, threshold)
         hss_values.append(hss_val)
-    
+
     # Find the threshold that gives the maximum HSS
     max_idx = np.argmax(hss_values)
     optimal_threshold = thresholds[max_idx]
     max_hss = hss_values[max_idx]
-    
+
     return optimal_threshold, max_hss
 
 
@@ -526,16 +526,16 @@ def ETS_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
     """
     thresholds = np.arange(minval_range, maxval_range, step_size)
     ets_values = []
-    
+
     for threshold in thresholds:
         ets_val = ETS(obs, mod, threshold)
         ets_values.append(ets_val)
-    
+
     # Find the threshold that gives the maximum ETS
     max_idx = np.argmax(ets_values)
     optimal_threshold = thresholds[max_idx]
     max_ets = ets_values[max_idx]
-    
+
     return optimal_threshold, max_ets
 
 
@@ -578,16 +578,16 @@ def POD_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
     """
     thresholds = np.arange(minval_range, maxval_range, step_size)
     pod_values = []
-    
+
     for threshold in thresholds:
         pod_val = POD(obs, mod, threshold)
         pod_values.append(pod_val)
-    
+
     # Find the threshold that gives the maximum POD
     max_idx = np.argmax(pod_values)
     optimal_threshold = thresholds[max_idx]
     max_pod = pod_values[max_idx]
-    
+
     return optimal_threshold, max_pod
 
 
@@ -630,14 +630,14 @@ def FAR_min_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
     """
     thresholds = np.arange(minval_range, maxval_range, step_size)
     far_values = []
-    
+
     for threshold in thresholds:
         far_val = FAR(obs, mod, threshold)
         far_values.append(far_val)
-    
+
     # Find the threshold that gives the minimum FAR
     min_idx = np.argmin(far_values)
     optimal_threshold = thresholds[min_idx]
     min_far = far_values[min_idx]
-    
+
     return optimal_threshold, min_far

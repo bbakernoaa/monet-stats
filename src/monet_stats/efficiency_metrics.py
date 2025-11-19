@@ -49,7 +49,7 @@ def NSE(obs, mod, axis=None):
         import xarray as xr
     except ImportError:
         xr = None
-    
+
     if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         obs_mean = obs.mean(dim=axis)
@@ -116,7 +116,7 @@ def NSEm(obs, mod, axis=None):
         import xarray as xr
     except ImportError:
         xr = None
-    
+
     if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         obs_mean = obs.mean(dim=axis)
@@ -174,10 +174,10 @@ def NSElog(obs, mod, axis=None):
         import xarray as xr
     except ImportError:
         xr = None
-    
+
     # Add small constant to avoid log(0)
     epsilon = 1e-6
-    
+
     if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         obs_log = np.log(obs + epsilon)
@@ -244,7 +244,7 @@ def rNSE(obs, mod, axis=None):
         import xarray as xr
     except ImportError:
         xr = None
-    
+
     if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         obs_mean = obs.mean(dim=axis)
@@ -304,7 +304,7 @@ def mNSE(obs, mod, axis=None):
         import xarray as xr
     except ImportError:
         xr = None
-    
+
     if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         if axis is not None:
@@ -360,7 +360,7 @@ def PC(obs, mod, axis=None):
         import xarray as xr
     except ImportError:
         xr = None
-    
+
     # Default tolerance: 10% of observed value
     if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
@@ -548,7 +548,7 @@ def MASE(obs, mod, axis=None):
         import xarray as xr
     except ImportError:
         xr = None
-    
+
     if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         # Calculate naive forecast error (using previous observation)

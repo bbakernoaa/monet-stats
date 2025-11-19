@@ -2,17 +2,16 @@
 Tests for data_processing.py module.
 """
 import numpy as np
-import pytest
-import xarray as xr
 import pandas as pd
+import xarray as xr
 
 from src.monet_stats.data_processing import (
-    to_numpy,
     align_arrays,
+    compute_anomalies,
+    detrend_data,
     handle_missing_values,
     normalize_data,
-    detrend_data,
-    compute_anomalies,
+    to_numpy,
 )
 
 

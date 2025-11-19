@@ -2,9 +2,8 @@
 Tests for plugin_system.py module.
 """
 import numpy as np
-import pytest
 
-from src.monet_stats.plugin_system import PluginManager, CustomMetric
+from src.monet_stats.plugin_system import CustomMetric, PluginManager
 
 
 class TestPluginSystem:

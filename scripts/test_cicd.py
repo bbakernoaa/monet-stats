@@ -8,7 +8,6 @@ to ensure code quality standards are met before pushing to the repository.
 
 import subprocess
 import sys
-import os
 from pathlib import Path
 
 
@@ -16,16 +15,16 @@ def run_command(cmd, description):
     """Run a command and return True if successful."""
     print(f"\n{description}")
     print(f"Running: {' '.join(cmd) if isinstance(cmd, list) else cmd}")
-    
+
     try:
         result = subprocess.run(
-            cmd, 
-            shell=isinstance(cmd, str),
-            capture_output=True, 
+            cmd,
+            check=False, shell=isinstance(cmd, str),
+            capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent
         )
-        
+
         if result.returncode == 0:
             print(f"✓ {description} PASSED")
             return True
@@ -42,7 +41,7 @@ def run_command(cmd, description):
 def main():
     """Run all CI/CD quality checks."""
     print("Running CI/CD Quality Checks...")
-    
+
     checks = [
         (["ruff", "check", "src/", "tests/"], "Ruff Linting"),
         (["ruff", "format", "--check", "src/", "tests/"], "Ruff Formatting"),
@@ -51,13 +50,13 @@ def main():
         (["mypy", "src/", "tests/"], "MyPy Type Checking"),
         (["pytest", "--cov=src/monet_stats", "--cov-report=term-missing", "--cov-fail-under=95"], "Pytest Coverage"),
     ]
-    
+
     all_passed = True
-    
+
     for cmd, description in checks:
         if not run_command(cmd, description):
             all_passed = False
-    
+
     print(f"\n{'='*50}")
     if all_passed:
         print("✓ All CI/CD checks PASSED!")

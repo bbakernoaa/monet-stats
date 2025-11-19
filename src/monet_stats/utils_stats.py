@@ -177,14 +177,14 @@ def angular_difference(angle1, angle2, units='degrees'):
     """
     angle1 = np.asarray(angle1)
     angle2 = np.asarray(angle2)
-    
+
     if units == 'degrees':
         max_val = 360.0
     elif units == 'radians':
         max_val = 2 * np.pi
     else:
         raise ValueError("units must be 'degrees' or 'radians'")
-    
+
     diff = np.abs(angle1 - angle2)
     return np.minimum(diff, max_val - diff)
 
@@ -278,7 +278,7 @@ def correlation(x, y, axis=None):
     """
     x = np.asarray(x)
     y = np.asarray(y)
-    
+
     if x.size == 0 or y.size == 0:
         raise ValueError("Input arrays cannot be empty")
 
@@ -286,17 +286,17 @@ def correlation(x, y, axis=None):
         # Flatten arrays for 1D correlation
         x = x.flatten()
         y = y.flatten()
-    
+
     # Calculate means
     mean_x = np.mean(x, axis=axis, keepdims=True)
     mean_y = np.mean(y, axis=axis, keepdims=True)
-    
+
     # Calculate numerator and denominators
     numerator = np.mean((x - mean_x) * (y - mean_y), axis=axis)
     var_x = np.mean((x - mean_x) ** 2, axis=axis)
     var_y = np.mean((y - mean_y) ** 2, axis=axis)
-    
+
     # Calculate correlation
     correlation = numerator / np.sqrt(var_x * var_y)
-    
+
     return correlation

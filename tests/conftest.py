@@ -3,8 +3,8 @@ Global pytest configuration and fixtures for monet-stats testing framework.
 """
 import numpy as np
 import pytest
-from hypothesis import HealthCheck, settings
 import xarray as xr
+from hypothesis import HealthCheck, settings
 
 # Configure hypothesis settings for better test performance
 settings.register_profile(
@@ -32,11 +32,11 @@ def small_test_data(random_seed):
     np.random.seed(random_seed)
     n_obs = 100
     n_mod = 100
-    
+
     # Generate correlated observation and model data
     obs = np.random.normal(10, 2, n_obs)
     mod = obs + np.random.normal(0, 0.5, n_mod)  # Model slightly biased
-    
+
     return {
         'obs': obs,
         'mod': mod,
@@ -50,20 +50,20 @@ def medium_test_data(random_seed):
     """Generate medium test datasets for integration tests."""
     np.random.seed(random_seed)
     n_points = 1000
-    
+
     # Generate spatial data with some correlation
     x = np.linspace(0, 10, int(np.sqrt(n_points)))
     y = np.linspace(0, 10, int(np.sqrt(n_points)))
     X, Y = np.meshgrid(x, y)
-    
+
     obs_2d = np.sin(X) * np.cos(Y) + np.random.normal(0, 0.1, X.shape)
     mod_2d = obs_2d + np.random.normal(0, 0.05, X.shape)
-    
+
     # Generate time series data
     time = np.arange(100)
     obs_ts = np.sin(time * 0.1) + np.random.normal(0, 0.2, 100)
     mod_ts = obs_ts + np.random.normal(0, 0.1, 100)
-    
+
     return {
         'obs_2d': obs_2d,
         'mod_2d': mod_2d,
@@ -79,30 +79,30 @@ def medium_test_data(random_seed):
 def xarray_test_data(random_seed):
     """Generate xarray DataArray test datasets."""
     np.random.seed(random_seed)
-    
+
     # Create spatial coordinates
     lat = np.linspace(-90, 90, 20)
     lon = np.linspace(-180, 180, 30)
     time = np.arange(10)
-    
+
     # Create test data arrays
     obs_data = np.random.normal(15, 5, (len(time), len(lat), len(lon)))
     mod_data = obs_data + np.random.normal(0, 1, obs_data.shape)
-    
+
     obs_da = xr.DataArray(
         obs_data,
         coords={'time': time, 'lat': lat, 'lon': lon},
         dims=['time', 'lat', 'lon'],
         name='observation'
     )
-    
+
     mod_da = xr.DataArray(
         mod_data,
         coords={'time': time, 'lat': lat, 'lon': lon},
         dims=['time', 'lat', 'lon'],
         name='model'
     )
-    
+
     return {
         'obs': obs_da,
         'mod': mod_da,
@@ -148,14 +148,14 @@ def contingency_table_data():
     """Generate contingency table test data."""
     # 2x2 contingency table
     table_2x2 = np.array([[30, 10], [20, 40]])
-    
+
     # 3x3 contingency table
     table_3x3 = np.array([[20, 15, 5], [10, 25, 15], [5, 10, 35]])
-    
+
     # Binary classification data
     obs_binary = np.array([1, 0, 1, 1, 0, 1, 0, 0, 1, 0])
     mod_binary = np.array([1, 1, 1, 0, 0, 1, 1, 0, 1, 1])
-    
+
     return {
         'table_2x2': table_2x2,
         'table_3x3': table_3x3,
@@ -193,4 +193,3 @@ def pytest_configure(config):
 # Custom exception for test validation
 class TestValidationError(Exception):
     """Custom exception for test validation errors."""
-    pass

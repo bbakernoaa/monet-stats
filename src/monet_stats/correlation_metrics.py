@@ -1226,18 +1226,18 @@ def CCC(obs, mod, axis=None):
         import xarray as xr
     except ImportError:
         xr = None
-    
+
     if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         # Calculate means
         obs_mean = obs.mean(dim=axis)
         mod_mean = mod.mean(dim=axis)
-        
+
         # Calculate variances and covariance
         obs_var = obs.var(dim=axis)
         mod_var = mod.var(dim=axis)
         covar = ((obs - obs_mean) * (mod - mod_mean)).mean(dim=axis)
-        
+
         # Calculate CCC
         numerator = 2 * covar
         denominator = obs_var + mod_var + (obs_mean - mod_mean)**2
@@ -1246,12 +1246,12 @@ def CCC(obs, mod, axis=None):
         # Calculate means
         obs_mean = np.mean(obs, axis=axis)
         mod_mean = np.mean(mod, axis=axis)
-        
+
         # Calculate variances and covariance
         obs_var = np.var(obs, axis=axis)
         mod_var = np.var(mod, axis=axis)
         covar = np.mean((obs - obs_mean) * (mod - mod_mean), axis=axis)
-        
+
         # Calculate CCC
         numerator = 2 * covar
         denominator = obs_var + mod_var + (obs_mean - mod_mean)**2

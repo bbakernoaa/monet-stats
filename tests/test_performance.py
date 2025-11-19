@@ -2,17 +2,15 @@
 Tests for performance.py module.
 """
 import numpy as np
-import pytest
-import xarray as xr
 
 from src.monet_stats.performance import (
     chunk_array,
-    vectorize_function,
-    parallel_compute,
-    optimize_for_size,
-    memory_efficient_correlation,
-    fast_rmse,
     fast_mae,
+    fast_rmse,
+    memory_efficient_correlation,
+    optimize_for_size,
+    parallel_compute,
+    vectorize_function,
 )
 
 
