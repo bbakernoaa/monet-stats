@@ -25,6 +25,8 @@ class TestPerformance:
         assert chunks[0].shape == (3,)
         assert chunks[-1].shape == (1,)
 
+        # This test is incorrect and will be removed.
+
     def test_vectorize_function(self):
         """Test that vectorize_function applies a function to an array."""
         def square(x):

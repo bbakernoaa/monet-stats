@@ -2,6 +2,7 @@
 Comprehensive integration tests for the complete Monet Stats system.
 Tests module interactions, API consistency, and end-to-end workflows.
 """
+from typing import Any
 import numpy as np
 import pytest
 import xarray as xr
@@ -24,7 +25,7 @@ from tests.test_utils import TestDataGenerator
 class TestModuleInteractions:
     """Test interactions between different modules and consistency of APIs."""
 
-    def test_error_correlation_consistency(self):
+    def test_error_correlation_consistency(self) -> None:
         """Test that error and correlation metrics work together consistently."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=1000, correlation=0.8)
@@ -43,7 +44,7 @@ class TestModuleInteractions:
         assert r2 >= 0, "R² should be non-negative"
         assert abs(pearson_r**2 - r2) < 1e-10, "R² should equal Pearson correlation squared"
 
-    def test_spatial_error_consistency(self):
+    def test_spatial_error_consistency(self) -> None:
         """Test spatial data handling across modules."""
         data_gen = TestDataGenerator()
         obs_grid, mod_grid = data_gen.generate_spatial_data(shape=(100, 100))
@@ -62,7 +63,7 @@ class TestModuleInteractions:
         assert rmse > 0, "RMSE should be positive for spatial data"
         assert -1 <= pearson_r <= 1, "Correlation should be in valid range"
 
-    def test_xarray_integration(self):
+    def test_xarray_integration(self) -> None:
         """Test integration with xarray DataArrays."""
         np.random.seed(42)
 
@@ -89,7 +90,7 @@ class TestModuleInteractions:
 class TestDataFormatCompatibility:
     """Test compatibility with different data formats."""
 
-    def test_numpy_array_compatibility(self):
+    def test_numpy_array_compatibility(self) -> None:
         """Test that numpy arrays work correctly."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=100)
@@ -103,7 +104,7 @@ class TestDataFormatCompatibility:
         assert isinstance(rmse, (float, np.number))
         assert isinstance(pearson_r, (float, np.number))
 
-    def test_list_compatibility(self):
+    def test_list_compatibility(self) -> None:
         """Test that Python lists work correctly."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=100)
@@ -121,7 +122,7 @@ class TestDataFormatCompatibility:
         assert isinstance(rmse, (float, np.number))
         assert isinstance(pearson_r, (float, np.number))
 
-    def test_mixed_array_types(self):
+    def test_mixed_array_types(self) -> None:
         """Test mixed array types (numpy array vs list)."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=100)
@@ -142,7 +143,7 @@ class TestDataFormatCompatibility:
 class TestAPIConsistency:
     """Test API consistency across different metrics."""
 
-    def test_parameter_consistency(self):
+    def test_parameter_consistency(self) -> None:
         """Test that similar metrics have consistent parameter signatures."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=100)
@@ -159,7 +160,7 @@ class TestAPIConsistency:
         assert np.isscalar(pearson_r), "Pearson correlation should be scalar"
         assert np.isscalar(ioe), "IOA should be scalar"
 
-    def test_return_type_consistency(self):
+    def test_return_type_consistency(self) -> None:
         """Test that metrics return consistent types."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=100)
@@ -180,7 +181,7 @@ class TestAPIConsistency:
 class TestEndToEndWorkflows:
     """Test complete end-to-end workflows."""
 
-    def test_climate_model_evaluation(self):
+    def test_climate_model_evaluation(self) -> None:
         """Test typical climate model evaluation workflow."""
         # Simulate monthly temperature data for 10 years at 100 grid points
         n_time = 120  # 10 years * 12 months
@@ -210,7 +211,7 @@ class TestEndToEndWorkflows:
         assert 0 <= r2 <= 1, "R² should be in valid range"
         assert 0 <= ioa <= 1, "IOA should be in valid range"
 
-    def test_weather_forecast_verification(self):
+    def test_weather_forecast_verification(self) -> None:
         """Test typical weather forecast verification workflow."""
         # Simulate 24-hour forecast for 30 days at 50 locations
         n_forecasts = 30
@@ -249,7 +250,7 @@ class TestEndToEndWorkflows:
 class TestPerformanceCharacteristics:
     """Test performance characteristics of the system."""
 
-    def test_small_dataset_performance(self, benchmark: BenchmarkFixture):
+    def test_small_dataset_performance(self, benchmark: BenchmarkFixture) -> None:
         """Test performance on small datasets."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=1000, correlation=0.8)
@@ -266,7 +267,7 @@ class TestPerformanceCharacteristics:
         result = benchmark(run_comprehensive_metrics)
         assert result is not None
 
-    def test_medium_dataset_performance(self, benchmark: BenchmarkFixture):
+    def test_medium_dataset_performance(self, benchmark: BenchmarkFixture) -> None:
         """Test performance on medium datasets."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=10000, correlation=0.8)
@@ -283,7 +284,7 @@ class TestPerformanceCharacteristics:
         result = benchmark(run_comprehensive_metrics)
         assert result is not None
 
-    def test_large_dataset_performance(self, benchmark: BenchmarkFixture):
+    def test_large_dataset_performance(self, benchmark: BenchmarkFixture) -> None:
         """Test performance on large datasets."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=100000, correlation=0.8)
@@ -304,7 +305,7 @@ class TestPerformanceCharacteristics:
 class TestMathematicalCorrectness:
     """Test mathematical correctness of the implementation."""
 
-    def test_perfect_correlation_properties(self):
+    def test_perfect_correlation_properties(self) -> None:
         """Test properties with perfectly correlated data."""
         # Generate perfectly correlated data
         x = np.linspace(0, 10, 100)
@@ -321,7 +322,7 @@ class TestMathematicalCorrectness:
         mae = mean_absolute_error(x, y/2 - 0.5)  # y/2 - 0.5 = x
         assert abs(mae) < 1e-10, f"Perfect linear data should have zero error, got {mae}"
 
-    def test_identity_properties(self):
+    def test_identity_properties(self) -> None:
         """Test properties when obs == mod."""
         data = np.random.normal(10, 2, 100)
 

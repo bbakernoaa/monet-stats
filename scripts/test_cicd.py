@@ -9,9 +9,10 @@ to ensure code quality standards are met before pushing to the repository.
 import subprocess
 import sys
 from pathlib import Path
+from typing import List, Union
 
 
-def run_command(cmd, description):
+def run_command(cmd: Union[str, List[str]], description: str) -> bool:
     """Run a command and return True if successful."""
     print(f"\n{description}")
     print(f"Running: {' '.join(cmd) if isinstance(cmd, list) else cmd}")
@@ -38,7 +39,7 @@ def run_command(cmd, description):
         return False
 
 
-def main():
+def main() -> int:
     """Run all CI/CD quality checks."""
     print("Running CI/CD Quality Checks...")
 

@@ -198,27 +198,30 @@ __all__ = [
 ]
 
 
-def stats(df, minval, maxval):
+import pandas as pd
+from typing import Any, Dict
+
+def stats(df: pd.DataFrame, minval: Any, maxval: Any) -> Dict[str, float]:
     """Short summary.
 
     Parameters
     ----------
-    df : type
+    df : pd.DataFrame
         Description of parameter `df`.
-    minval : type
+    minval : Any
         Description of parameter `minval`.
-    maxval : type
+    maxval : Any
         Description of parameter `maxval`.
 
     Returns
     -------
-    type
+    Dict[str, float]
         Description of returned object.
 
     """
     from numpy import sqrt
 
-    dd = {}
+    dd: Dict[str, float] = {}
     dd["N"] = df.Obs.dropna().count()
     dd["Obs"] = df.Obs.mean()
     dd["Mod"] = df.CMAQ.mean()

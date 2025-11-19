@@ -7,13 +7,14 @@ and model-observation pairs that can be used in the example notebooks.
 
 import os
 from datetime import datetime
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
 
-def generate_temperature_data(n_years=10, n_stations=10, n_ensemble_members=10):
+def generate_temperature_data(n_years: int = 10, n_stations: int = 10, n_ensemble_members: int = 10) -> Dict[str, Any]:
     """Generate synthetic temperature data for model-observation comparison."""
 
     # Time dimension
@@ -88,7 +89,7 @@ def generate_temperature_data(n_years=10, n_stations=10, n_ensemble_members=10):
     }
 
 
-def generate_precipitation_data(n_years=10, n_stations=10):
+def generate_precipitation_data(n_years: int = 10, n_stations: int = 10) -> Dict[str, Any]:
     """Generate synthetic precipitation data for contingency analysis."""
 
     start_date = datetime(2010, 1, 1)
@@ -160,7 +161,7 @@ def generate_precipitation_data(n_years=10, n_stations=10):
     }
 
 
-def generate_wind_data(n_years=5, n_stations=5):
+def generate_wind_data(n_years: int = 5, n_stations: int = 5) -> Dict[str, Any]:
     """Generate synthetic wind data with direction and speed."""
 
     start_date = datetime(2015, 1, 1)
@@ -244,7 +245,7 @@ def generate_wind_data(n_years=5, n_stations=5):
     }
 
 
-def generate_spatial_data():
+def generate_spatial_data() -> Dict[str, Any]:
     """Generate synthetic spatial data for spatial verification metrics."""
 
     # Define spatial grid
@@ -331,7 +332,7 @@ def generate_spatial_data():
     }
 
 
-def save_datasets():
+def save_datasets() -> None:
     """Generate and save all example datasets."""
 
     print("Generating temperature dataset...")

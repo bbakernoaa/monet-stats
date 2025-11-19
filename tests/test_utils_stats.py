@@ -6,6 +6,8 @@ mask handling, circular statistics, and basic statistical functions.
 """
 import numpy as np
 import pytest
+from numpy.typing import ArrayLike
+from typing import Any
 
 from src.monet_stats.utils_stats import (
     angular_difference,
@@ -22,7 +24,7 @@ from src.monet_stats.utils_stats import (
 class TestUtilsStats:
     """Test suite for utility statistics functions."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         # Perfect agreement case
         self.obs_perfect = np.array([1, 2, 3, 4, 5])
@@ -32,7 +34,7 @@ class TestUtilsStats:
         self.obs_test = np.array([1, 2, 3, 4, 5])
         self.mod_test = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
 
-    def test_matchmasks_basic(self):
+    def test_matchmasks_basic(self) -> None:
         """Test matchmasks with basic arrays."""
         a1 = np.array([1, 2, 3])
         a2 = np.array([4, 5, 6])
@@ -43,7 +45,7 @@ class TestUtilsStats:
         np.testing.assert_array_equal(result1, a1)
         np.testing.assert_array_equal(result2, a2)
 
-    def test_matchmasks_with_masked_arrays(self):
+    def test_matchmasks_with_masked_arrays(self) -> None:
         """Test matchmasks with masked arrays."""
         import numpy.ma as ma
 
@@ -57,7 +59,7 @@ class TestUtilsStats:
         assert np.array_equal(result1.mask, expected_mask)
         assert np.array_equal(result2.mask, expected_mask)
 
-    def test_matchmasks_with_different_masks(self):
+    def test_matchmasks_with_different_masks(self) -> None:
         """Test matchmasks with different mask patterns."""
         import numpy.ma as ma
 
@@ -71,7 +73,7 @@ class TestUtilsStats:
         assert np.array_equal(result1.mask, expected_mask)
         assert np.array_equal(result2.mask, expected_mask)
 
-    def test_matchedcompressed_basic(self):
+    def test_matchedcompressed_basic(self) -> None:
         """Test matchedcompressed with basic arrays."""
         a1 = np.array([1, 2, 3])
         a2 = np.array([4, 5, 6])
@@ -82,7 +84,7 @@ class TestUtilsStats:
         np.testing.assert_array_equal(result1, a1)
         np.testing.assert_array_equal(result2, a2)
 
-    def test_matchedcompressed_with_masked_arrays(self):
+    def test_matchedcompressed_with_masked_arrays(self) -> None:
         """Test matchedcompressed with masked arrays."""
         import numpy.ma as ma
 
@@ -102,14 +104,14 @@ class TestUtilsStats:
         np.testing.assert_array_equal(result1, expected1)
         np.testing.assert_array_equal(result2, expected2)
 
-    def test_circlebias_basic(self):
+    def test_circlebias_basic(self) -> None:
         """Test circlebias with basic values."""
         angles = np.array([190, -190, 10, -10])
         result = circlebias(angles)
         expected = np.array([-170, 170, 10, -10])
         np.testing.assert_array_equal(result, expected)
 
-    def test_circlebias_boundary_values(self):
+    def test_circlebias_boundary_values(self) -> None:
         """Test circlebias with boundary values."""
         # Test values at 0/360 boundaries
         angles = np.array([0, 360, -360, 180, -180])
@@ -118,14 +120,14 @@ class TestUtilsStats:
         expected = np.array([0, 0, 0, -180, -180])
         np.testing.assert_array_equal(result, expected)
 
-    def test_circlebias_m_basic(self):
+    def test_circlebias_m_basic(self) -> None:
         """Test circlebias_m with basic values."""
         angles = np.array([190, -190, 10, -10])
         result = circlebias_m(angles)
         expected = np.array([-170, 170, 10, -10])
         np.testing.assert_array_equal(result, expected)
 
-    def test_circlebias_m_with_masked_array(self):
+    def test_circlebias_m_with_masked_array(self) -> None:
         """Test circlebias_m with masked arrays."""
         import numpy.ma as ma
 
@@ -138,41 +140,41 @@ class TestUtilsStats:
         assert np.array_equal(result.data, expected_data)
         assert np.array_equal(result.mask, expected_mask)
 
-    def test_angular_difference_basic(self):
+    def test_angular_difference_basic(self) -> None:
         """Test angular_difference with basic values."""
         result = angular_difference(10, 350, units='degrees')
         expected = 20.0
         assert abs(result - expected) < 1e-10
 
-    def test_angular_difference_same_angle(self):
+    def test_angular_difference_same_angle(self) -> None:
         """Test angular_difference with same angles."""
         result = angular_difference(45, 45, units='degrees')
         expected = 0.0
         assert abs(result - expected) < 1e-10
 
-    def test_angular_difference_opposite_angles(self):
+    def test_angular_difference_opposite_angles(self) -> None:
         """Test angular_difference with opposite angles."""
         result = angular_difference(0, 180, units='degrees')
         expected = 180.0
         assert abs(result - expected) < 1e-10
 
-    def test_angular_difference_radians(self):
+    def test_angular_difference_radians(self) -> None:
         """Test angular_difference with radians."""
         result = angular_difference(np.pi/4, 7*np.pi/4, units='radians')
         expected = np.pi/2  # 90 degrees in radians
         assert np.isclose(result, expected)
 
-    def test_angular_difference_invalid_units(self):
+    def test_angular_difference_invalid_units(self) -> None:
         """Test angular_difference with invalid units."""
         with pytest.raises(ValueError):
             angular_difference(10, 20, units='invalid')
 
-    def test_rmse_perfect_agreement(self):
+    def test_rmse_perfect_agreement(self) -> None:
         """Test rmse with perfect agreement."""
         result = rmse(self.obs_perfect, self.mod_perfect)
         assert abs(result - 0.0) < 1e-10
 
-    def test_rmse_with_differences(self):
+    def test_rmse_with_differences(self) -> None:
         """Test rmse with known differences."""
         # Differences: [0.1, 0.1, 0.1, 0.1, 0.1]
         # Squared: [0.01, 0.01, 0.01, 0.01, 0.01]
@@ -182,7 +184,7 @@ class TestUtilsStats:
         expected = 0.1
         assert abs(result - expected) < 1e-10
 
-    def test_rmse_axis_parameter(self):
+    def test_rmse_axis_parameter(self) -> None:
         """Test rmse with axis parameter."""
         obs_2d = np.array([[1, 2], [3, 4]])
         mod_2d = np.array([[1.1, 2.1], [3.1, 4.1]])
@@ -197,12 +199,12 @@ class TestUtilsStats:
         expected_axis1 = np.array([0.1, 0.1])
         np.testing.assert_allclose(result_axis1, expected_axis1)
 
-    def test_mae_perfect_agreement(self):
+    def test_mae_perfect_agreement(self) -> None:
         """Test mae with perfect agreement."""
         result = mae(self.obs_perfect, self.mod_perfect)
         assert abs(result - 0.0) < 1e-10
 
-    def test_mae_with_differences(self):
+    def test_mae_with_differences(self) -> None:
         """Test mae with known differences."""
         # Differences: [0.1, 0.1, 0.1, 0.1, 0.1]
         # Mean: 0.1
@@ -210,7 +212,7 @@ class TestUtilsStats:
         expected = 0.1
         assert abs(result - expected) < 1e-10
 
-    def test_mae_axis_parameter(self):
+    def test_mae_axis_parameter(self) -> None:
         """Test mae with axis parameter."""
         obs_2d = np.array([[1, 2], [3, 4]])
         mod_2d = np.array([[1.1, 2.1], [3.1, 4.1]])
@@ -225,7 +227,7 @@ class TestUtilsStats:
         expected_axis1 = np.array([0.1, 0.1])
         np.testing.assert_allclose(result_axis1, expected_axis1)
 
-    def test_correlation_perfect_positive(self):
+    def test_correlation_perfect_positive(self) -> None:
         """Test correlation with perfectly correlated data."""
         x = np.array([1, 2, 3, 4, 5])
         y = np.array([2, 4, 6, 8, 10])  # Perfect positive correlation
@@ -234,7 +236,7 @@ class TestUtilsStats:
         expected = 1.0
         assert abs(result - expected) < 1e-10
 
-    def test_correlation_perfect_negative(self):
+    def test_correlation_perfect_negative(self) -> None:
         """Test correlation with perfectly negatively correlated data."""
         x = np.array([1, 2, 3, 4, 5])
         y = np.array([-2, -4, -6, -8, -10])  # Perfect negative correlation
@@ -243,7 +245,7 @@ class TestUtilsStats:
         expected = -1.0
         assert abs(result - expected) < 1e-10
 
-    def test_correlation_no_correlation(self):
+    def test_correlation_no_correlation(self) -> None:
         """Test correlation with no correlation."""
         x = np.array([1, 2, 3, 4, 5])
         y = np.array([5, 4, 3, 2, 1])  # Perfect negative correlation
@@ -256,7 +258,7 @@ class TestUtilsStats:
         # Should be between -1 and 1
         assert -1 <= result <= 1
 
-    def test_correlation_axis_parameter(self):
+    def test_correlation_axis_parameter(self) -> None:
         """Test correlation with axis parameter."""
         x = np.array([[1, 2], [3, 4]])
         y = np.array([[2, 4], [6, 8]])  # Each column has perfect correlation
@@ -266,17 +268,17 @@ class TestUtilsStats:
         expected = 1.0  # Perfect correlation when flattened
         assert abs(result - expected) < 1e-10
 
-    def test_edge_case_empty_arrays(self):
+    def test_edge_case_empty_arrays(self) -> None:
         """Test behavior with empty arrays."""
         with pytest.raises(ValueError):
             correlation(np.array([]), np.array([]))
 
-    def test_edge_case_single_element(self):
+    def test_edge_case_single_element(self) -> None:
         """Test behavior with single element arrays."""
         result = rmse(np.array([1.0]), np.array([1.0]))
         assert abs(result - 0.0) < 1e-10
 
-    def test_edge_case_all_zeros(self):
+    def test_edge_case_all_zeros(self) -> None:
         """Test behavior with all zero arrays."""
         obs_zeros = np.zeros(10)
         mod_zeros = np.zeros(10)
@@ -287,7 +289,7 @@ class TestUtilsStats:
         result_mae = mae(obs_zeros, mod_zeros)
         assert abs(result_mae - 0.0) < 1e-10
 
-    def test_edge_case_all_ones(self):
+    def test_edge_case_all_ones(self) -> None:
         """Test behavior with all one arrays."""
         obs_ones = np.ones(10)
         mod_ones = np.ones(10)
@@ -299,7 +301,7 @@ class TestUtilsStats:
         assert abs(result_mae - 0.0) < 1e-10
 
     @pytest.mark.unit
-    def test_utils_mathematical_correctness(self):
+    def test_utils_mathematical_correctness(self) -> None:
         """Test mathematical correctness of utility functions."""
         # Test RMSE calculation manually
         obs = np.array([1, 2, 3, 4, 5])
@@ -316,7 +318,7 @@ class TestUtilsStats:
         assert abs(result_mae - expected_mae) < 1e-10
 
     @pytest.mark.slow
-    def test_utils_performance(self):
+    def test_utils_performance(self) -> None:
         """Test performance with large datasets."""
         # Generate large test dataset
         large_obs = np.random.normal(0, 1, 10000)
@@ -331,7 +333,7 @@ class TestUtilsStats:
         assert end_time - start_time < 1.0, "RMSE should complete in under 1 second"
         assert isinstance(result, (float, np.floating)), "Should return a float"
 
-    def test_angular_difference_various_cases(self):
+    def test_angular_difference_various_cases(self) -> None:
         """Test angular_difference with various cases."""
         # Test case 1: Normal angles
         assert angular_difference(30, 60) == 30
@@ -346,7 +348,7 @@ class TestUtilsStats:
         assert angular_difference(0, 180) == 180
         assert angular_difference(90, 270) == 180
 
-    def test_circlebias_various_cases(self):
+    def test_circlebias_various_cases(self) -> None:
         """Test circlebias with various cases."""
         # Test case 1: Normal angles
         result = circlebias(np.array([45, 135, 225, 315]))

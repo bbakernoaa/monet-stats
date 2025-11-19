@@ -3,11 +3,14 @@ Correlation and Agreement Metrics for Model Evaluation
 """
 
 import numpy as np
+import xarray as xr
+from numpy.typing import ArrayLike
+from typing import Any, Optional, Tuple, Union
 
 from .utils_stats import circlebias, circlebias_m, matchedcompressed
 
 
-def R2(obs, mod, axis=None):
+def R2(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Coefficient of Determination (R^2, unitless)
 
@@ -54,7 +57,7 @@ def R2(obs, mod, axis=None):
         else:
             dim = axis
 
-        def _pearsonr2(a, b):
+        def _pearsonr2(a: ArrayLike, b: ArrayLike) -> float:
             if np.var(a) == 0 or np.var(b) == 0:
                 return 0.0
             r_val, _ = pearsonr(a, b)
@@ -85,7 +88,7 @@ def R2(obs, mod, axis=None):
         raise ValueError("Not ready yet")
 
 
-def RMSE(obs, mod, axis=None):
+def RMSE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Root Mean Square Error (RMSE, model unit)
 
@@ -132,7 +135,7 @@ def RMSE(obs, mod, axis=None):
         return np.ma.sqrt(np.ma.mean((mod - obs) ** 2, axis=axis))
 
 
-def WDRMSE_m(obs, mod, axis=None):
+def WDRMSE_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Root Mean Square Error (WDRMSE, model unit)
 
@@ -191,7 +194,7 @@ def WDRMSE_m(obs, mod, axis=None):
         return np.ma.sqrt(np.ma.mean((circlebias_m(mod - obs)) ** 2, axis=axis))
 
 
-def WDRMSE(obs, mod, axis=None):
+def WDRMSE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Root Mean Square Error (WDRMSE, model unit)
 
@@ -264,7 +267,7 @@ def WDRMSE(obs, mod, axis=None):
         return np.ma.sqrt(np.ma.mean((circlebias(mod - obs)) ** 2, axis=axis))
 
 
-def RMSEs(obs, mod, axis=None):
+def RMSEs(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Root Mean Squared Error between observations and regression fit (RMSEs, model unit)
 
@@ -310,7 +313,7 @@ def RMSEs(obs, mod, axis=None):
         raise ValueError("Not ready yet")
 
 
-def matchmasks(a1, a2):
+def matchmasks(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ma.MaskedArray, np.ma.MaskedArray]:
     """
     Match and combine masks from two masked arrays.
 
@@ -345,7 +348,7 @@ def matchmasks(a1, a2):
     return np.ma.masked_where(mask, a1), np.ma.masked_where(mask, a2)
 
 
-def RMSEu(obs, mod, axis=None):
+def RMSEu(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Root Mean Squared Error between regression fit (mod_hat) and model (mod).
 
@@ -391,7 +394,7 @@ def RMSEu(obs, mod, axis=None):
         raise ValueError("Not ready yet")
 
 
-def d1(obs, mod, axis=None):
+def d1(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Modified Index of Agreement (d1).
 
@@ -423,12 +426,7 @@ def d1(obs, mod, axis=None):
     >>> stats.d1(obs, mod)
     0.5
     """
-    xr = None
-    try:
-        import xarray as xr
-    except ImportError:
-        pass
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         num = abs(obs - mod).sum(dim=axis)
         mean_obs = obs.mean(dim=axis)
@@ -446,7 +444,7 @@ def d1(obs, mod, axis=None):
         return 1.0 - (num / denom)
 
 
-def E1(obs, mod, axis=None):
+def E1(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Modified Coefficient of Efficiency (E1).
 
@@ -478,12 +476,7 @@ def E1(obs, mod, axis=None):
     >>> stats.E1(obs, mod)
     0.0
     """
-    xr = None
-    try:
-        import xarray as xr
-    except ImportError:
-        pass
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         num = abs(obs - mod).sum(dim=axis)
         denom = abs(obs - obs.mean(dim=axis)).sum(dim=axis)
@@ -500,7 +493,7 @@ def E1(obs, mod, axis=None):
         return 1.0 - (num / denom)
 
 
-def IOA_m(obs, mod, axis=None):
+def IOA_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Index of Agreement (IOA), avoid single block error in np.ma.
 
@@ -532,12 +525,7 @@ def IOA_m(obs, mod, axis=None):
     >>> stats.IOA_m(obs, mod)
     0.8
     """
-    xr = None
-    try:
-        import xarray as xr
-    except ImportError:
-        pass
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         obsmean = obs.mean(dim=axis)
         num = ((obs - mod) ** 2).sum(dim=axis)
@@ -559,7 +547,7 @@ def IOA_m(obs, mod, axis=None):
         return 1.0 - (num / denom)
 
 
-def IOA(obs, mod, axis=None):
+def IOA(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Index of Agreement (IOA).
 
@@ -591,12 +579,7 @@ def IOA(obs, mod, axis=None):
     >>> stats.IOA(obs, mod)
     0.8
     """
-    xr = None
-    try:
-        import xarray as xr
-    except ImportError:
-        pass
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         obsmean = obs.mean(dim=axis)
         num = ((obs - mod) ** 2).sum(dim=axis)
@@ -614,7 +597,7 @@ def IOA(obs, mod, axis=None):
         return 1.0 - (num / denom)
 
 
-def WDIOA_m(obs, mod, axis=None):
+def WDIOA_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Index of Agreement (WDIOA_m)
 
@@ -652,11 +635,7 @@ def WDIOA_m(obs, mod, axis=None):
     >>> stats.WDIOA_m(obs, mod)
     0.8
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         obsmean = obs.mean(dim=axis)
         num = (abs(circlebias_m(obs - mod))).sum(dim=axis)
@@ -674,7 +653,7 @@ def WDIOA_m(obs, mod, axis=None):
         return 1.0 - (num / denom)
 
 
-def WDIOA(obs, mod, axis=None):
+def WDIOA(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Index of Agreement (WDIOA)
 
@@ -712,11 +691,7 @@ def WDIOA(obs, mod, axis=None):
     >>> stats.WDIOA(obs, mod)
     0.8
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         num = abs(circlebias(obs - mod)).sum(dim=axis)
         mean_obs = obs.mean(dim=axis)
@@ -734,7 +709,7 @@ def WDIOA(obs, mod, axis=None):
         return 1.0 - (num / denom)
 
 
-def AC(obs, mod, axis=None):
+def AC(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Anomaly Correlation (AC)
 
@@ -761,11 +736,7 @@ def AC(obs, mod, axis=None):
     >>> stats.AC(obs, mod)
     0.0
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         obs_bar = obs.mean(dim=axis)
         mod_bar = mod.mean(dim=axis)
@@ -792,7 +763,7 @@ def AC(obs, mod, axis=None):
         return p1 / p2
 
 
-def WDAC(obs, mod, axis=None):
+def WDAC(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Anomaly Correlation (WDAC)
 
@@ -846,7 +817,7 @@ def WDAC(obs, mod, axis=None):
         return numerator / denominator
 
 
-def taylor_skill(obs, mod, axis=None):
+def taylor_skill(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> float:
     """
     Taylor Skill Score (TSS)
 
@@ -884,11 +855,7 @@ def taylor_skill(obs, mod, axis=None):
     >>> stats.taylor_skill(obs, mod)
     # Output: TSS value between 0 and 1
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         std_obs = float(obs.std(dim=axis))
         std_mod = float(mod.std(dim=axis))
@@ -908,7 +875,7 @@ def taylor_skill(obs, mod, axis=None):
         return (4.0 * corr * std_mod * std_obs) / ((std_mod**2 + std_obs**2) * (1.0 + corr) ** 2)
 
 
-def KGE(obs, mod, axis=None):
+def KGE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Kling-Gupta Efficiency (KGE)
 
@@ -947,11 +914,7 @@ def KGE(obs, mod, axis=None):
     >>> stats.KGE(obs, mod)
     # Output: KGE value between -∞ and 1
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         r = xr.corr(obs, mod, dim=axis)
         alpha = mod.std(dim=axis) / obs.std(dim=axis)
@@ -969,7 +932,7 @@ def KGE(obs, mod, axis=None):
         return 1.0 - ((r - 1.0) ** 2 + (alpha - 1.0) ** 2 + (beta - 1.0) ** 2) ** 0.5
 
 
-def pearsonr(obs, mod, axis=None):
+def pearsonr(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Pearson correlation coefficient.
 
@@ -1000,13 +963,9 @@ def pearsonr(obs, mod, axis=None):
     >>> pearsonr(obs, mod)
     <xarray.DataArray ...>
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
     from scipy.stats import pearsonr as _pearsonr
 
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         # Default to last dimension if axis is None
         if axis is None:
@@ -1017,7 +976,7 @@ def pearsonr(obs, mod, axis=None):
         else:
             dim = axis
 
-        def _pearsonr_onlyr(a, b):
+        def _pearsonr_onlyr(a: ArrayLike, b: ArrayLike) -> float:
             return _pearsonr(a, b)[0]
 
         r = xr.apply_ufunc(
@@ -1046,7 +1005,7 @@ def pearsonr(obs, mod, axis=None):
             return np.nan
 
 
-def spearmanr(obs, mod, axis=None):
+def spearmanr(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Spearman rank correlation coefficient.
 
@@ -1072,13 +1031,9 @@ def spearmanr(obs, mod, axis=None):
     >>> spearmanr(obs, mod)
     0.8660254037844387
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
     from scipy.stats import spearmanr as _spearmanr
 
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         if axis is None:
             axis = -1
@@ -1087,7 +1042,7 @@ def spearmanr(obs, mod, axis=None):
         else:
             dim = axis
 
-        def _spearmanr_onlyrho(a, b):
+        def _spearmanr_onlyrho(a: ArrayLike, b: ArrayLike) -> float:
             return _spearmanr(a, b)[0]
 
         rho = xr.apply_ufunc(
@@ -1108,7 +1063,7 @@ def spearmanr(obs, mod, axis=None):
         return np.nan
 
 
-def kendalltau(obs, mod, axis=None):
+def kendalltau(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Kendall rank correlation coefficient.
 
@@ -1143,13 +1098,9 @@ def kendalltau(obs, mod, axis=None):
     >>> kendalltau(obs, mod)
     <xarray.DataArray ...>
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
     from scipy.stats import kendalltau as _kendalltau
 
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         # Default to last dimension if axis is None
         if axis is None:
@@ -1160,7 +1111,7 @@ def kendalltau(obs, mod, axis=None):
         else:
             dim = axis
 
-        def _kendalltau_onlytau(a, b):
+        def _kendalltau_onlytau(a: ArrayLike, b: ArrayLike) -> float:
             return _kendalltau(a, b)[0]
 
         tau = xr.apply_ufunc(
@@ -1182,7 +1133,7 @@ def kendalltau(obs, mod, axis=None):
             return np.nan
 
 
-def CCC(obs, mod, axis=None):
+def CCC(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Concordance Correlation Coefficient (CCC).
 
@@ -1222,12 +1173,7 @@ def CCC(obs, mod, axis=None):
     >>> stats.CCC(obs, mod)
     0.9998476951563913
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         # Calculate means
         obs_mean = obs.mean(dim=axis)
@@ -1258,7 +1204,7 @@ def CCC(obs, mod, axis=None):
         return numerator / denominator
 
 
-def E1_prime(obs, mod, axis=None):
+def E1_prime(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Modified Coefficient of Efficiency (E1') - Alternative formulation.
 
@@ -1290,12 +1236,7 @@ def E1_prime(obs, mod, axis=None):
     >>> stats.E1_prime(obs, mod)
     0.0
     """
-    xr = None
-    try:
-        import xarray as xr
-    except ImportError:
-        pass
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         num = abs(obs - mod).sum(dim=axis)
         denom = abs(obs - obs.mean(dim=axis)).sum(dim=axis)
@@ -1312,7 +1253,7 @@ def E1_prime(obs, mod, axis=None):
         return 1.0 - (num / denom)
 
 
-def IOA_prime(obs, mod, axis=None):
+def IOA_prime(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Index of Agreement (IOA') - Alternative formulation.
 
@@ -1344,12 +1285,7 @@ def IOA_prime(obs, mod, axis=None):
     >>> stats.IOA_prime(obs, mod)
     0.8
     """
-    xr = None
-    try:
-        import xarray as xr
-    except ImportError:
-        pass
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         obsmean = obs.mean(dim=axis)
         num = ((obs - mod) ** 2).sum(dim=axis)

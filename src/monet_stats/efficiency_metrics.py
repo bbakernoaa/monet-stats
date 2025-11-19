@@ -3,9 +3,11 @@ Efficiency Metrics for Model Evaluation
 """
 
 import numpy as np
+from numpy.typing import ArrayLike
+from typing import Any, Optional
 
 
-def NSE(obs, mod, axis=None):
+def NSE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Nash-Sutcliffe Efficiency (NSE)
 
@@ -72,7 +74,7 @@ def NSE(obs, mod, axis=None):
         return 1.0 - (numerator / denominator)
 
 
-def NSEm(obs, mod, axis=None):
+def NSEm(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Nash-Sutcliffe Efficiency (NSE) - robust to masked arrays
 
@@ -130,7 +132,7 @@ def NSEm(obs, mod, axis=None):
         return 1.0 - (numerator / denominator)
 
 
-def NSElog(obs, mod, axis=None):
+def NSElog(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Log Nash-Sutcliffe Efficiency (NSElog)
 
@@ -200,7 +202,7 @@ def NSElog(obs, mod, axis=None):
         return 1.0 - (numerator / denominator)
 
 
-def rNSE(obs, mod, axis=None):
+def rNSE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Relative Nash-Sutcliffe Efficiency (rNSE)
 
@@ -260,7 +262,7 @@ def rNSE(obs, mod, axis=None):
         return 1.0 - (numerator / denominator)
 
 
-def mNSE(obs, mod, axis=None):
+def mNSE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Modified Nash-Sutcliffe Efficiency (mNSE)
 
@@ -323,7 +325,7 @@ def mNSE(obs, mod, axis=None):
         return 1.0 - (numerator / denominator)
 
 
-def PC(obs, mod, axis=None):
+def PC(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Percent of Correct (PC)
 
@@ -379,7 +381,7 @@ def PC(obs, mod, axis=None):
         return (correct_sum / total) * 100.0
 
 
-def MAE(obs, mod, axis=None):
+def MAE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Mean Absolute Error (MAE)
 
@@ -423,7 +425,7 @@ def MAE(obs, mod, axis=None):
         return np.ma.abs(mod - obs).mean(axis=axis)
 
 
-def MSE(obs, mod, axis=None):
+def MSE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Mean Squared Error (MSE)
 
@@ -467,7 +469,7 @@ def MSE(obs, mod, axis=None):
         return np.ma.mean((mod - obs) ** 2, axis=axis)
 
 
-def MAPE(obs, mod, axis=None):
+def MAPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Mean Absolute Percentage Error (MAPE)
 
@@ -511,7 +513,7 @@ def MAPE(obs, mod, axis=None):
         return (100 * np.ma.abs(mod - obs) / np.ma.abs(obs)).mean(axis=axis)
 
 
-def MASE(obs, mod, axis=None):
+def MASE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Mean Absolute Scaled Error (MASE)
 

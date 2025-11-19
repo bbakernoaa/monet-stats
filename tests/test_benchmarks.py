@@ -1,6 +1,7 @@
 """
 Tests for benchmarks.py module.
 """
+from typing import Any
 
 from src.monet_stats.benchmarks import AccuracyVerification, PerformanceBenchmark
 
@@ -8,7 +9,7 @@ from src.monet_stats.benchmarks import AccuracyVerification, PerformanceBenchmar
 class TestPerformanceBenchmark:
     """Test suite for PerformanceBenchmark class."""
 
-    def test_run_all_benchmarks(self):
+    def test_run_all_benchmarks(self) -> None:
         """Test that run_all_benchmarks runs without errors."""
         benchmark = PerformanceBenchmark()
         results = benchmark.run_all_benchmarks(sizes=[10])
@@ -21,7 +22,7 @@ class TestPerformanceBenchmark:
 class TestAccuracyVerification:
     """Test suite for AccuracyVerification class."""
 
-    def test_test_known_values(self):
+    def test_test_known_values(self) -> None:
         """Test that test_known_values runs without errors."""
         verification = AccuracyVerification()
         results = verification.test_known_values()
@@ -29,7 +30,7 @@ class TestAccuracyVerification:
         assert "R2_perfect" in results
         assert "passed" in results["R2_perfect"]
 
-    def test_print_accuracy_report(self, capsys):
+    def test_print_accuracy_report(self, capsys: Any) -> None:
         """Test that print_accuracy_report runs without errors."""
         verification = AccuracyVerification()
         verification.print_accuracy_report()
