@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 import xarray as xr
 from hypothesis import HealthCheck, settings
+from typing import Any, Dict, Tuple
 
 # Configure hypothesis settings for better test performance
 settings.register_profile(
@@ -21,13 +22,13 @@ settings.load_profile("default")
 
 
 @pytest.fixture(scope="session")
-def random_seed():
+def random_seed() -> int:
     """Set random seed for reproducible tests."""
     return 42
 
 
 @pytest.fixture(scope="session")
-def small_test_data(random_seed):
+def small_test_data(random_seed: int) -> Dict[str, Any]:
     """Generate small test datasets for unit tests."""
     np.random.seed(random_seed)
     n_obs = 100
@@ -46,7 +47,7 @@ def small_test_data(random_seed):
 
 
 @pytest.fixture(scope="session")
-def medium_test_data(random_seed):
+def medium_test_data(random_seed: int) -> Dict[str, Any]:
     """Generate medium test datasets for integration tests."""
     np.random.seed(random_seed)
     n_points = 1000
@@ -76,7 +77,7 @@ def medium_test_data(random_seed):
 
 
 @pytest.fixture(scope="session")
-def xarray_test_data(random_seed):
+def xarray_test_data(random_seed: int) -> Dict[str, Any]:
     """Generate xarray DataArray test datasets."""
     np.random.seed(random_seed)
 
@@ -113,7 +114,7 @@ def xarray_test_data(random_seed):
 
 
 @pytest.fixture
-def perfect_correlation_data():
+def perfect_correlation_data() -> Tuple[np.ndarray, np.ndarray]:
     """Generate data with perfect correlation."""
     x = np.linspace(0, 10, 50)
     y = 2 * x + 1  # Perfect linear relationship
@@ -121,7 +122,7 @@ def perfect_correlation_data():
 
 
 @pytest.fixture
-def no_correlation_data():
+def no_correlation_data() -> Tuple[np.ndarray, np.ndarray]:
     """Generate data with no correlation."""
     np.random.seed(123)
     x = np.random.normal(0, 1, 100)
@@ -130,7 +131,7 @@ def no_correlation_data():
 
 
 @pytest.fixture
-def edge_case_data():
+def edge_case_data() -> Dict[str, np.ndarray]:
     """Generate edge case datasets."""
     return {
         'zeros': np.zeros(50),
@@ -144,7 +145,7 @@ def edge_case_data():
 
 
 @pytest.fixture
-def contingency_table_data():
+def contingency_table_data() -> Dict[str, np.ndarray]:
     """Generate contingency table test data."""
     # 2x2 contingency table
     table_2x2 = np.array([[30, 10], [20, 40]])
@@ -165,7 +166,7 @@ def contingency_table_data():
 
 
 # Markers for test categorization
-def pytest_configure(config):
+def pytest_configure(config: Any) -> None:
     """Configure custom pytest markers."""
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"

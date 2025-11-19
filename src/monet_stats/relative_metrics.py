@@ -4,11 +4,13 @@ Relative/Percentage Metrics for Model Evaluation
 
 import numpy as np
 import xarray as xr
+from numpy.typing import ArrayLike
+from typing import Any, Optional
 
 from .utils_stats import circlebias, circlebias_m
 
 
-def NMB(obs, mod, axis=None):
+def NMB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Normalized Mean Bias (%)
 
@@ -29,12 +31,7 @@ def NMB(obs, mod, axis=None):
     Returns
     -------
     """
-    xr = None
-    try:
-        import xarray as xr
-    except ImportError:
-        pass
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         return (mod - obs).sum(dim=axis) / obs.sum(dim=axis) * 100.0
     elif hasattr(mod, "sum") and hasattr(obs, "sum"):
@@ -43,7 +40,7 @@ def NMB(obs, mod, axis=None):
         return np.sum(mod - obs, axis=axis) / np.sum(obs, axis=axis) * 100.0
 
 
-def WDNMB_m(obs, mod, axis=None):
+def WDNMB_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Normalized Mean Bias (%) (avoid single block error in np.ma)
 
@@ -76,12 +73,7 @@ def WDNMB_m(obs, mod, axis=None):
     -5.0
     """
 
-    xr = None
-    try:
-        import xarray as xr
-    except ImportError:
-        pass
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         return circlebias_m(mod - obs).sum(dim=axis) / obs.sum(dim=axis) * 100.0  # type: ignore
     elif hasattr(mod, "sum") and hasattr(obs, "sum"):
@@ -90,7 +82,7 @@ def WDNMB_m(obs, mod, axis=None):
         return np.sum(circlebias_m(mod - obs), axis=axis) / np.sum(obs, axis=axis) * 100.0
 
 
-def NMB_ABS(obs, mod, axis=None):
+def NMB_ABS(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Normalized Mean Bias - Absolute of the denominator (%)
 
@@ -114,12 +106,7 @@ def NMB_ABS(obs, mod, axis=None):
         Description of returned object.
 
     """
-    xr = None
-    try:
-        import xarray as xr
-    except ImportError:
-        pass
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         return (mod - obs).sum(dim=axis) / abs(obs.sum(dim=axis)) * 100.0
     elif hasattr(mod, "sum") and hasattr(obs, "sum"):
@@ -128,7 +115,7 @@ def NMB_ABS(obs, mod, axis=None):
         return np.sum(mod - obs, axis=axis) / np.abs(np.sum(obs, axis=axis)) * 100.0
 
 
-def NMdnB(obs, mod, axis=None):
+def NMdnB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Normalized Median Bias (%)
 
@@ -168,7 +155,7 @@ def NMdnB(obs, mod, axis=None):
         return np.ma.median(mod - obs, axis=axis) / np.ma.median(obs, axis=axis) * 100.0
 
 
-def FB(obs, mod, axis=None):
+def FB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Fractional Bias (%)
 
@@ -192,12 +179,7 @@ def FB(obs, mod, axis=None):
         Description of returned object.
 
     """
-    xr = None
-    try:
-        import xarray as xr
-    except ImportError:
-        pass
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         return (((mod - obs) / (mod + obs)).mean(dim=axis) * 2.0) * 100.0
     elif hasattr(mod, "mean") and hasattr(obs, "mean"):
@@ -206,7 +188,7 @@ def FB(obs, mod, axis=None):
         return (np.ma.masked_invalid((mod - obs) / (mod + obs)).mean(axis=axis) * 2.0) * 100.0
 
 
-def ME(obs, mod, axis=None):
+def ME(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Mean Gross Error (model and obs unit)
 
@@ -238,11 +220,7 @@ def ME(obs, mod, axis=None):
     >>> stats.ME(obs, mod)
     1.0
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         return abs(mod - obs).mean(dim=axis)
     elif hasattr(mod, "mean") and hasattr(obs, "mean"):
@@ -251,7 +229,7 @@ def ME(obs, mod, axis=None):
         return np.mean(np.abs(mod - obs), axis=axis)
 
 
-def MdnE(obs, mod, axis=None):
+def MdnE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Median Gross Error (model and obs unit)
 
@@ -291,7 +269,7 @@ def MdnE(obs, mod, axis=None):
         return np.ma.median(np.ma.abs(mod - obs), axis=axis)
 
 
-def WDME_m(obs, mod, axis=None):
+def WDME_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Mean Gross Error (model and obs unit)
     (avoid single block error in np.ma)
@@ -332,7 +310,7 @@ def WDME_m(obs, mod, axis=None):
         return np.abs(circlebias_m(mod - obs)).mean(axis=axis)
 
 
-def WDME(obs, mod, axis=None):
+def WDME(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Mean Gross Error (model and obs unit)
 
@@ -373,7 +351,7 @@ def WDME(obs, mod, axis=None):
         return np.ma.mean(np.ma.abs(circlebias(mod - obs)), axis=axis)
 
 
-def WDMdnE(obs, mod, axis=None):
+def WDMdnE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Median Gross Error (model and obs unit)
 
@@ -417,7 +395,7 @@ def WDMdnE(obs, mod, axis=None):
         return np.ma.median(np.ma.abs(cb), axis=axis)
 
 
-def NME_m(obs, mod, axis=None):
+def NME_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Normalized Mean Error (%) (avoid single block error in np.ma)
 
@@ -458,7 +436,7 @@ def NME_m(obs, mod, axis=None):
         return out
 
 
-def NME_m_ABS(obs, mod, axis=None):
+def NME_m_ABS(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Normalized Mean Error (%) - Absolute of the denominator
     (avoid single block error in np.ma)
@@ -501,7 +479,7 @@ def NME_m_ABS(obs, mod, axis=None):
         return out
 
 
-def NME(obs, mod, axis=None):
+def NME(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Normalized Mean Error (%)
 
@@ -542,7 +520,7 @@ def NME(obs, mod, axis=None):
         return out
 
 
-def NMdnE(obs, mod, axis=None):
+def NMdnE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Normalized Median Error (%)
 
@@ -583,7 +561,7 @@ def NMdnE(obs, mod, axis=None):
         return out
 
 
-def FE(obs, mod, axis=None):
+def FE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Fractional Error (%)
 
@@ -616,7 +594,7 @@ def FE(obs, mod, axis=None):
         return (np.ma.mean(np.ma.abs(mod - obs) / (mod + obs), axis=axis)) * 2.0 * 100.0
 
 
-def USUTPB(obs, mod, axis=None):
+def USUTPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Unpaired Space/Unpaired Time Peak Bias (%)
 
@@ -660,7 +638,7 @@ def USUTPB(obs, mod, axis=None):
         ) * 100.0
 
 
-def USUTPE(obs, mod, axis=None):
+def USUTPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Unpaired Space/Unpaired Time Peak Error (%)
 
@@ -705,7 +683,7 @@ def USUTPE(obs, mod, axis=None):
         ) * 100.0
 
 
-def MNPB(obs, mod, paxis, axis=None):
+def MNPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Mean Normalized Peak Bias (%)
 
@@ -736,7 +714,7 @@ def MNPB(obs, mod, paxis, axis=None):
         ).mean(axis=axis) * 100.0
 
 
-def MdnNPB(obs, mod, paxis, axis=None):
+def MdnNPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Median Normalized Peak Bias (%)
 
@@ -774,7 +752,7 @@ def MdnNPB(obs, mod, paxis, axis=None):
         )
 
 
-def MNPE(obs, mod, paxis, axis=None):
+def MNPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Mean Normalized Peak Error (MNPE, %)
 
@@ -821,7 +799,7 @@ def MNPE(obs, mod, paxis, axis=None):
         ).mean(axis=axis) * 100.0
 
 
-def MdnNPE(obs, mod, paxis, axis=None):
+def MdnNPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Median Normalized Peak Error (MdnNPE, %)
 
@@ -875,7 +853,7 @@ def MdnNPE(obs, mod, paxis, axis=None):
         )
 
 
-def NMPB(obs, mod, paxis, axis=None):
+def NMPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Normalized Mean Peak Bias (NMPB, %)
 
@@ -922,7 +900,7 @@ def NMPB(obs, mod, paxis, axis=None):
         ) * 100.0
 
 
-def NMdnPB(obs, mod, paxis, axis=None):
+def NMdnPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Normalized Median Peak Bias (NMdnPB, %)
 
@@ -970,7 +948,7 @@ def NMdnPB(obs, mod, paxis, axis=None):
         ) * 100.0
 
 
-def NMPE(obs, mod, paxis, axis=None):
+def NMPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Normalized Mean Peak Error (NMPE, %)
 
@@ -1017,7 +995,7 @@ def NMPE(obs, mod, paxis, axis=None):
         ) * 100.0
 
 
-def NMdnPE(obs, mod, paxis, axis=None):
+def NMdnPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Normalized Median Peak Error (NMdnPE, %)
 
@@ -1067,7 +1045,7 @@ def NMdnPE(obs, mod, paxis, axis=None):
         ) * 100.0
 
 
-def PSUTMNPB(obs, mod, axis=None):
+def PSUTMNPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Paired Space/Unpaired Time Mean Normalized Peak Bias (PSUTMNPB, %)
 
@@ -1077,7 +1055,7 @@ def PSUTMNPB(obs, mod, axis=None):
     return MNPB(obs, mod, paxis=0, axis=None)
 
 
-def PSUTMdnNPB(obs, mod, axis=None):
+def PSUTMdnNPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Paired Space/Unpaired Time Median Normalized Peak Bias (PSUTMdnNPB, %)
 
@@ -1087,7 +1065,7 @@ def PSUTMdnNPB(obs, mod, axis=None):
     return MdnNPB(obs, mod, paxis=0, axis=None)
 
 
-def PSUTMNPE(obs, mod, axis=None):
+def PSUTMNPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Paired Space/Unpaired Time Mean Normalized Peak Error (PSUTMNPE, %)
 
@@ -1097,7 +1075,7 @@ def PSUTMNPE(obs, mod, axis=None):
     return MNPE(obs, mod, paxis=0, axis=None)
 
 
-def PSUTMdnNPE(obs, mod, axis=None):
+def PSUTMdnNPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Paired Space/Unpaired Time Median Normalized Peak Error (PSUTMdnNPE, %)
 
@@ -1107,7 +1085,7 @@ def PSUTMdnNPE(obs, mod, axis=None):
     return MdnNPE(obs, mod, paxis=0, axis=None)
 
 
-def PSUTNMPB(obs, mod, axis=None):
+def PSUTNMPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Paired Space/Unpaired Time Normalized Mean Peak Bias (PSUTNMPB, %)
 
@@ -1116,7 +1094,7 @@ def PSUTNMPB(obs, mod, axis=None):
     return NMPB(obs, mod, paxis=0, axis=None)
 
 
-def PSUTNMPE(obs, mod, axis=None):
+def PSUTNMPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Paired Space/Unpaired Time Normalized Mean Peak Error (PSUTNMPE, %)
 
@@ -1125,7 +1103,7 @@ def PSUTNMPE(obs, mod, axis=None):
     return NMPE(obs, mod, paxis=0, axis=None)
 
 
-def PSUTNMdnPB(obs, mod, axis=None):
+def PSUTNMdnPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Paired Space/Unpaired Time Normalized Median Peak Bias (PSUTNMdnPB, %)
 
@@ -1160,7 +1138,7 @@ def PSUTNMdnPB(obs, mod, axis=None):
     return NMdnPB(obs, mod, paxis=0, axis=None)
 
 
-def PSUTNMdnPE(obs, mod, axis=None):
+def PSUTNMdnPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Paired Space/Unpaired Time Normalized Median Peak Error (PSUTNMdnPE, %)
 
@@ -1196,7 +1174,7 @@ def PSUTNMdnPE(obs, mod, axis=None):
     return NMdnPE(obs, mod, paxis=0, axis=None)
 
 
-def MPE(obs, mod, axis=None):
+def MPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Mean Peak Error (%)
 
@@ -1239,7 +1217,7 @@ def MPE(obs, mod, axis=None):
         ).mean(axis=axis) * 100.0
 
 
-def MdnPE(obs, mod, axis=None):
+def MdnPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Median Peak Error (%)
 

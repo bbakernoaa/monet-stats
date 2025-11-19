@@ -3,9 +3,11 @@ Spatial and Ensemble Metrics for Atmospheric Sciences
 """
 
 import numpy as np
+from numpy.typing import ArrayLike
+from typing import Any, Optional, Tuple
 
 
-def FSS(obs, mod, window=3, threshold=None):
+def FSS(obs: ArrayLike, mod: ArrayLike, window: int = 3, threshold: Optional[float] = None) -> Any:
     """
     Fractions Skill Score (FSS) for spatial fields.
 
@@ -69,7 +71,7 @@ def FSS(obs, mod, window=3, threshold=None):
     return 1 - num / denom
 
 
-def EDS(obs, mod, threshold):
+def EDS(obs: ArrayLike, mod: ArrayLike, threshold: float) -> Any:
     """
     Extreme Dependency Score (EDS) for rare event detection.
 
@@ -109,7 +111,7 @@ def EDS(obs, mod, threshold):
     return eds
 
 
-def CRPS(ensemble, obs, axis=0):
+def CRPS(ensemble: ArrayLike, obs: ArrayLike, axis: int = 0) -> Any:
     """
     Continuous Ranked Probability Score (CRPS) for ensemble forecasts.
 
@@ -151,7 +153,7 @@ def CRPS(ensemble, obs, axis=0):
     return crps
 
 
-def spread_error(ensemble, obs, axis=0):
+def spread_error(ensemble: ArrayLike, obs: ArrayLike, axis: int = 0) -> Any:
     """
     Spread-Error Relationship for ensemble forecasts.
 
@@ -187,7 +189,7 @@ def spread_error(ensemble, obs, axis=0):
     return np.mean(spread), np.mean(error)
 
 
-def BSS(obs, mod, threshold):
+def BSS(obs: ArrayLike, mod: ArrayLike, threshold: float) -> Any:
     """
     Brier Skill Score (BSS) for probabilistic forecasts.
 
@@ -244,7 +246,7 @@ def BSS(obs, mod, threshold):
     return bss
 
 
-def SAL(obs, mod, threshold=None):
+def SAL(obs: ArrayLike, mod: ArrayLike, threshold: Optional[float] = None) -> Any:
     """
     Structure-Amplitude-Location (SAL) score for spatial verification.
 
@@ -301,7 +303,7 @@ def SAL(obs, mod, threshold=None):
     A = 2 * (np.mean(mod) - np.mean(obs)) / (np.mean(mod) + np.mean(obs))
 
     # Structure
-    def structure(X):
+    def structure(X: ArrayLike) -> Tuple[float, float]:
         result = ndi.label(threshold <= X)
         if isinstance(result, tuple):
             labeled, n = result
@@ -324,7 +326,7 @@ def SAL(obs, mod, threshold=None):
     )
 
     # Location
-    def centroid(X):
+    def centroid(X: ArrayLike) -> Any:
         result = ndi.label(threshold <= X)
         if isinstance(result, tuple):
             labeled, n = result
@@ -343,7 +345,7 @@ def SAL(obs, mod, threshold=None):
     L1 = np.linalg.norm(c_mod - c_obs) / np.sqrt(obs.shape[0] ** 2 + obs.shape[1] ** 2)
 
     # Spread of objects
-    def spread(X):
+    def spread(X: ArrayLike) -> Any:
         result = ndi.label(threshold <= X)
         if isinstance(result, tuple):
             labeled, n = result
@@ -364,7 +366,7 @@ def SAL(obs, mod, threshold=None):
     return S, A, L
 
 
-def ensemble_mean(ensemble, axis=0):
+def ensemble_mean(ensemble: ArrayLike, axis: int = 0) -> Any:
     """
     Calculate the ensemble mean across ensemble members.
 
@@ -391,7 +393,7 @@ def ensemble_mean(ensemble, axis=0):
     return np.mean(ens, axis=axis)
 
 
-def ensemble_std(ensemble, axis=0):
+def ensemble_std(ensemble: ArrayLike, axis: int = 0) -> Any:
     """
     Calculate the ensemble standard deviation across ensemble members.
 
@@ -418,7 +420,7 @@ def ensemble_std(ensemble, axis=0):
     return np.std(ens, axis=axis)
 
 
-def rank_histogram(ensemble, obs):
+def rank_histogram(ensemble: ArrayLike, obs: ArrayLike) -> Any:
     """
     Calculate the rank histogram (Talagrand diagram) for ensemble forecasts.
 

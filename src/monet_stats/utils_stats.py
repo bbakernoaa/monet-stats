@@ -3,9 +3,11 @@ Utility Functions for Statistics
 """
 
 import numpy as np
+from numpy.typing import ArrayLike
+from typing import Any, Optional, Tuple
 
 
-def matchedcompressed(a1, a2):
+def matchedcompressed(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ndarray, np.ndarray]:
     """
     Return compressed (non-masked) values from two masked arrays with matched masks.
 
@@ -39,7 +41,7 @@ def matchedcompressed(a1, a2):
     return a1.compressed(), a2.compressed()
 
 
-def matchmasks(a1, a2):
+def matchmasks(a1: ArrayLike, a2: ArrayLike) -> Tuple[Any, Any]:
     """
     Match and combine masks from two masked arrays.
 
@@ -83,7 +85,7 @@ def matchmasks(a1, a2):
         return np.ma.masked_where(mask, a1), np.ma.masked_where(mask, a2)
 
 
-def circlebias_m(b):
+def circlebias_m(b: ArrayLike) -> Any:
     """
     Circular bias for wind direction (avoid single block error in np.ma).
 
@@ -115,7 +117,7 @@ def circlebias_m(b):
     return out
 
 
-def circlebias(b):
+def circlebias(b: ArrayLike) -> Any:
     """
     Circular bias (wind direction difference, wrapped to [-180, 180] degrees).
 
@@ -145,7 +147,7 @@ def circlebias(b):
     return (b + 180) % 360 - 180
 
 
-def angular_difference(angle1, angle2, units='degrees'):
+def angular_difference(angle1: ArrayLike, angle2: ArrayLike, units: str = "degrees") -> Any:
     """
     Calculate the smallest angular difference between two angles.
 
@@ -178,9 +180,9 @@ def angular_difference(angle1, angle2, units='degrees'):
     angle1 = np.asarray(angle1)
     angle2 = np.asarray(angle2)
 
-    if units == 'degrees':
+    if units == "degrees":
         max_val = 360.0
-    elif units == 'radians':
+    elif units == "radians":
         max_val = 2 * np.pi
     else:
         raise ValueError("units must be 'degrees' or 'radians'")
@@ -189,7 +191,7 @@ def angular_difference(angle1, angle2, units='degrees'):
     return np.minimum(diff, max_val - diff)
 
 
-def rmse(predictions, targets, axis=None):
+def rmse(predictions: ArrayLike, targets: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Calculate Root Mean Square Error between predictions and targets.
 
@@ -219,7 +221,7 @@ def rmse(predictions, targets, axis=None):
     return np.sqrt(np.mean((predictions - targets) ** 2, axis=axis))
 
 
-def mae(predictions, targets, axis=None):
+def mae(predictions: ArrayLike, targets: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Calculate Mean Absolute Error between predictions and targets.
 
@@ -249,7 +251,7 @@ def mae(predictions, targets, axis=None):
     return np.mean(np.abs(predictions - targets), axis=axis)
 
 
-def correlation(x, y, axis=None):
+def correlation(x: ArrayLike, y: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Calculate Pearson correlation coefficient between x and y.
 

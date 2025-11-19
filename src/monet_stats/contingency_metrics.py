@@ -1,7 +1,9 @@
 import numpy as np
+from numpy.typing import ArrayLike
+from typing import Optional, Tuple
 
 
-def HSS(obs, mod, minval, maxval=None):
+def HSS(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Heidke Skill Score (HSS)
 
@@ -19,9 +21,9 @@ def HSS(obs, mod, minval, maxval=None):
 
     Parameters
     ----------
-    obs : array-like
+    obs : ArrayLike
         Observed values.
-    mod : array-like
+    mod : ArrayLike
         Modeled values.
     minval : float
         Threshold value for contingency table.
@@ -48,7 +50,7 @@ def HSS(obs, mod, minval, maxval=None):
         return np.nan
 
 
-def ETS(obs, mod, minval, maxval=None):
+def ETS(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Equitable Threat Score (ETS)
 
@@ -66,9 +68,9 @@ def ETS(obs, mod, minval, maxval=None):
 
     Parameters
     ----------
-    obs : array-like
+    obs : ArrayLike
         Observed values.
-    mod : array-like
+    mod : ArrayLike
         Modeled values.
     minval : float
         Threshold value for contingency table.
@@ -98,7 +100,7 @@ def ETS(obs, mod, minval, maxval=None):
         return np.nan
 
 
-def CSI(obs, mod, minval, maxval=None):
+def CSI(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Critical Success Index (CSI)
 
@@ -115,9 +117,9 @@ def CSI(obs, mod, minval, maxval=None):
 
     Parameters
     ----------
-    obs : array-like
+    obs : ArrayLike
         Observed values.
-    mod : array-like
+    mod : ArrayLike
         Modeled values.
     minval : float
         Threshold value for contingency table.
@@ -144,14 +146,16 @@ def CSI(obs, mod, minval, maxval=None):
     return csi
 
 
-def scores(obs, mod, minval, maxval=None):
+def scores(
+    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
+) -> Tuple[int, int, int, int]:
     """Calculate scores using the new _contingency_table.
 
     Parameters
     ----------
-    obs : array-like
+    obs : ArrayLike
         Observation values ("truth").
-    mod : array-like
+    mod : ArrayLike
         Model values ("prediction").
         Should be the same size as `obs`.
     minval : float
@@ -167,7 +171,7 @@ def scores(obs, mod, minval, maxval=None):
     return _contingency_table(obs, mod, minval, maxval)
 
 
-def POD(obs, mod, minval, maxval=None):
+def POD(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Probability of Detection (POD) for a given event threshold.
 
@@ -179,9 +183,9 @@ def POD(obs, mod, minval, maxval=None):
 
     Parameters
     ----------
-    obs : array_like
+    obs : ArrayLike
         Observed values.
-    mod : array_like
+    mod : ArrayLike
         Model or predicted values.
     threshold : float
         Event threshold.
@@ -203,7 +207,7 @@ def POD(obs, mod, minval, maxval=None):
     return a / (a + b) if (a + b) > 0 else np.nan
 
 
-def FAR(obs, mod, minval, maxval=None):
+def FAR(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     False Alarm Rate (FAR) for a given event threshold.
 
@@ -220,9 +224,9 @@ def FAR(obs, mod, minval, maxval=None):
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : ArrayLike or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : ArrayLike or xarray.DataArray
         Model or predicted values.
     minval : float
         Threshold value for contingency table.
@@ -247,15 +251,15 @@ def FAR(obs, mod, minval, maxval=None):
     return c / (a + c) if (a + c) > 0 else np.nan
 
 
-def FBI(obs, mod, minval, maxval=None):
+def FBI(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Frequency Bias Index (FBI) for a given event threshold.
 
     Parameters
     ----------
-    obs : array_like
+    obs : ArrayLike
         Observed values.
-    mod : array_like
+    mod : ArrayLike
         Model or predicted values.
     threshold : float
         Event threshold.
@@ -277,15 +281,15 @@ def FBI(obs, mod, minval, maxval=None):
     return (a + c) / (a + b) if (a + b) > 0 else np.nan
 
 
-def TSS(obs, mod, minval, maxval=None):
+def TSS(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Hanssen-Kuipers Discriminant (True Skill Statistic, TSS).
 
     Parameters
     ----------
-    obs : array_like
+    obs : ArrayLike
         Observed values.
-    mod : array_like
+    mod : ArrayLike
         Model or predicted values.
     threshold : float
         Event threshold.
@@ -309,7 +313,7 @@ def TSS(obs, mod, minval, maxval=None):
     return pod - pofd
 
 
-def BSS_binary(obs, mod, threshold):
+def BSS_binary(obs: ArrayLike, mod: ArrayLike, threshold: float) -> float:
     """
     Binary Brier Skill Score for deterministic forecasts.
 
@@ -327,9 +331,9 @@ def BSS_binary(obs, mod, threshold):
 
     Parameters
     ----------
-    obs : array_like
+    obs : ArrayLike
         Observed binary outcomes (0 or 1).
-    mod : array_like
+    mod : ArrayLike
         Forecast binary outcomes (0 or 1).
     threshold : float
         Threshold value to convert continuous forecasts to binary.
@@ -367,15 +371,17 @@ def BSS_binary(obs, mod, threshold):
     return bss
 
 
-def _contingency_table(obs, mod, minval, maxval=None):
+def _contingency_table(
+    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
+) -> Tuple[int, int, int, int]:
     """
     Compute the 2x2 contingency table for event-based metrics.
 
     Parameters
     ----------
-    obs : array_like
+    obs : ArrayLike
         Observed values.
-    mod : array_like
+    mod : ArrayLike
         Model or predicted values.
     minval : float
         Minimum threshold value for event detection.
@@ -435,7 +441,9 @@ def _contingency_table(obs, mod, minval, maxval=None):
     return hits, misses, false_alarms, correct_negatives
 
 
-def HSS_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
+def HSS_max_threshold(
+    obs: ArrayLike, mod: ArrayLike, minval_range: float, maxval_range: float, step_size: float = 1.0
+) -> Tuple[float, float]:
     """
     Find the threshold that maximizes the Heidke Skill Score (HSS) over a range.
 
@@ -446,9 +454,9 @@ def HSS_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
 
     Parameters
     ----------
-    obs : array_like
+    obs : ArrayLike
         Observed values.
-    mod : array_like
+    mod : ArrayLike
         Model or predicted values.
     minval_range : float
         Minimum value of threshold range to test.
@@ -487,7 +495,9 @@ def HSS_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
     return optimal_threshold, max_hss
 
 
-def ETS_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
+def ETS_max_threshold(
+    obs: ArrayLike, mod: ArrayLike, minval_range: float, maxval_range: float, step_size: float = 1.0
+) -> Tuple[float, float]:
     """
     Find the threshold that maximizes the Equitable Threat Score (ETS) over a range.
 
@@ -498,9 +508,9 @@ def ETS_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
 
     Parameters
     ----------
-    obs : array_like
+    obs : ArrayLike
         Observed values.
-    mod : array_like
+    mod : ArrayLike
         Model or predicted values.
     minval_range : float
         Minimum value of threshold range to test.
@@ -539,7 +549,9 @@ def ETS_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
     return optimal_threshold, max_ets
 
 
-def POD_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
+def POD_max_threshold(
+    obs: ArrayLike, mod: ArrayLike, minval_range: float, maxval_range: float, step_size: float = 1.0
+) -> Tuple[float, float]:
     """
     Find the threshold that maximizes the Probability of Detection (POD) over a range.
 
@@ -550,9 +562,9 @@ def POD_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
 
     Parameters
     ----------
-    obs : array_like
+    obs : ArrayLike
         Observed values.
-    mod : array_like
+    mod : ArrayLike
         Model or predicted values.
     minval_range : float
         Minimum value of threshold range to test.
@@ -591,7 +603,9 @@ def POD_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
     return optimal_threshold, max_pod
 
 
-def FAR_min_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
+def FAR_min_threshold(
+    obs: ArrayLike, mod: ArrayLike, minval_range: float, maxval_range: float, step_size: float = 1.0
+) -> Tuple[float, float]:
     """
     Find the threshold that minimizes the False Alarm Rate (FAR) over a range.
 
@@ -602,9 +616,9 @@ def FAR_min_threshold(obs, mod, minval_range, maxval_range, step_size=1.0):
 
     Parameters
     ----------
-    obs : array_like
+    obs : ArrayLike
         Observed values.
-    mod : array_like
+    mod : ArrayLike
         Model or predicted values.
     minval_range : float
         Minimum value of threshold range to test.

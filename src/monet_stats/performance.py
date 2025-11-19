@@ -24,11 +24,13 @@ def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     list
         List of array chunks.
     """
-    if arr.size <= chunk_size:
-        return [arr]
+    if arr.size == 0:
+        return []
 
-    num_chunks = int(np.ceil(arr.size / chunk_size))
-    chunks = np.array_split(arr, num_chunks)
+    num_elements = arr.size
+    chunks = []
+    for i in range(0, num_elements, chunk_size):
+        chunks.append(arr[i:i + chunk_size])
     return chunks
 
 
