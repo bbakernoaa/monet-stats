@@ -2,7 +2,7 @@
 Comprehensive integration tests for the complete Monet Stats system.
 Tests module interactions, API consistency, and end-to-end workflows.
 """
-from typing import Any
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -42,7 +42,9 @@ class TestModuleInteractions:
         assert rmse >= mae, "RMSE should be >= MAE"
         assert pearson_r >= 0, "Correlation should be positive for correlated data"
         assert r2 >= 0, "R² should be non-negative"
-        assert abs(pearson_r**2 - r2) < 1e-10, "R² should equal Pearson correlation squared"
+        assert (
+            abs(pearson_r**2 - r2) < 1e-10
+        ), "R² should equal Pearson correlation squared"
 
     def test_spatial_error_consistency(self) -> None:
         """Test spatial data handling across modules."""
@@ -70,9 +72,9 @@ class TestModuleInteractions:
         # Create xarray DataArrays
         obs_da = xr.DataArray(
             np.random.normal(15, 5, (10, 20, 30)),
-            coords={'time': range(10), 'lat': range(20), 'lon': range(30)},
-            dims=['time', 'lat', 'lon'],
-            name='temperature'
+            coords={"time": range(10), "lat": range(20), "lon": range(30)},
+            dims=["time", "lat", "lon"],
+            name="temperature",
         )
         mod_da = obs_da + np.random.normal(0, 1, obs_da.shape)
 
@@ -170,12 +172,14 @@ class TestAPIConsistency:
             root_mean_squared_error(obs, mod),
             pearson_correlation(obs, mod),
             coefficient_of_determination(obs, mod),
-            index_of_agreement(obs, mod)
+            index_of_agreement(obs, mod),
         ]
 
         # All should be numeric types
         for metric in metrics:
-            assert isinstance(metric, (int, float, np.number)), f"Metric {metric} should be numeric"
+            assert isinstance(
+                metric, (int, float, np.number)
+            ), f"Metric {metric} should be numeric"
 
 
 class TestEndToEndWorkflows:
@@ -187,7 +191,7 @@ class TestEndToEndWorkflows:
         n_time = 120  # 10 years * 12 months
         n_grid = 100
 
-        data_gen = TestDataGenerator()
+        TestDataGenerator()
         obs_data = np.random.normal(15, 10, (n_time, n_grid))  # Monthly temps
         mod_data = obs_data + np.random.normal(0, 1, (n_time, n_grid))  # Model bias
 
@@ -218,9 +222,11 @@ class TestEndToEndWorkflows:
         n_hours = 24
         n_locations = 50
 
-        data_gen = TestDataGenerator()
+        TestDataGenerator()
         obs_forecast = np.random.normal(15, 8, (n_forecasts, n_hours, n_locations))
-        mod_forecast = obs_forecast + np.random.normal(0, 2, (n_forecasts, n_hours, n_locations))
+        mod_forecast = obs_forecast + np.random.normal(
+            0, 2, (n_forecasts, n_hours, n_locations)
+        )
 
         # Flatten for current metrics
         obs_flat = obs_forecast.flatten()
@@ -315,12 +321,18 @@ class TestMathematicalCorrectness:
         pearson_r = pearson_correlation(x, y)
         r2 = coefficient_of_determination(x, y)
 
-        assert abs(pearson_r - 1.0) < 1e-10, f"Perfect linear data should have correlation 1.0, got {pearson_r}"
-        assert abs(r2 - 1.0) < 1e-10, f"Perfect linear data should have R² = 1.0, got {r2}"
+        assert (
+            abs(pearson_r - 1.0) < 1e-10
+        ), f"Perfect linear data should have correlation 1.0, got {pearson_r}"
+        assert (
+            abs(r2 - 1.0) < 1e-10
+        ), f"Perfect linear data should have R² = 1.0, got {r2}"
 
         # Error should be zero for perfect linear relationship
-        mae = mean_absolute_error(x, y/2 - 0.5)  # y/2 - 0.5 = x
-        assert abs(mae) < 1e-10, f"Perfect linear data should have zero error, got {mae}"
+        mae = mean_absolute_error(x, y / 2 - 0.5)  # y/2 - 0.5 = x
+        assert (
+            abs(mae) < 1e-10
+        ), f"Perfect linear data should have zero error, got {mae}"
 
     def test_identity_properties(self) -> None:
         """Test properties when obs == mod."""

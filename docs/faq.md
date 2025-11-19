@@ -5,6 +5,7 @@ This FAQ addresses common questions and issues encountered when using Monet Stat
 ## Installation and Setup
 
 ### Q: I'm getting ImportError when trying to import monet_stats
+
 **A:** This typically indicates that Monet Stats is not properly installed. Try these steps:
 
 ```bash
@@ -22,6 +23,7 @@ pip install -e .
 ```
 
 ### Q: I need additional dependencies like xarray or pandas
+
 **A:** Install the optional dependencies:
 
 ```bash
@@ -36,6 +38,7 @@ pip install xarray pandas scipy matplotlib
 ```
 
 ### Q: How do I set up a development environment?
+
 **A:** Follow these steps for development setup:
 
 ```bash
@@ -57,6 +60,7 @@ pre-commit install
 ## Data Format Issues
 
 ### Q: My xarray DataArray imports fail
+
 **A:** Ensure you have xarray installed and your DataArrays have compatible dimensions:
 
 ```python
@@ -75,6 +79,7 @@ result = ms.R2(obs_da, mod_da)
 ```
 
 ### Q: How do I handle NaN values in my data?
+
 **A:** Monet Stats automatically handles NaN values by using pairwise deletion:
 
 ```python
@@ -90,6 +95,7 @@ rmse = ms.RMSE(obs_with_nan, mod_with_nan)  # Uses (1,1.1), (2,2.1), (5,5.1)
 ```
 
 ### Q: My data shapes don't match
+
 **A:** Ensure your observed and modeled arrays have compatible shapes:
 
 ```python
@@ -108,9 +114,11 @@ obs, mod = obs[:len(mod)], mod[:len(obs)]  # Truncate to shorter length
 ## Metric Calculation Issues
 
 ### Q: Why do I get NaN values for my metrics?
+
 **A:** NaN results typically occur when:
 
 1. **Insufficient valid data pairs**:
+
 ```python
 # Too few valid pairs
 obs = np.array([1, np.nan, np.nan])
@@ -121,6 +129,7 @@ rmse = ms.RMSE(obs, mod)
 ```
 
 2. **Division by zero**:
+
 ```python
 # Zero variance in observed data
 obs = np.array([1, 1, 1, 1])
@@ -131,6 +140,7 @@ r2 = ms.R2(obs, mod)
 ```
 
 ### Q: My contingency metrics return weird values
+
 **A:** Check your threshold and event definition:
 
 ```python
@@ -146,6 +156,7 @@ pod = ms.POD(obs_precip, mod_precip, threshold=0.5)
 ```
 
 ### Q: Wind direction metrics give strange results
+
 **A:** Wind direction requires special circular statistics:
 
 ```python
@@ -166,6 +177,7 @@ wind_rmse = ms.RMSE(obs_wind, mod_wind)
 ## Performance Issues
 
 ### Q: My calculations are too slow for large datasets
+
 **A:** Optimize performance with these techniques:
 
 ```python
@@ -178,10 +190,10 @@ def process_large_data(obs, mod, chunk_size=100000):
     for i in range(0, len(obs), chunk_size):
         obs_chunk = obs[i:i+chunk_size]
         mod_chunk = mod[i:i+chunk_size]
-        
+
         result = ms.RMSE(obs_chunk, mod_chunk)
         results.append(result)
-    
+
     return np.mean(results)
 
 # Use NumPy arrays for best performance
@@ -189,7 +201,7 @@ obs_np = np.array(obs_data)  # Convert to NumPy array
 mod_np = np.array(mod_data)
 
 # Avoid Python lists and loops
-# Slow: 
+# Slow:
 # results = [ms.RMSE(obs[i], mod[i]) for i in range(len(obs))]
 
 # Fast:
@@ -197,6 +209,7 @@ results = ms.RMSE(obs_np, mod_np)
 ```
 
 ### Q: How can I reduce memory usage?
+
 **A:** Use memory-efficient data types and processing:
 
 ```python
@@ -209,11 +222,11 @@ mod_float32 = mod.astype(np.float32)
 # Process data in chunks
 def memory_efficient_analysis(obs, mod, chunk_size=50000):
     total_results = []
-    
+
     for i in range(0, len(obs), chunk_size):
         obs_chunk = obs[i:i+chunk_size]
         mod_chunk = mod[i:i+chunk_size]
-        
+
         # Calculate metrics for chunk
         chunk_results = {
             'RMSE': ms.RMSE(obs_chunk, mod_chunk),
@@ -221,13 +234,14 @@ def memory_efficient_analysis(obs, mod, chunk_size=50000):
             'MAE': ms.MAE(obs_chunk, mod_chunk)
         }
         total_results.append(chunk_results)
-    
+
     return total_results
 ```
 
 ## Statistical Interpretation
 
 ### Q: What's the difference between RMSE and MAE?
+
 **A:** RMSE and MAE measure different aspects of error:
 
 ```python
@@ -253,11 +267,13 @@ print(f"  MAE:  {ms.MAE(obs, mod2):.3f}")
 ```
 
 **Key Differences:**
+
 - RMSE squares errors, so large errors are heavily weighted
 - MAE treats all errors equally
 - RMSE is more sensitive to outliers
 
 ### Q: When should I use skill scores vs. raw error metrics?
+
 **A:** Use both for comprehensive evaluation:
 
 ```python
@@ -286,6 +302,7 @@ print(f"Model Skill Score: {skill_score:.3f}")
 ```
 
 ### Q: How do I interpret negative skill scores?
+
 **A:** Negative skill scores indicate the model performs worse than the reference:
 
 ```python
@@ -312,6 +329,7 @@ print(f"Climatology skill: {clim_skill:.3f}")
 ## Spatial and Ensemble Issues
 
 ### Q: My spatial verification metrics fail
+
 **A:** Ensure your spatial data has the correct dimensions:
 
 ```python
@@ -330,6 +348,7 @@ fss = ms.FSS(obs_2d, mod_2d, window=5)
 ```
 
 ### Q: How do I verify ensemble forecasts?
+
 **A:** Use ensemble-specific metrics and proper formatting:
 
 ```python
@@ -367,6 +386,7 @@ print(f"Spread-Skill Correlation: {spread_skill_corr:.3f}")
 **Cause:** Division by zero or insufficient data for integer conversion.
 
 **Solution:**
+
 ```python
 import numpy as np
 import monet_stats as ms
@@ -388,6 +408,7 @@ else:
 **Cause:** Division by very small numbers or zero in calculations.
 
 **Solution:**
+
 ```python
 import numpy as np
 from monet_stats import NMB
@@ -396,13 +417,13 @@ def safe_nmb(obs, mod):
     """Safe NMB calculation with error handling"""
     obs_sum = np.sum(obs)
     mod_sum = np.sum(mod)
-    
+
     if abs(obs_sum) < 1e-10:  # Very small denominator
         if abs(mod_sum) < 1e-10:
             return 0.0  # Both sums are effectively zero
         else:
             return np.sign(mod_sum) * np.inf  # Infinite bias
-    
+
     return (mod_sum - obs_sum) / obs_sum
 
 # Usage
@@ -414,6 +435,7 @@ nmb = safe_nmb(obs, mod)
 **Cause:** Trying to process very large arrays in memory.
 
 **Solution:**
+
 ```python
 import monet_stats as ms
 import numpy as np
@@ -423,7 +445,7 @@ def process_large_dataset(obs_file, mod_file, chunk_size=100000):
     # Load data in chunks (example with text files)
     obs_chunks = np.genfromtxt(obs_file, max_rows=chunk_size)
     mod_chunks = np.genfromtxt(mod_file, max_rows=chunk_size)
-    
+
     results = []
     while len(obs_chunks) > 0:
         # Calculate metrics for chunk
@@ -433,17 +455,18 @@ def process_large_dataset(obs_file, mod_file, chunk_size=100000):
             'MAE': ms.MAE(obs_chunks, mod_chunks)
         }
         results.append(chunk_result)
-        
+
         # Load next chunk
         obs_chunks = np.genfromtxt(obs_file, max_rows=chunk_size, skip_header=len(obs_chunks))
         mod_chunks = np.genfromtxt(mod_file, max_rows=chunk_size, skip_header=len(mod_chunks))
-    
+
     return results
 ```
 
 ## Best Practices
 
 ### 1. Data Preparation
+
 ```python
 import numpy as np
 import monet_stats as ms
@@ -454,11 +477,11 @@ def prepare_data(obs, mod):
     valid_mask = ~np.isnan(obs) & ~np.isnan(mod)
     obs_clean = obs[valid_mask]
     mod_clean = mod[valid_mask]
-    
+
     # Check for sufficient data
     if len(obs_clean) < 10:
         raise ValueError("Insufficient valid data pairs")
-    
+
     return obs_clean, mod_clean
 
 # Usage
@@ -467,19 +490,20 @@ results = ms.RMSE(obs_clean, mod_clean)
 ```
 
 ### 2. Error Handling
+
 ```python
 def safe_metric_calculation(obs, mod, metric_func, **kwargs):
     """Safely calculate metrics with error handling"""
     try:
         result = metric_func(obs, mod, **kwargs)
-        
+
         # Check for NaN or infinite results
         if not np.isfinite(result):
             print(f"Warning: Non-finite result for {metric_func.__name__}")
             return np.nan
-        
+
         return result
-    
+
     except Exception as e:
         print(f"Error in {metric_func.__name__}: {e}")
         return np.nan
@@ -490,26 +514,27 @@ r2 = safe_metric_calculation(obs, mod, ms.R2)
 ```
 
 ### 3. Comprehensive Analysis
+
 ```python
 def comprehensive_verification(obs, mod):
     """Perform comprehensive model verification"""
     results = {}
-    
+
     # Error metrics
     results['RMSE'] = ms.RMSE(obs, mod)
     results['MAE'] = ms.MAE(obs, mod)
     results['MB'] = ms.MB(obs, mod)
     results['NMB'] = ms.NMB(obs, mod)
-    
+
     # Skill scores
     results['R2'] = ms.R2(obs, mod)
     results['NSE'] = ms.NSE(obs, mod)
     results['KGE'] = ms.KGE(obs, mod)
-    
+
     # Relative metrics
     results['MPE'] = ms.MPE(obs, mod)
     results['NME'] = ms.NME(obs, mod)
-    
+
     return results
 
 # Usage
@@ -532,6 +557,7 @@ for metric, value in verification_results.items():
 When reporting issues, please include:
 
 1. **Environment Information**:
+
    ```python
    import monet_stats
    print(f"Monet Stats version: {monet_stats.__version__}")
@@ -540,14 +566,15 @@ When reporting issues, please include:
    ```
 
 2. **Minimal Reproducible Example**:
+
    ```python
    import numpy as np
    import monet_stats as ms
-   
+
    # Your problematic code here
    obs = np.array([1, 2, 3])
    mod = np.array([1.1, 2.1, 2.9])
-   
+
    # This causes the error
    result = ms.YourMetric(obs, mod)  # Replace with actual call
    ```

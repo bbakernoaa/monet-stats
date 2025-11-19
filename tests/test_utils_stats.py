@@ -4,10 +4,9 @@ Tests for utils_stats.py module.
 This module tests utility functions for statistics including
 mask handling, circular statistics, and basic statistical functions.
 """
+
 import numpy as np
 import pytest
-from numpy.typing import ArrayLike
-from typing import Any
 
 from src.monet_stats.utils_stats import (
     angular_difference,
@@ -142,32 +141,32 @@ class TestUtilsStats:
 
     def test_angular_difference_basic(self) -> None:
         """Test angular_difference with basic values."""
-        result = angular_difference(10, 350, units='degrees')
+        result = angular_difference(10, 350, units="degrees")
         expected = 20.0
         assert abs(result - expected) < 1e-10
 
     def test_angular_difference_same_angle(self) -> None:
         """Test angular_difference with same angles."""
-        result = angular_difference(45, 45, units='degrees')
+        result = angular_difference(45, 45, units="degrees")
         expected = 0.0
         assert abs(result - expected) < 1e-10
 
     def test_angular_difference_opposite_angles(self) -> None:
         """Test angular_difference with opposite angles."""
-        result = angular_difference(0, 180, units='degrees')
+        result = angular_difference(0, 180, units="degrees")
         expected = 180.0
         assert abs(result - expected) < 1e-10
 
     def test_angular_difference_radians(self) -> None:
         """Test angular_difference with radians."""
-        result = angular_difference(np.pi/4, 7*np.pi/4, units='radians')
-        expected = np.pi/2  # 90 degrees in radians
+        result = angular_difference(np.pi / 4, 7 * np.pi / 4, units="radians")
+        expected = np.pi / 2  # 90 degrees in radians
         assert np.isclose(result, expected)
 
     def test_angular_difference_invalid_units(self) -> None:
         """Test angular_difference with invalid units."""
         with pytest.raises(ValueError):
-            angular_difference(10, 20, units='invalid')
+            angular_difference(10, 20, units="invalid")
 
     def test_rmse_perfect_agreement(self) -> None:
         """Test rmse with perfect agreement."""
@@ -325,6 +324,7 @@ class TestUtilsStats:
         large_mod = large_obs + np.random.normal(0, 0.1, 10000)  # Small noise
 
         import time
+
         start_time = time.time()
         result = rmse(large_obs, large_mod)
         end_time = time.time()
@@ -339,10 +339,10 @@ class TestUtilsStats:
         assert angular_difference(30, 60) == 30
 
         # Test case 2: Crossing 0/360 boundary (smaller difference)
-        assert angular_difference(5, 355) == 10 # 360-355+5 = 10, not 350
+        assert angular_difference(5, 355) == 10  # 360-355+5 = 10, not 350
 
         # Test case 3: Crossing 0/360 boundary (other direction)
-        assert angular_difference(355, 5) == 10 # Same as above, just reversed
+        assert angular_difference(355, 5) == 10  # Same as above, just reversed
 
         # Test case 4: Opposite angles
         assert angular_difference(0, 180) == 180

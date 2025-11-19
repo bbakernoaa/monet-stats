@@ -5,7 +5,7 @@ This section provides the mathematical foundations and theoretical background fo
 ## Mathematical Notation
 
 - $O$: Observed values
-- $M$: Modeled/predicted values  
+- $M$: Modeled/predicted values
 - $N$: Number of observations
 - $\bar{O}$: Mean of observed values
 - $\bar{M}$: Mean of modeled values
@@ -89,6 +89,7 @@ $$
 $$
 
 Where:
+
 - $r$: Pearson correlation coefficient
 - $\alpha = \sigma_M / \sigma_O$: Ratio of standard deviations
 - $\beta = \bar{M} / \bar{O}$: Ratio of means
@@ -99,11 +100,11 @@ KGE provides a comprehensive evaluation of performance across correlation, varia
 
 ### Contingency Table Structure
 
-|                | Forecast Yes | Forecast No | Total |
-|----------------|-------------|-------------|-------|
-| **Observed Yes** | A (Hits)    | B (Misses)  | A+B   |
+|                  | Forecast Yes     | Forecast No           | Total |
+| ---------------- | ---------------- | --------------------- | ----- |
+| **Observed Yes** | A (Hits)         | B (Misses)            | A+B   |
 | **Observed No**  | C (False Alarms) | D (Correct Negatives) | C+D   |
-| **Total**       | A+C         | B+D         | N     |
+| **Total**        | A+C              | B+D                   | N     |
 
 ### Probability of Detection (POD)
 

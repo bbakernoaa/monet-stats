@@ -1,6 +1,7 @@
 """
 Tests for plugin_system.py module.
 """
+
 import numpy as np
 
 from src.monet_stats.plugin_system import CustomMetric, PluginManager
@@ -17,9 +18,7 @@ class TestPluginSystem:
             return np.mean(obs - mod)
 
         plugin = CustomMetric(
-            name="dummy",
-            description="A dummy metric",
-            func=dummy_metric
+            name="dummy", description="A dummy metric", func=dummy_metric
         )
 
         # Test registration
@@ -37,13 +36,12 @@ class TestPluginSystem:
 
     def test_custom_metric(self):
         """Test the CustomMetric class."""
+
         def dummy_metric(obs, mod):
             return np.mean(obs - mod)
 
         plugin = CustomMetric(
-            name="dummy",
-            description="A dummy metric",
-            func=dummy_metric
+            name="dummy", description="A dummy metric", func=dummy_metric
         )
 
         obs = np.array([1, 2, 3])

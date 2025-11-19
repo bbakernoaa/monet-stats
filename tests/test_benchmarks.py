@@ -1,6 +1,7 @@
 """
 Tests for benchmarks.py module.
 """
+
 from typing import Any
 
 from src.monet_stats.benchmarks import AccuracyVerification, PerformanceBenchmark

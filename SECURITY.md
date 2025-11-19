@@ -6,7 +6,7 @@ The following versions of monet-stats are currently supported with security upda
 
 | Version | Supported |
 | ------- | --------- |
-| 0.x.x   | ✅ |
+| 0.x.x   | ✅        |
 
 ## Reporting a Vulnerability
 

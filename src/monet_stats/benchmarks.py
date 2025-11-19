@@ -27,14 +27,14 @@ class PerformanceBenchmark:
     def generate_test_data(self, size: int, data_type: str = "numpy") -> Tuple:
         """
         Generate test data of specified size.
-        
+
         Parameters
         ----------
         size : int
             Number of data points to generate.
         data_type : str
             Type of data to generate ('numpy', 'xarray', 'pandas').
-            
+
         Returns
         -------
         tuple
@@ -45,16 +45,17 @@ class PerformanceBenchmark:
         mod = obs + np.random.normal(0, 1, size)  # Add some error
 
         if data_type == "xarray":
-            obs = xr.DataArray(obs, dims=['time'], coords={'time': range(size)})
-            mod = xr.DataArray(mod, dims=['time'], coords={'time': range(size)})
+            obs = xr.DataArray(obs, dims=["time"], coords={"time": range(size)})
+            mod = xr.DataArray(mod, dims=["time"], coords={"time": range(size)})
 
         return obs, mod
 
-    def benchmark_function(self, func: Callable, obs: np.ndarray,
-                          mod: np.ndarray, runs: int = 100) -> Dict:
+    def benchmark_function(
+        self, func: Callable, obs: np.ndarray, mod: np.ndarray, runs: int = 100
+    ) -> Dict:
         """
         Benchmark a single function.
-        
+
         Parameters
         ----------
         func : callable
@@ -65,7 +66,7 @@ class PerformanceBenchmark:
             Model values.
         runs : int
             Number of runs for averaging.
-            
+
         Returns
         -------
         dict
@@ -86,43 +87,45 @@ class PerformanceBenchmark:
         std_time = np.std(times)
 
         return {
-            'avg_time': avg_time,
-            'std_time': std_time,
-            'result': results[0],  # Use first result as representative
-            'runs': runs
+            "avg_time": avg_time,
+            "std_time": std_time,
+            "result": results[0],  # Use first result as representative
+            "runs": runs,
         }
 
-    def run_all_benchmarks(self, sizes: List[int] = [100, 1000, 10000]) -> Dict:
+    def run_all_benchmarks(self, sizes: List[int] = None) -> Dict:
         """
         Run benchmarks for all functions with different data sizes.
-        
+
         Parameters
         ----------
         sizes : list of int
             List of data sizes to test.
-            
+
         Returns
         -------
         dict
             Complete benchmark results.
         """
+        if sizes is None:
+            sizes = [100, 1000, 10000]
         functions = {
-            'MAE': MAE,
-            'RMSE': RMSE,
-            'MB': MB,
-            'R2': R2,
-            'NSE': NSE,
-            'MAPE': MAPE,
-            'MASE': MASE,
-            'MedAE': MedAE,
-            'sMAPE': sMAPE,
-            'NMB': NMB,
-            'FB': FB,
-            'FE': FE,
-            'stats_pearsonr': stats_pearsonr,
-            'rmse_util': rmse,
-            'mae_util': mae,
-            'corr_util': correlation
+            "MAE": MAE,
+            "RMSE": RMSE,
+            "MB": MB,
+            "R2": R2,
+            "NSE": NSE,
+            "MAPE": MAPE,
+            "MASE": MASE,
+            "MedAE": MedAE,
+            "sMAPE": sMAPE,
+            "NMB": NMB,
+            "FB": FB,
+            "FE": FE,
+            "stats_pearsonr": stats_pearsonr,
+            "rmse_util": rmse,
+            "mae_util": mae,
+            "corr_util": correlation,
         }
 
         results = {}
@@ -138,7 +141,7 @@ class PerformanceBenchmark:
                     size_results[name] = bench_result
                 except Exception as e:
                     print(f"Error benchmarking {name}: {e!s}")
-                    size_results[name] = {'error': str(e)}
+                    size_results[name] = {"error": str(e)}
 
             results[size] = size_results
 
@@ -149,9 +152,9 @@ class PerformanceBenchmark:
         """
         Print a formatted benchmark report.
         """
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("PERFORMANCE BENCHMARK REPORT")
-        print("="*80)
+        print("=" * 80)
 
         for size, size_results in self.results.items():
             print(f"\nData Size: {size:,} elements")
@@ -159,14 +162,13 @@ class PerformanceBenchmark:
 
             # Sort by average time
             sorted_results = sorted(
-                size_results.items(),
-                key=lambda x: x[1].get('avg_time', float('inf'))
+                size_results.items(), key=lambda x: x[1].get("avg_time", float("inf"))
             )
 
             for name, result in sorted_results:
-                if 'error' not in result:
-                    avg_time = result['avg_time']
-                    std_time = result['std_time']
+                if "error" not in result:
+                    avg_time = result["avg_time"]
+                    std_time = result["std_time"]
                     print(f"{name:<20}: {avg_time*1000:>8.4f}±{std_time*1000:.4f} ms")
                 else:
                     print(f"{name:<20}: ERROR - {result['error']}")
@@ -183,7 +185,7 @@ class AccuracyVerification:
     def test_known_values(self) -> Dict:
         """
         Test functions with known analytical values.
-        
+
         Returns
         -------
         dict
@@ -197,42 +199,42 @@ class AccuracyVerification:
 
         # Test R2 for perfect correlation
         r2_result = R2(obs_perfect, mod_perfect)
-        results['R2_perfect'] = {
-            'computed': r2_result,
-            'expected': 1.0,
-            'passed': np.isclose(r2_result, 1.0, atol=self.tolerance)
+        results["R2_perfect"] = {
+            "computed": r2_result,
+            "expected": 1.0,
+            "passed": np.isclose(r2_result, 1.0, atol=self.tolerance),
         }
 
         # Test correlation for perfect correlation
         corr_result = correlation(obs_perfect, mod_perfect)
-        results['correlation_perfect'] = {
-            'computed': corr_result,
-            'expected': 1.0,
-            'passed': np.isclose(corr_result, 1.0, atol=self.tolerance)
+        results["correlation_perfect"] = {
+            "computed": corr_result,
+            "expected": 1.0,
+            "passed": np.isclose(corr_result, 1.0, atol=self.tolerance),
         }
 
         # Test RMSE for perfect match
         rmse_result = RMSE(obs_perfect, mod_perfect)
-        results['RMSE_perfect'] = {
-            'computed': rmse_result,
-            'expected': 0.0,
-            'passed': np.isclose(rmse_result, 0.0, atol=self.tolerance)
+        results["RMSE_perfect"] = {
+            "computed": rmse_result,
+            "expected": 0.0,
+            "passed": np.isclose(rmse_result, 0.0, atol=self.tolerance),
         }
 
         # Test MAE for perfect match
         mae_result = MAE(obs_perfect, mod_perfect)
-        results['MAE_perfect'] = {
-            'computed': mae_result,
-            'expected': 0.0,
-            'passed': np.isclose(mae_result, 0.0, atol=self.tolerance)
+        results["MAE_perfect"] = {
+            "computed": mae_result,
+            "expected": 0.0,
+            "passed": np.isclose(mae_result, 0.0, atol=self.tolerance),
         }
 
         # Test NSE for perfect match
         nse_result = NSE(obs_perfect, mod_perfect)
-        results['NSE_perfect'] = {
-            'computed': nse_result,
-            'expected': 1.0,
-            'passed': np.isclose(nse_result, 1.0, atol=self.tolerance)
+        results["NSE_perfect"] = {
+            "computed": nse_result,
+            "expected": 1.0,
+            "passed": np.isclose(nse_result, 1.0, atol=self.tolerance),
         }
 
         # Test with known bias
@@ -240,10 +242,10 @@ class AccuracyVerification:
         mod_bias = np.ones(10) * 2  # 100% bias
         mb_result = MB(obs_bias, mod_bias)
         expected_mb = 1.0  # (2-1)/1 = 1
-        results['MB_bias'] = {
-            'computed': mb_result,
-            'expected': expected_mb,
-            'passed': np.isclose(mb_result, expected_mb, atol=self.tolerance)
+        results["MB_bias"] = {
+            "computed": mb_result,
+            "expected": expected_mb,
+            "passed": np.isclose(mb_result, expected_mb, atol=self.tolerance),
         }
 
         # Test with known MAPE
@@ -251,10 +253,12 @@ class AccuracyVerification:
         mod_mape = np.array([11, 9, 10])  # 10%, -10%, 0% errors
         mape_result = MAPE(obs_mape, mod_mape)
         expected_mape = (10 + 10 + 0) / 3  # Average absolute percentage error
-        results['MAPE_known'] = {
-            'computed': mape_result,
-            'expected': expected_mape,
-            'passed': np.isclose(mape_result, expected_mape, atol=0.1)  # Higher tolerance for MAPE
+        results["MAPE_known"] = {
+            "computed": mape_result,
+            "expected": expected_mape,
+            "passed": np.isclose(
+                mape_result, expected_mape, atol=0.1
+            ),  # Higher tolerance for MAPE
         }
 
         return results
@@ -265,19 +269,21 @@ class AccuracyVerification:
         """
         results = self.test_known_values()
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("ACCURACY VERIFICATION REPORT")
-        print("="*80)
+        print("=" * 80)
 
         passed = 0
         total = len(results)
 
         for test_name, result in results.items():
-            status = "PASS" if result['passed'] else "FAIL"
-            print(f"{test_name:<20}: {status:<4} | "
-                  f"Computed: {result['computed']:.6f}, "
-                  f"Expected: {result['expected']:.6f}")
-            if result['passed']:
+            status = "PASS" if result["passed"] else "FAIL"
+            print(
+                f"{test_name:<20}: {status:<4} | "
+                f"Computed: {result['computed']:.6f}, "
+                f"Expected: {result['expected']:.6f}"
+            )
+            if result["passed"]:
                 passed += 1
 
         print(f"\nAccuracy Summary: {passed}/{total} tests passed")

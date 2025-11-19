@@ -15,19 +15,22 @@ import xarray as xr
 class StatisticalMetric(ABC):
     """
     Abstract base class for all statistical metrics.
-    
+
     This class defines the common interface for all statistical metrics
     in the Monet Stats package, ensuring consistency across different
     types of metrics (error, correlation, efficiency, etc.).
     """
 
     @abstractmethod
-    def compute(self, obs: Union[np.ndarray, xr.DataArray],
-                mod: Union[np.ndarray, xr.DataArray],
-                **kwargs) -> Union[float, np.ndarray, xr.DataArray]:
+    def compute(
+        self,
+        obs: Union[np.ndarray, xr.DataArray],
+        mod: Union[np.ndarray, xr.DataArray],
+        **kwargs,
+    ) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute the statistical metric.
-        
+
         Parameters
         ----------
         obs : array-like or xarray.DataArray
@@ -36,7 +39,7 @@ class StatisticalMetric(ABC):
             Model/predicted values.
         **kwargs : dict
             Additional parameters specific to the metric.
-            
+
         Returns
         -------
         float or array-like or xarray.DataArray
@@ -44,12 +47,15 @@ class StatisticalMetric(ABC):
         """
 
     @abstractmethod
-    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray],
-                       mod: Union[np.ndarray, xr.DataArray],
-                       **kwargs) -> bool:
+    def validate_inputs(
+        self,
+        obs: Union[np.ndarray, xr.DataArray],
+        mod: Union[np.ndarray, xr.DataArray],
+        **kwargs,
+    ) -> bool:
         """
         Validate input parameters for the metric.
-        
+
         Parameters
         ----------
         obs : array-like or xarray.DataArray
@@ -58,7 +64,7 @@ class StatisticalMetric(ABC):
             Model/predicted values.
         **kwargs : dict
             Additional parameters specific to the metric.
-            
+
         Returns
         -------
         bool
@@ -75,12 +81,15 @@ class BaseStatisticalMetric(StatisticalMetric):
         self.name = self.__class__.__name__
         self.description = self.__doc__ or "Statistical metric"
 
-    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray],
-                       mod: Union[np.ndarray, xr.DataArray],
-                       **kwargs) -> bool:
+    def validate_inputs(
+        self,
+        obs: Union[np.ndarray, xr.DataArray],
+        mod: Union[np.ndarray, xr.DataArray],
+        **kwargs,
+    ) -> bool:
         """
         Validate input parameters for the metric.
-        
+
         Parameters
         ----------
         obs : array-like or xarray.DataArray
@@ -89,36 +98,45 @@ class BaseStatisticalMetric(StatisticalMetric):
             Model/predicted values.
         **kwargs : dict
             Additional parameters specific to the metric.
-            
+
         Returns
         -------
         bool
             True if inputs are valid, False otherwise.
         """
         # Check if inputs are arrays or xarray DataArrays
-        if not (isinstance(obs, (np.ndarray, xr.DataArray)) and
-                isinstance(mod, (np.ndarray, xr.DataArray))):
+        if not (
+            isinstance(obs, (np.ndarray, xr.DataArray))
+            and isinstance(mod, (np.ndarray, xr.DataArray))
+        ):
             raise TypeError("obs and mod must be numpy arrays or xarray DataArrays")
 
         # Check if shapes match
-        if hasattr(obs, 'shape') and hasattr(mod, 'shape'):
+        if hasattr(obs, "shape") and hasattr(mod, "shape"):
             if obs.shape != mod.shape:
-                raise ValueError(f"obs and mod must have the same shape, got {obs.shape} and {mod.shape}")
+                raise ValueError(
+                    f"obs and mod must have the same shape, got {obs.shape} and {mod.shape}"
+                )
 
         # Check for finite values
-        obs_finite = np.isfinite(obs) if isinstance(obs, np.ndarray) else np.isfinite(obs.values)
-        mod_finite = np.isfinite(mod) if isinstance(mod, np.ndarray) else np.isfinite(mod.values)
+        obs_finite = (
+            np.isfinite(obs) if isinstance(obs, np.ndarray) else np.isfinite(obs.values)
+        )
+        mod_finite = (
+            np.isfinite(mod) if isinstance(mod, np.ndarray) else np.isfinite(mod.values)
+        )
 
         if not np.any(obs_finite) or not np.any(mod_finite):
             raise ValueError("No finite values in obs or mod")
 
         return True
 
-    def _handle_xarray(self, obs: xr.DataArray, mod: xr.DataArray,
-                      func, axis=None, **kwargs):
+    def _handle_xarray(
+        self, obs: xr.DataArray, mod: xr.DataArray, func, axis=None, **kwargs
+    ):
         """
         Handle xarray DataArray inputs by aligning and applying function.
-        
+
         Parameters
         ----------
         obs : xarray.DataArray
@@ -131,7 +149,7 @@ class BaseStatisticalMetric(StatisticalMetric):
             Axis along which to compute.
         **kwargs : dict
             Additional parameters for the function.
-            
+
         Returns
         -------
         xarray.DataArray
@@ -149,11 +167,12 @@ class BaseStatisticalMetric(StatisticalMetric):
         else:
             return func(obs, mod, **kwargs)
 
-    def _handle_numpy(self, obs: np.ndarray, mod: np.ndarray,
-                     func, axis=None, **kwargs):
+    def _handle_numpy(
+        self, obs: np.ndarray, mod: np.ndarray, func, axis=None, **kwargs
+    ):
         """
         Handle numpy array inputs by applying function.
-        
+
         Parameters
         ----------
         obs : numpy.ndarray
@@ -166,7 +185,7 @@ class BaseStatisticalMetric(StatisticalMetric):
             Axis along which to compute.
         **kwargs : dict
             Additional parameters for the function.
-            
+
         Returns
         -------
         numpy.ndarray or float
@@ -174,11 +193,12 @@ class BaseStatisticalMetric(StatisticalMetric):
         """
         return func(obs, mod, axis=axis, **kwargs)
 
-    def _handle_masked_arrays(self, obs: np.ndarray, mod: np.ndarray,
-                             func, axis=None, **kwargs):
+    def _handle_masked_arrays(
+        self, obs: np.ndarray, mod: np.ndarray, func, axis=None, **kwargs
+    ):
         """
         Handle masked array inputs by applying function.
-        
+
         Parameters
         ----------
         obs : numpy.ndarray
@@ -191,7 +211,7 @@ class BaseStatisticalMetric(StatisticalMetric):
             Axis along which to compute.
         **kwargs : dict
             Additional parameters for the function.
-            
+
         Returns
         -------
         numpy.ndarray or float
@@ -212,12 +232,12 @@ class DataProcessor:
     def to_numpy(data: Union[np.ndarray, xr.DataArray, list]) -> np.ndarray:
         """
         Convert data to numpy array.
-        
+
         Parameters
         ----------
         data : array-like or xarray.DataArray or list
             Input data.
-            
+
         Returns
         -------
         numpy.ndarray
@@ -231,18 +251,19 @@ class DataProcessor:
             return np.asarray(data)
 
     @staticmethod
-    def align_arrays(obs: Union[np.ndarray, xr.DataArray],
-                    mod: Union[np.ndarray, xr.DataArray]) -> tuple:
+    def align_arrays(
+        obs: Union[np.ndarray, xr.DataArray], mod: Union[np.ndarray, xr.DataArray]
+    ) -> tuple:
         """
         Align two arrays for comparison.
-        
+
         Parameters
         ----------
         obs : array-like or xarray.DataArray
             Observed values.
         mod : array-like or xarray.DataArray
             Model/predicted values.
-            
+
         Returns
         -------
         tuple
@@ -257,16 +278,19 @@ class DataProcessor:
             mod = DataProcessor.to_numpy(mod)
 
             if obs.shape != mod.shape:
-                raise ValueError(f"Arrays must have the same shape, got {obs.shape} and {mod.shape}")
+                raise ValueError(
+                    f"Arrays must have the same shape, got {obs.shape} and {mod.shape}"
+                )
 
             return obs, mod
 
     @staticmethod
-    def handle_missing_values(obs: np.ndarray, mod: np.ndarray,
-                             strategy: str = "pairwise") -> tuple:
+    def handle_missing_values(
+        obs: np.ndarray, mod: np.ndarray, strategy: str = "pairwise"
+    ) -> tuple:
         """
         Handle missing values in arrays.
-        
+
         Parameters
         ----------
         obs : numpy.ndarray
@@ -275,7 +299,7 @@ class DataProcessor:
             Model/predicted values.
         strategy : str, optional
             Strategy for handling missing values ('pairwise', 'listwise').
-            
+
         Returns
         -------
         tuple
@@ -302,14 +326,14 @@ class PerformanceOptimizer:
     def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
         """
         Split array into chunks for memory-efficient processing.
-        
+
         Parameters
         ----------
         arr : numpy.ndarray
             Input array to chunk.
         chunk_size : int, optional
             Size of each chunk (number of elements).
-            
+
         Returns
         -------
         list
@@ -326,7 +350,7 @@ class PerformanceOptimizer:
     def vectorize_function(func, *args, **kwargs):
         """
         Apply function in a vectorized manner.
-        
+
         Parameters
         ----------
         func : callable
@@ -335,7 +359,7 @@ class PerformanceOptimizer:
             Arguments to pass to function.
         **kwargs : dict
             Keyword arguments to pass to function.
-            
+
         Returns
         -------
         result
@@ -354,12 +378,15 @@ class PluginInterface(ABC):
         """Return the name of the metric."""
 
     @abstractmethod
-    def compute(self, obs: Union[np.ndarray, xr.DataArray],
-                mod: Union[np.ndarray, xr.DataArray],
-                **kwargs) -> Union[float, np.ndarray, xr.DataArray]:
+    def compute(
+        self,
+        obs: Union[np.ndarray, xr.DataArray],
+        mod: Union[np.ndarray, xr.DataArray],
+        **kwargs,
+    ) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute the custom metric.
-        
+
         Parameters
         ----------
         obs : array-like or xarray.DataArray
@@ -368,7 +395,7 @@ class PluginInterface(ABC):
             Model/predicted values.
         **kwargs : dict
             Additional parameters.
-            
+
         Returns
         -------
         float or array-like or xarray.DataArray
@@ -380,12 +407,15 @@ class PluginInterface(ABC):
         """Return the description of the metric."""
 
     @abstractmethod
-    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray],
-                       mod: Union[np.ndarray, xr.DataArray],
-                       **kwargs) -> bool:
+    def validate_inputs(
+        self,
+        obs: Union[np.ndarray, xr.DataArray],
+        mod: Union[np.ndarray, xr.DataArray],
+        **kwargs,
+    ) -> bool:
         """
         Validate inputs for the metric.
-        
+
         Parameters
         ----------
         obs : array-like or xarray.DataArray
@@ -394,7 +424,7 @@ class PluginInterface(ABC):
             Model/predicted values.
         **kwargs : dict
             Additional parameters.
-            
+
         Returns
         -------
         bool

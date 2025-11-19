@@ -1,6 +1,7 @@
 """
 Tests for interfaces.py module.
 """
+
 import numpy as np
 
 from src.monet_stats.interfaces import (
@@ -12,6 +13,7 @@ from src.monet_stats.interfaces import (
 
 class TestBaseStatisticalMetric(BaseStatisticalMetric):
     """Test implementation of BaseStatisticalMetric."""
+
     def compute(self, obs, mod, **kwargs):
         return np.mean(obs - mod)
 
@@ -48,9 +50,11 @@ class TestInterfaces:
         arr = np.arange(10)
         chunks = PerformanceOptimizer.chunk_array(arr, chunk_size=3)
         assert len(chunks) == 4
+
         # Test vectorize_function
         def square(x):
-            return x ** 2
+            return x**2
+
         arr = np.array([1, 2, 3])
         result = PerformanceOptimizer.vectorize_function(square, arr)
         assert np.array_equal(result, np.array([1, 4, 9]))

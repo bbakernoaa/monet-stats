@@ -150,11 +150,12 @@ class TestCorrelationMetrics:
         obs, mod = sample_data
         result = R2(obs, mod)
         from scipy.stats import pearsonr
+
         r_val, _ = pearsonr(obs, mod)
         # Ensure r_val is a scalar
         if isinstance(r_val, tuple):
             r_val = r_val[0]
-        elif hasattr(r_val, '__iter__'):
+        elif hasattr(r_val, "__iter__"):
             r_val = list(r_val)[0]
         expected = float(r_val) ** 2
         assert np.isclose(result, expected, rtol=1e-10)
@@ -176,7 +177,7 @@ class TestCorrelationMetrics:
         obs_anom = obs - obs_bar
         mod_anom = mod - mod_bar
         numerator = np.sum(obs_anom * mod_anom)
-        denom = np.sqrt(np.sum(obs_anom ** 2) * np.sum(mod_anom ** 2))
+        denom = np.sqrt(np.sum(obs_anom**2) * np.sum(mod_anom**2))
         expected = numerator / denom
         assert np.isclose(result, expected)
 

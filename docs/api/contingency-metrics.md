@@ -6,10 +6,10 @@ The contingency metrics module provides comprehensive metrics for evaluating cat
 
 Contingency metrics analyze the relationship between observed and predicted categorical events by organizing outcomes into a 2×2 contingency table:
 
-|                | Predicted Event | Predicted No Event |
-|----------------|----------------|-------------------|
-| **Observed Event**     | Hits (A)        | Misses (B)        |
-| **Observed No Event**  | False Alarms (C)| Correct Rejections (D) |
+|                       | Predicted Event  | Predicted No Event     |
+| --------------------- | ---------------- | ---------------------- |
+| **Observed Event**    | Hits (A)         | Misses (B)             |
+| **Observed No Event** | False Alarms (C) | Correct Rejections (D) |
 
 ## Core Functions
 
@@ -30,19 +30,23 @@ print(f"Heidke Skill Score: {hss_score:.3f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
-- `mod`: Modeled values (array-like)  
+- `mod`: Modeled values (array-like)
 - `minval`: Threshold value for event definition
 - `maxval`: Maximum threshold (optional, for range-based events)
 
 **Returns:**
+
 - `float`: Heidke Skill Score (-∞ to 1, where 1 = perfect, 0 = no skill)
 
 **Typical Use Cases:**
+
 - Evaluating categorical forecast skill (e.g., precipitation, air quality events)
 - Used in meteorology and environmental modeling for binary event prediction accuracy
 
 **Typical Values and Range:**
+
 - Range: -∞ to 1
 - 1: Perfect forecast
 - 0: No skill (random forecast)
@@ -60,15 +64,18 @@ print(f"Equitable Threat Score: {ets_score:.3f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
 - `mod`: Modeled values (array-like)
 - `minval`: Threshold value for event definition
 - `maxval`: Maximum threshold (optional)
 
 **Returns:**
+
 - `float`: Equitable Threat Score (-∞ to 1)
 
 **Use Cases:**
+
 - Fair evaluation of rare events
 - Accounting for random hits in skill calculation
 - Commonly used for precipitation verification
@@ -85,15 +92,18 @@ print(f"Critical Success Index: {csi_score:.3f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
 - `mod`: Modeled values (array-like)
 - `minval`: Threshold value for event definition
 - `maxval`: Maximum threshold (optional)
 
 **Returns:**
+
 - `float`: Critical Success Index (0 to 1)
 
 **Use Cases:**
+
 - High-impact event verification
 - Areas where false alarms and misses are equally costly
 - Common in severe weather forecasting
@@ -110,15 +120,18 @@ print(f"Probability of Detection: {pod_score:.3f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
 - `mod`: Modeled values (array-like)
 - `minval`: Threshold value for event definition
 - `maxval`: Maximum threshold (optional)
 
 **Returns:**
+
 - `float`: Probability of Detection (0 to 1)
 
 **Use Cases:**
+
 - Assessing forecast sensitivity to detect events
 - Important for public safety applications
 - Used in severe weather warnings
@@ -135,15 +148,18 @@ print(f"False Alarm Rate: {far_score:.3f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
 - `mod`: Modeled values (array-like)
 - `minval`: Threshold value for event definition
 - `maxval`: Maximum threshold (optional)
 
 **Returns:**
+
 - `float`: False Alarm Rate (0 to 1)
 
 **Use Cases:**
+
 - Evaluating false positive rates
 - Important for resource allocation decisions
 - Used in operational forecasting
@@ -160,15 +176,18 @@ print(f"False Bias Index: {fbi_score:.3f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
 - `mod`: Modeled values (array-like)
 - `minval`: Threshold value for event definition
 - `maxval`: Maximum threshold (optional)
 
 **Returns:**
+
 - `float`: False Bias Index
 
 **Use Cases:**
+
 - Assessing forecast bias toward false alarms
 - Comparing model tendency to overpredict events
 
@@ -184,15 +203,18 @@ print(f"True Skill Statistic: {tss_score:.3f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
 - `mod`: Modeled values (array-like)
 - `minval`: Threshold value for event definition
 - `maxval`: Maximum threshold (optional)
 
 **Returns:**
+
 - `float`: True Skill Statistic (-1 to 1)
 
 **Use Cases:**
+
 - Balanced evaluation of hits and misses
 - Comparing forecast systems
 - Assessing discrimination skill
@@ -212,12 +234,14 @@ for metric, value in contingency_results.items():
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
 - `mod`: Modeled values (array-like)
 - `minval`: Threshold value for event definition
 - `maxval`: Maximum threshold (optional)
 
 **Returns:**
+
 - `dict`: Dictionary containing all contingency metrics:
   - `hits`: Number of hits (A)
   - `misses`: Number of misses (B)
@@ -246,14 +270,17 @@ print(f"Binary Brier Skill Score: {bss_score:.3f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed binary outcomes (0 or 1)
 - `mod`: Forecast binary predictions (0 or 1)
 - `threshold`: Decision threshold
 
 **Returns:**
+
 - `float`: Binary Brier Skill Score
 
 **Use Cases:**
+
 - Evaluating binary forecast skill
 - Comparing against reference forecasts
 - Skill score calculations for categorical predictions
@@ -272,14 +299,17 @@ print(f"Optimal threshold for HSS: {optimal_threshold:.1f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
 - `mod`: Modeled values (array-like)
 - `threshold_range`: Array of threshold values to test
 
 **Returns:**
+
 - `float`: Threshold that maximizes HSS
 
 **Use Cases:**
+
 - Optimizing forecast thresholds
 - Comparing model performance across different event definitions
 - Calibration analysis
@@ -296,14 +326,17 @@ print(f"Optimal threshold for POD: {optimal_pod_threshold:.1f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
 - `mod`: Modeled values (array-like)
 - `threshold_range`: Array of threshold values to test
 
 **Returns:**
+
 - `float`: Threshold that maximizes POD
 
 **Use Cases:**
+
 - Maximizing event detection sensitivity
 - Optimizing warning systems
 - High-impact weather verification
@@ -320,14 +353,17 @@ print(f"Optimal threshold for FAR minimization: {optimal_far_threshold:.1f}")
 ```
 
 **Parameters:**
+
 - `obs`: Observed values (array-like)
 - `mod`: Modeled values (array-like)
 - `threshold_range`: Array of threshold values to test
 
 **Returns:**
+
 - `float`: Threshold that minimizes FAR
 
 **Use Cases:**
+
 - Minimizing false positive rates
 - Optimizing resource allocation
 - Cost-sensitive forecasting
@@ -352,7 +388,7 @@ print("-" * 50)
 for threshold in thresholds:
     print(f"\nThreshold: {threshold} mm")
     results = scores(observed, modeled, threshold)
-    
+
     print(f"  Events: {results['hits'] + results['misses']} observed, "
           f"{results['hits'] + results['false_alarms']} predicted")
     print(f"  POD: {results['POD']:.3f}")
@@ -449,7 +485,7 @@ far_values = []
 for threshold in threshold_range:
     obs_binary = (observed >= threshold).astype(int)
     mod_binary = (modeled >= threshold).astype(int)
-    
+
     hss_values.append(HSS(obs_binary, mod_binary, threshold))
     pod_values.append(POD(obs_binary, mod_binary, threshold))
     far_values.append(FAR(obs_binary, mod_binary, threshold))
@@ -493,22 +529,27 @@ plt.show()
 ## Best Practices
 
 ### 1. Rare Event Handling
+
 For rare events (<5% occurrence rate):
+
 - Use Equitable Threat Score (ETS) instead of CSI
 - Consider alternative formulations for skill scores
 - Be cautious with small sample sizes
 
 ### 2. Threshold Selection
+
 - Use physical thresholds when available
 - Optimize thresholds for specific applications
 - Consider the costs of false alarms vs. misses
 
 ### 3. Sample Size Considerations
+
 - Minimum recommended: 50-100 events for stable statistics
 - Use bootstrapping for uncertainty estimation with small samples
 - Report confidence intervals for skill scores
 
 ### 4. Multiple Threshold Analysis
+
 - Analyze performance across a range of thresholds
 - Use contingency tables for detailed breakdown
 - Consider ROC curve analysis for comprehensive evaluation
@@ -516,6 +557,7 @@ For rare events (<5% occurrence rate):
 ## Common Issues and Solutions
 
 ### Issue: NaN Values in Contingency Metrics
+
 ```python
 # Solution: Handle missing data properly
 obs_clean = obs[~np.isnan(obs) & ~np.isnan(mod)]
@@ -525,6 +567,7 @@ metrics = scores(obs_clean, mod_clean, threshold)
 ```
 
 ### Issue: Zero Division in FAR Calculation
+
 ```python
 # Solution: Add small epsilon to avoid division by zero
 def safe_far(obs, mod, threshold):
@@ -537,8 +580,10 @@ far = safe_far(obs, mod, threshold)
 ```
 
 ### Issue: Imbalanced Classes
+
 ```python
 # Solution: Use skill scores that account for random chance
 # Prefer ETS over CSI for rare events
 ets_score = ETS(obs, mod, threshold)
 hss_score = HSS(obs, mod, threshold)
+```

@@ -42,6 +42,7 @@ import xarray as xr
 ## Data Format Support
 
 ### NumPy Arrays
+
 ```python
 import numpy as np
 
@@ -53,6 +54,7 @@ rmse = ms.RMSE(obs, mod)
 ```
 
 ### Multi-dimensional Arrays
+
 ```python
 # 2D arrays (e.g., spatial fields)
 obs_2d = np.random.normal(20, 2, (50, 50))
@@ -62,6 +64,7 @@ fss = ms.FSS(obs_2d, mod_2d, window=5)
 ```
 
 ### Pandas DataFrames
+
 ```python
 import pandas as pd
 
@@ -81,6 +84,7 @@ results = df.groupby('station').apply(
 ```
 
 ### XArray DataArrays
+
 ```python
 import xarray as xr
 
@@ -132,21 +136,27 @@ Spatial metrics often include:
 ## Return Value Types
 
 ### Scalar Values
+
 Most metrics return single scalar values:
+
 ```python
 r2 = ms.R2(obs, mod)  # float
 rmse = ms.RMSE(obs, mod)  # float
 ```
 
 ### Arrays
+
 Some metrics return arrays for multi-dimensional input:
+
 ```python
 # For 2D spatial data
 fss = ms.FSS(obs_2d, mod_2d)  # float
 ```
 
 ### DataArrays (xarray)
+
 When using xarray inputs, metrics return DataArrays:
+
 ```python
 skill = ms.R2(obs_da, mod_da)  # DataArray with coordinates
 ```
@@ -154,6 +164,7 @@ skill = ms.R2(obs_da, mod_da)  # DataArray with coordinates
 ## Error Handling
 
 ### Data Shape Validation
+
 ```python
 try:
     result = ms.R2(obs_1d, mod_2d)  # Will raise ValueError
@@ -162,6 +173,7 @@ except ValueError as e:
 ```
 
 ### NaN Handling
+
 ```python
 # Data with NaN values
 obs_with_nan = np.array([1, 2, np.nan, 4])
@@ -172,6 +184,7 @@ rmse = ms.RMSE(obs_with_nan, mod_with_nan)  # Uses valid pairs only
 ```
 
 ### Type Validation
+
 ```python
 # Invalid types will raise TypeError
 try:
@@ -183,7 +196,9 @@ except TypeError as e:
 ## Performance Considerations
 
 ### Vectorized Operations
+
 All metrics use NumPy vectorized operations for optimal performance:
+
 ```python
 # Fast processing of large arrays
 large_obs = np.random.normal(20, 2, 1_000_000)
@@ -194,7 +209,9 @@ rmse = ms.RMSE(large_obs, large_mod)  # Efficient processing
 ```
 
 ### Memory Efficiency
+
 Metrics are designed to work efficiently with large datasets:
+
 ```python
 # Process in chunks for memory efficiency
 def process_large_data(obs, mod, chunk_size=100_000):
@@ -202,16 +219,17 @@ def process_large_data(obs, mod, chunk_size=100_000):
     for i in range(0, len(obs), chunk_size):
         chunk_obs = obs[i:i+chunk_size]
         chunk_mod = mod[i:i+chunk_size]
-        
+
         result = ms.R2(chunk_obs, chunk_mod)
         results.append(result)
-    
+
     return np.mean(results)
 ```
 
 ## Example Usage Patterns
 
 ### Basic Error Analysis
+
 ```python
 import monet_stats as ms
 import numpy as np
@@ -231,28 +249,29 @@ error_analysis = {
 ```
 
 ### Comprehensive Model Evaluation
+
 ```python
 def evaluate_model(observed, modeled):
     """Comprehensive model evaluation suite"""
-    
+
     metrics = {
         # Error measures
         'RMSE': ms.RMSE(observed, modeled),
         'MAE': ms.MAE(observed, modeled),
         'MB': ms.MB(observed, modeled),
         'NMB': ms.NMB(observed, modeled),
-        
+
         # Skill scores
         'R2': ms.R2(observed, modeled),
         'NSE': ms.NSE(observed, modeled),
         'KGE': ms.KGE(observed, modeled),
         'IOA': ms.IOA(observed, modeled),
-        
+
         # Relative measures
         'MPE': ms.MPE(observed, modeled),
         'NME': ms.NME(observed, modeled)
     }
-    
+
     return metrics
 
 # Usage
@@ -262,6 +281,7 @@ for metric, value in results.items():
 ```
 
 ### Categorical Event Analysis
+
 ```python
 # Binary event analysis
 obs_events = np.array([0, 1, 1, 0, 1, 0, 1, 1, 0, 0])

@@ -50,6 +50,7 @@ pip install monet-stats
 ### By Category
 
 #### Contingency Table Metrics
+
 - Heidke Skill Score (HSS)
 - Equitable Threat Score (ETS)
 - Critical Success Index (CSI)
@@ -58,6 +59,7 @@ pip install monet-stats
 - True Skill Statistic (TSS)
 
 #### Error Metrics
+
 - Root Mean Square Error (RMSE)
 - Mean Absolute Error (MAE)
 - Mean Bias (MB)
@@ -65,18 +67,21 @@ pip install monet-stats
 - Wind Direction RMSE
 
 #### Correlation Metrics
+
 - Coefficient of Determination (R²)
 - Pearson Correlation
 - Taylor Skill Score
 - Kling-Gupta Efficiency (KGE)
 
 #### Skill Scores
+
 - Brier Skill Score (BSS)
 - Nash-Sutcliffe Efficiency (NSE)
 - Index of Agreement (IOA)
 - Mean Absolute Percentage Error (MAPE)
 
 #### Spatial & Ensemble Metrics
+
 - Fractions Skill Score (FSS)
 - Continuous Ranked Probability Score (CRPS)
 - Structure-Amplitude-Location (SAL)
@@ -97,21 +102,25 @@ pip install monet-stats
 ## Use Cases
 
 ### Climate Model Evaluation
+
 - Compare model outputs against observations
 - Analyze seasonal and temporal variations
 - Assess extreme event performance
 
 ### Weather Forecast Verification
+
 - Evaluate deterministic and probabilistic forecasts
 - Analyze categorical event predictions
 - Optimize forecast thresholds
 
 ### Air Quality Assessment
+
 - Monitor pollutant concentration forecasts
 - Evaluate exceedance predictions
 - Assess spatial distribution accuracy
 
 ### Ensemble Analysis
+
 - Evaluate ensemble spread-skill relationships
 - Assess probabilistic forecast performance
 - Analyze ensemble member contributions
@@ -119,6 +128,7 @@ pip install monet-stats
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](contributing.md) for details on:
+
 - Setting up the development environment
 - Submitting bug reports and feature requests
 - Contributing new metrics and improvements
@@ -135,4 +145,4 @@ Monet Stats is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 ---
 
-*Monet Stats is developed and maintained by the NOAA Air Resources Laboratory*
+_Monet Stats is developed and maintained by the NOAA Air Resources Laboratory_

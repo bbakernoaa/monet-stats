@@ -49,11 +49,9 @@ from .error_metrics import (
     NOP,
     NP,
     NRMSE,
-    RM,
     STDO,
     STDP,
     WDMB,
-    IOA_m,
     MAE_m,
     MdnB,
     MdnNB,
@@ -198,8 +196,10 @@ __all__ = [
 ]
 
 
-import pandas as pd
 from typing import Any, Dict
+
+import pandas as pd
+
 
 def stats(df: pd.DataFrame, minval: Any, maxval: Any) -> Dict[str, float]:
     """Short summary.

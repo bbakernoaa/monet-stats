@@ -15,6 +15,7 @@ Climate data analysis requires specialized statistical approaches due to:
 ## Workflow 1: Temperature Trend Analysis
 
 ### Objective
+
 Analyze long-term temperature trends and model performance across different time scales.
 
 ```python
@@ -115,6 +116,7 @@ print(seasonal_performance)
 ## Workflow 2: Precipitation Extremes Analysis
 
 ### Objective
+
 Evaluate model performance for extreme precipitation events and return periods.
 
 ```python
@@ -127,8 +129,8 @@ precip_daily = np.random.gamma(0.5, 5, n_years * 365)
 precip_daily = np.maximum(precip_daily, 0)  # Ensure non-negative
 
 # Add extreme events (rare heavy precipitation)
-extreme_events = np.random.choice(len(precip_daily), 
-                                 size=int(0.001 * len(precip_daily)), 
+extreme_events = np.random.choice(len(precip_daily),
+                                 size=int(0.001 * len(precip_daily)),
                                  replace=False)
 precip_daily[extreme_events] += np.random.exponential(20, len(extreme_events))
 
@@ -158,19 +160,19 @@ thresholds = [95, 99]  # 95th and 99th percentiles
 
 for threshold in thresholds:
     print(f"\nAnalysis for {threshold}th percentile threshold:")
-    
+
     # Binary extreme events
     obs_extreme = (precip_data['observed'] >= np.percentile(precip_data['observed'], threshold)).astype(int)
-    
+
     for model_name in ['model1', 'model2', 'model3']:
         mod_extreme = (precip_data[model_name] >= np.percentile(precip_data['observed'], threshold)).astype(int)
-        
+
         # Contingency table metrics
         pod = ms.POD(obs_extreme, mod_extreme, threshold=0.5)
         far = ms.FAR(obs_extreme, mod_extreme, threshold=0.5)
         csi = ms.CSI(obs_extreme, mod_extreme, threshold=0.5)
         hss = ms.HSS(obs_extreme, mod_extreme, threshold=0.5)
-        
+
         print(f"  {model_name}: POD={pod:.3f}, FAR={far:.3f}, CSI={csi:.3f}, HSS={hss:.3f}")
 ```
 
@@ -183,11 +185,11 @@ def calculate_return_period(values, return_years):
     n = len(values)
     exceedance_probs = np.arange(1, n + 1) / (n + 1)
     return_periods = 1 / exceedance_probs
-    
+
     # Interpolate to desired return periods
     from scipy.interpolate import interp1d
     interp_func = interp1d(return_periods, sorted_values, bounds_error=False, fill_value='extrapolate')
-    
+
     return interp_func(return_years)
 
 # Calculate return periods for different models
@@ -231,11 +233,11 @@ for col in ['observed', 'model1', 'model2', 'model3']:
 intensity_bias = []
 for category in ['No rain', 'Light', 'Moderate', 'Heavy', 'Extreme']:
     subset = precip_data[precip_data['observed_category'] == category]
-    
+
     if len(subset) > 0:
         bias = ms.MB(subset['observed'], subset['model1'])
         nmb = ms.NMB(subset['observed'], subset['model1'])
-        
+
         intensity_bias.append({
             'Intensity': category,
             'Count': len(subset),
@@ -251,6 +253,7 @@ print(intensity_bias_df)
 ## Workflow 3: Multi-Model Ensemble Analysis
 
 ### Objective
+
 Evaluate and combine multiple climate models to improve prediction accuracy.
 
 ```python
@@ -266,10 +269,10 @@ for i in range(n_models):
     # Each model has different bias and error characteristics
     bias = np.random.normal(0, 0.5)  # Model bias
     error_std = np.random.uniform(0.2, 1.0)  # Model error
-    
+
     ensemble_data[f'model_{i+1}'] = (
-        ensemble_data['observed'] + 
-        bias + 
+        ensemble_data['observed'] +
+        bias +
         np.random.normal(0, error_std, n_years)
     )
 ```
@@ -281,7 +284,7 @@ for i in range(n_models):
 model_performance = []
 for i in range(1, n_models + 1):
     model_col = f'model_{i}'
-    
+
     performance = {
         'Model': model_col,
         'RMSE': ms.RMSE(ensemble_data['observed'], ensemble_data[model_col]),
@@ -341,16 +344,16 @@ def calculate_spread_skill(model_data, observed):
     """Calculate spread and skill for ensemble"""
     # Ensemble spread (standard deviation)
     spread = model_data.std(axis=1)
-    
+
     # Ensemble skill (RMSE of ensemble mean)
     ensemble_mean = model_data.mean(axis=1)
     skill = ms.RMSE(observed, ensemble_mean)
-    
+
     return spread, skill
 
 # Calculate spread-skill relationship
 spread, skill = calculate_spread_skill(
-    ensemble_data.filter(like='model_'), 
+    ensemble_data.filter(like='model_'),
     ensemble_data['observed']
 )
 
@@ -371,6 +374,7 @@ plt.show()
 ## Workflow 4: Spatial Climate Downscaling
 
 ### Objective
+
 Evaluate high-resolution downscaled climate model data against observations.
 
 ```python
@@ -382,7 +386,7 @@ x, y = np.meshgrid(range(grid_size), range(grid_size))
 
 # Create spatial pattern with some randomness
 observed_spatial = (
-    20 + 0.1 * x + 0.05 * y + 
+    20 + 0.1 * x + 0.05 * y +
     2 * np.sin(2 * np.pi * x / grid_size) * np.cos(2 * np.pi * y / grid_size) +
     np.random.normal(0, 0.5, (grid_size, grid_size))
 )
@@ -474,20 +478,20 @@ from scipy.stats import pearsonr
 def spatial_pattern_correlation(obs, mod, window_size=5):
     """Calculate local spatial correlations"""
     correlations = np.zeros_like(obs, dtype=float)
-    
+
     for i in range(window_size//2, obs.shape[0] - window_size//2):
         for j in range(window_size//2, obs.shape[1] - window_size//2):
             # Extract local window
-            obs_window = obs[i-window_size//2:i+window_size//2+1, 
+            obs_window = obs[i-window_size//2:i+window_size//2+1,
                            j-window_size//2:j+window_size//2+1]
-            mod_window = mod[i-window_size//2:i+window_size//2+1, 
+            mod_window = mod[i-window_size//2:i+window_size//2+1,
                            j-window_size//2:j+window_size//2+1]
-            
+
             # Calculate correlation
             if not (np.isnan(obs_window).any() or np.isnan(mod_window).any()):
                 corr, _ = pearsonr(obs_window.flatten(), mod_window.flatten())
                 correlations[i, j] = corr
-    
+
     return correlations
 
 # Calculate local correlations
@@ -502,31 +506,32 @@ print(f"  Model 2 - Mean: {np.nanmean(local_corr2):.3f}, Std: {np.nanstd(local_c
 ## Best Practices for Climate Data Analysis
 
 ### Data Quality Control
+
 ```python
 def quality_control_analysis(observed, modeled):
     """Perform comprehensive quality control"""
-    
+
     # Check for data consistency
     qc_results = {}
-    
+
     # Temporal consistency
     obs_diff = np.diff(observed)
     mod_diff = np.diff(modeled)
     qc_results['temporal_correlation'] = ms.pearsonr(obs_diff, mod_diff)[0]
-    
+
     # Outlier detection (using IQR method)
     obs_q75, obs_q25 = np.percentile(observed, [75, 25])
     obs_iqr = obs_q75 - obs_q25
-    obs_outliers = np.sum((observed < obs_q25 - 1.5 * obs_iqr) | 
+    obs_outliers = np.sum((observed < obs_q25 - 1.5 * obs_iqr) |
                           (observed > obs_q75 + 1.5 * obs_iqr))
-    
+
     mod_q75, mod_q25 = np.percentile(modeled, [75, 25])
     mod_iqr = mod_q75 - mod_q25
-    mod_outliers = np.sum((modeled < mod_q25 - 1.5 * mod_iqr) | 
+    mod_outliers = np.sum((modeled < mod_q25 - 1.5 * mod_iqr) |
                           (modeled > mod_q75 + 1.5 * mod_iqr))
-    
+
     qc_results['outlier_ratio'] = obs_outliers / mod_outliers if mod_outliers > 0 else np.nan
-    
+
     return qc_results
 
 # Example usage
@@ -537,13 +542,14 @@ for key, value in qc.items():
 ```
 
 ### Trend Analysis
+
 ```python
 def climate_trend_analysis(time_series, time):
     """Analyze climate trends with appropriate statistical methods"""
-    
+
     # Linear trend
     trend_slope, trend_intercept = np.polyfit(time - time[0], time_series, 1)
-    
+
     # Mann-Kendall trend test
     def mann_kendall_test(data):
         """Mann-Kendall trend test"""
@@ -555,10 +561,10 @@ def climate_trend_analysis(time_series, time):
                     s += 1
                 elif data[j] < data[i]:
                     s -= 1
-        
+
         # Calculate variance
         var_s = n * (n - 1) * (2 * n + 5) / 18
-        
+
         # Calculate z-score
         if s > 0:
             z = (s - 1) / np.sqrt(var_s)
@@ -566,15 +572,15 @@ def climate_trend_analysis(time_series, time):
             z = (s + 1) / np.sqrt(var_s)
         else:
             z = 0
-        
+
         # Calculate p-value (two-tailed)
         from scipy.stats import norm
         p_value = 2 * (1 - norm.cdf(abs(z)))
-        
+
         return z, p_value
-    
+
     mk_z, mk_p = mann_kendall_test(time_series)
-    
+
     # Theil-Sen slope estimator
     def theil_sen_slope(data, time):
         """Theil-Sen slope estimator"""
@@ -584,14 +590,14 @@ def climate_trend_analysis(time_series, time):
                 if time[j] != time[i]:
                     slope = (data[j] - data[i]) / (time[j] - time[i])
                     slopes.append(slope)
-        
+
         if len(slopes) > 0:
             return np.median(slopes)
         else:
             return np.nan
-    
+
     theil_slope = theil_sen_slope(time_series, time)
-    
+
     return {
         'linear_trend': trend_slope,
         'theil_slope': theil_slope,
@@ -618,6 +624,7 @@ These climate data analysis workflows demonstrate how to use Monet Stats effecti
 Each workflow can be adapted to specific climate data types and research questions. The key is to combine multiple complementary metrics and consider the specific characteristics of climate data.
 
 For more specialized workflows, see:
+
 - [Spatial Verification](workflows/spatial-verification.md)
 - [Ensemble Verification](workflows/ensemble-verification.md)
 - [Wind Direction Metrics](workflows/wind-direction-metrics.md)

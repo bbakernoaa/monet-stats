@@ -2,9 +2,10 @@
 Utility Functions for Statistics
 """
 
+from typing import Any, Optional, Tuple
+
 import numpy as np
 from numpy.typing import ArrayLike
-from typing import Any, Optional, Tuple
 
 
 def matchedcompressed(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ndarray, np.ndarray]:
@@ -147,7 +148,9 @@ def circlebias(b: ArrayLike) -> Any:
     return (b + 180) % 360 - 180
 
 
-def angular_difference(angle1: ArrayLike, angle2: ArrayLike, units: str = "degrees") -> Any:
+def angular_difference(
+    angle1: ArrayLike, angle2: ArrayLike, units: str = "degrees"
+) -> Any:
     """
     Calculate the smallest angular difference between two angles.
 

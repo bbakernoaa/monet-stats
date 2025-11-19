@@ -2,6 +2,7 @@
 Performance benchmarking tests using pytest-benchmark.
 Tests various data sizes and optimization strategies.
 """
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -125,7 +126,7 @@ class TestPerformanceBenchmarks:
 
     def test_contingency_metrics_performance_small(self, benchmark: BenchmarkFixture):
         """Benchmark contingency metrics on small datasets (1K points)."""
-        data_gen = TestDataGenerator()
+        TestDataGenerator()
         obs_binary = np.random.choice([0, 1], size=1000)
         mod_binary = np.random.choice([0, 1], size=1000)
 
@@ -143,7 +144,7 @@ class TestPerformanceBenchmarks:
 
     def test_contingency_metrics_performance_large(self, benchmark: BenchmarkFixture):
         """Benchmark contingency metrics on large datasets (100K points)."""
-        data_gen = TestDataGenerator()
+        TestDataGenerator()
         obs_binary = np.random.choice([0, 1], size=100000)
         mod_binary = np.random.choice([0, 1], size=100000)
 
@@ -231,8 +232,8 @@ class TestXarrayPerformance:
         # Create xarray DataArrays
         obs_da = xr.DataArray(
             np.random.normal(15, 5, (10, 20, 30)),
-            coords={'time': range(10), 'lat': range(20), 'lon': range(30)},
-            dims=['time', 'lat', 'lon']
+            coords={"time": range(10), "lat": range(20), "lon": range(30)},
+            dims=["time", "lat", "lon"],
         )
         mod_da = obs_da + np.random.normal(0, 1, obs_da.shape)
 
@@ -256,8 +257,8 @@ class TestXarrayPerformance:
         # Create larger xarray DataArrays
         obs_da = xr.DataArray(
             np.random.normal(15, 5, (20, 50, 50)),
-            coords={'time': range(20), 'lat': range(50), 'lon': range(50)},
-            dims=['time', 'lat', 'lon']
+            coords={"time": range(20), "lat": range(50), "lon": range(50)},
+            dims=["time", "lat", "lon"],
         )
         mod_da = obs_da + np.random.normal(0, 1, obs_da.shape)
 
@@ -322,7 +323,9 @@ class TestMemoryUsage:
         benchmark(run_with_size)
 
     @pytest.mark.parametrize("size", [1000, 10000, 100000])
-    def test_memory_scaling_correlation_metrics(self, benchmark: BenchmarkFixture, size: int):
+    def test_memory_scaling_correlation_metrics(
+        self, benchmark: BenchmarkFixture, size: int
+    ):
         """Test memory scaling of correlation metrics."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=size, correlation=0.8)
@@ -344,7 +347,7 @@ class TestRealWorldScenarios:
         n_time = 120  # 10 years * 12 months
         n_grid = 100
 
-        data_gen = TestDataGenerator()
+        TestDataGenerator()
         obs_data = np.random.normal(15, 10, (n_time, n_grid))  # Monthly temps
         mod_data = obs_data + np.random.normal(0, 1, (n_time, n_grid))  # Model bias
 
@@ -371,9 +374,11 @@ class TestRealWorldScenarios:
         n_hours = 24
         n_locations = 50
 
-        data_gen = TestDataGenerator()
+        TestDataGenerator()
         obs_forecast = np.random.normal(15, 8, (n_forecasts, n_hours, n_locations))
-        mod_forecast = obs_forecast + np.random.normal(0, 2, (n_forecasts, n_hours, n_locations))
+        mod_forecast = obs_forecast + np.random.normal(
+            0, 2, (n_forecasts, n_hours, n_locations)
+        )
 
         def run_verification():
             # Flatten for current metrics
@@ -393,16 +398,16 @@ class TestRealWorldScenarios:
 
 # Performance regression thresholds (in milliseconds)
 PERFORMANCE_THRESHOLDS = {
-    'error_metrics_small': 10.0,      # 1K data points
-    'error_metrics_medium': 100.0,    # 10K data points
-    'error_metrics_large': 1000.0,    # 100K data points
-    'correlation_metrics_small': 20.0,
-    'correlation_metrics_medium': 200.0,
-    'correlation_metrics_large': 2000.0,
-    'contingency_metrics_small': 5.0,
-    'contingency_metrics_large': 50.0,
-    'efficiency_metrics_small': 15.0,
-    'efficiency_metrics_large': 150.0,
+    "error_metrics_small": 10.0,  # 1K data points
+    "error_metrics_medium": 100.0,  # 10K data points
+    "error_metrics_large": 1000.0,  # 100K data points
+    "correlation_metrics_small": 20.0,
+    "correlation_metrics_medium": 200.0,
+    "correlation_metrics_large": 2000.0,
+    "contingency_metrics_small": 5.0,
+    "contingency_metrics_large": 50.0,
+    "efficiency_metrics_small": 15.0,
+    "efficiency_metrics_large": 150.0,
 }
 
 

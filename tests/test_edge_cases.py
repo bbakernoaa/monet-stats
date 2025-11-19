@@ -1,6 +1,7 @@
 """
 Edge case testing for robust error handling and boundary conditions.
 """
+
 import numpy as np
 import pytest
 
@@ -30,7 +31,7 @@ class TestEdgeCases:
         try:
             mae = mean_absolute_error(empty_array, empty_array)
             assert np.isnan(mae) or mae == 0, "Empty arrays should return NaN or 0"
-        except:
+        except Exception:
             pass  # Some functions might raise exceptions for empty arrays
 
     def test_single_value_arrays(self):
@@ -83,7 +84,7 @@ class TestEdgeCases:
             mae = mean_absolute_error(obs, mod)
             # Result should be NaN or computed ignoring NaNs
             assert np.isnan(mae) or mae > 0, "Should handle NaN values appropriately"
-        except:
+        except Exception:
             pass  # Some implementations might raise exceptions
 
     def test_arrays_with_infs(self):
@@ -95,8 +96,10 @@ class TestEdgeCases:
         try:
             mae = mean_absolute_error(obs, mod)
             # Result should be inf or NaN or computed ignoring infs
-            assert np.isinf(mae) or np.isnan(mae) or mae > 0, "Should handle infinite values appropriately"
-        except:
+            assert (
+                np.isinf(mae) or np.isnan(mae) or mae > 0
+            ), "Should handle infinite values appropriately"
+        except Exception:
             pass  # Some implementations might raise exceptions
 
     def test_mismatched_array_sizes(self):
@@ -108,8 +111,10 @@ class TestEdgeCases:
         try:
             mae = mean_absolute_error(obs, mod)
             # If it doesn't raise an error, it should handle the mismatch appropriately
-            assert np.isnan(mae) or mae >= 0, "Should handle mismatched sizes appropriately"
-        except:
+            assert (
+                np.isnan(mae) or mae >= 0
+            ), "Should handle mismatched sizes appropriately"
+        except Exception:
             pass  # Expected behavior for mismatched sizes
 
     def test_extreme_values(self):
@@ -124,7 +129,7 @@ class TestEdgeCases:
 
             assert np.isfinite(mae), "MAE should be finite for extreme values"
             assert np.isfinite(rmse), "RMSE should be finite for extreme values"
-        except:
+        except Exception:
             pass  # Some implementations might have limitations with extreme values
 
 
@@ -141,7 +146,7 @@ class TestErrorHandling:
             mae = mean_absolute_error(obs, mod)
             # If it doesn't raise an error, result should be NaN
             assert np.isnan(mae), "Non-numeric input should produce NaN"
-        except:
+        except Exception:
             pass  # Expected behavior for non-numeric input
 
     def test_none_input(self):
@@ -153,7 +158,7 @@ class TestErrorHandling:
         try:
             mae = mean_absolute_error(obs, mod)
             assert np.isnan(mae), "None input should produce NaN"
-        except:
+        except Exception:
             pass  # Expected behavior for None input
 
     def test_wrong_input_types(self):
@@ -165,7 +170,7 @@ class TestErrorHandling:
         try:
             mae = mean_absolute_error(obs, mod)
             assert np.isnan(mae), "Dict input should produce NaN"
-        except:
+        except Exception:
             pass  # Expected behavior for dict input
 
 
@@ -182,8 +187,12 @@ class TestMathematicalEdgeCases:
         spearman_r = spearman_correlation(x, y)
         r2 = coefficient_of_determination(x, y)
 
-        assert abs(pearson_r - 1.0) < 1e-10, "Perfect positive correlation should be 1.0"
-        assert abs(spearman_r - 1.0) < 1e-10, "Perfect positive rank correlation should be 1.0"
+        assert (
+            abs(pearson_r - 1.0) < 1e-10
+        ), "Perfect positive correlation should be 1.0"
+        assert (
+            abs(spearman_r - 1.0) < 1e-10
+        ), "Perfect positive rank correlation should be 1.0"
         assert abs(r2 - 1.0) < 1e-10, "Perfect correlation should give R² = 1.0"
 
         # Perfect negative correlation
@@ -192,8 +201,12 @@ class TestMathematicalEdgeCases:
         pearson_r_neg = pearson_correlation(x, y_neg)
         spearman_r_neg = spearman_correlation(x, y_neg)
 
-        assert abs(pearson_r_neg + 1.0) < 1e-10, "Perfect negative correlation should be -1.0"
-        assert abs(spearman_r_neg + 1.0) < 1e-10, "Perfect negative rank correlation should be -1.0"
+        assert (
+            abs(pearson_r_neg + 1.0) < 1e-10
+        ), "Perfect negative correlation should be -1.0"
+        assert (
+            abs(spearman_r_neg + 1.0) < 1e-10
+        ), "Perfect negative rank correlation should be -1.0"
 
     def test_constant_arrays_correlation(self):
         """Test correlation with constant arrays."""
@@ -204,7 +217,7 @@ class TestMathematicalEdgeCases:
         try:
             pearson_r = pearson_correlation(x, y)
             assert np.isnan(pearson_r), "Correlation with constant arrays should be NaN"
-        except:
+        except Exception:
             pass  # Some implementations might handle this differently
 
     def test_identical_arrays(self):
@@ -222,7 +235,9 @@ class TestMathematicalEdgeCases:
         assert abs(mae) < 1e-10, "Identical arrays should have zero MAE"
         assert abs(rmse) < 1e-10, "Identical arrays should have zero RMSE"
         assert abs(bias) < 1e-10, "Identical arrays should have zero bias"
-        assert abs(pearson_r - 1.0) < 1e-10, "Identical arrays should have correlation 1.0"
+        assert (
+            abs(pearson_r - 1.0) < 1e-10
+        ), "Identical arrays should have correlation 1.0"
         assert abs(r2 - 1.0) < 1e-10, "Identical arrays should have R² = 1.0"
         assert abs(ioa - 1.0) < 1e-10, "Identical arrays should have IOA = 1.0"
 

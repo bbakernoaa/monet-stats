@@ -1,19 +1,26 @@
 """
 Test utilities and helper functions for monet-stats testing framework.
 """
+
+from typing import Any, Callable, Dict, Tuple
+
 import numpy as np
 from numpy.typing import ArrayLike
-from typing import Any, Callable, Dict, Tuple
 
 
 class TestDataGenerator:
     """Utility class for generating synthetic test data."""
 
     @staticmethod
-    def generate_correlated_data(n_samples: int = 100, correlation: float = 0.8, noise_level: float = 0.1, seed: int = 42) -> Tuple[np.ndarray, np.ndarray]:
+    def generate_correlated_data(
+        n_samples: int = 100,
+        correlation: float = 0.8,
+        noise_level: float = 0.1,
+        seed: int = 42,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Generate two correlated datasets.
-        
+
         Parameters
         ----------
         n_samples : int
@@ -24,7 +31,7 @@ class TestDataGenerator:
             Level of noise to add
         seed : int
             Random seed for reproducibility
-            
+
         Returns
         -------
         tuple
@@ -37,22 +44,26 @@ class TestDataGenerator:
 
         # Create correlated data
         obs = signal + np.random.normal(0, noise_level, n_samples)
-        mod = correlation * signal + np.random.normal(0, np.sqrt(1 - correlation**2) * noise_level, n_samples)
+        mod = correlation * signal + np.random.normal(
+            0, np.sqrt(1 - correlation**2) * noise_level, n_samples
+        )
 
         return obs, mod
 
     @staticmethod
-    def generate_perfect_relationship(n_samples: int = 50, relationship: str = 'linear') -> Tuple[np.ndarray, np.ndarray]:
+    def generate_perfect_relationship(
+        n_samples: int = 50, relationship: str = "linear"
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Generate data with perfect mathematical relationship.
-        
+
         Parameters
         ----------
         n_samples : int
             Number of samples
         relationship : str
             Type of relationship ('linear', 'quadratic', 'exponential')
-            
+
         Returns
         -------
         tuple
@@ -60,11 +71,11 @@ class TestDataGenerator:
         """
         x = np.linspace(0, 10, n_samples)
 
-        if relationship == 'linear':
+        if relationship == "linear":
             y = 2 * x + 1
-        elif relationship == 'quadratic':
+        elif relationship == "quadratic":
             y = x**2
-        elif relationship == 'exponential':
+        elif relationship == "exponential":
             y = np.exp(x / 5)
         else:
             raise ValueError(f"Unknown relationship: {relationship}")
@@ -75,22 +86,24 @@ class TestDataGenerator:
     def generate_edge_cases() -> Dict[str, np.ndarray]:
         """Generate various edge case datasets."""
         return {
-            'zeros': np.zeros(50),
-            'constants': np.ones(50) * 5,
-            'nans': np.full(50, np.nan),
-            'infs': np.array([np.inf, -np.inf] * 25),
-            'mixed': np.array([1, 2, np.nan, 4, 5, np.inf, 7, 8, -np.inf, 10]),
-            'empty': np.array([]),
-            'single': np.array([42]),
-            'two_values': np.array([1, 2]),
-            'alternating': np.array([0, 1] * 25),
+            "zeros": np.zeros(50),
+            "constants": np.ones(50) * 5,
+            "nans": np.full(50, np.nan),
+            "infs": np.array([np.inf, -np.inf] * 25),
+            "mixed": np.array([1, 2, np.nan, 4, 5, np.inf, 7, 8, -np.inf, 10]),
+            "empty": np.array([]),
+            "single": np.array([42]),
+            "two_values": np.array([1, 2]),
+            "alternating": np.array([0, 1] * 25),
         }
 
     @staticmethod
-    def generate_contingency_data(n_categories: int = 3, n_samples: int = 100, seed: int = 42) -> Tuple[np.ndarray, np.ndarray]:
+    def generate_contingency_data(
+        n_categories: int = 3, n_samples: int = 100, seed: int = 42
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Generate categorical data for contingency table analysis.
-        
+
         Parameters
         ----------
         n_categories : int
@@ -99,7 +112,7 @@ class TestDataGenerator:
             Number of samples
         seed : int
             Random seed
-            
+
         Returns
         -------
         tuple
@@ -113,10 +126,14 @@ class TestDataGenerator:
         return obs_categories, mod_categories
 
     @staticmethod
-    def generate_spatial_data(shape: Tuple[int, int] = (20, 30), spatial_correlation: bool = True, seed: int = 42) -> Tuple[np.ndarray, np.ndarray]:
+    def generate_spatial_data(
+        shape: Tuple[int, int] = (20, 30),
+        spatial_correlation: bool = True,
+        seed: int = 42,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Generate spatially correlated data.
-        
+
         Parameters
         ----------
         shape : tuple
@@ -125,7 +142,7 @@ class TestDataGenerator:
             Whether to add spatial correlation
         seed : int
             Random seed
-            
+
         Returns
         -------
         tuple
@@ -139,6 +156,7 @@ class TestDataGenerator:
         if spatial_correlation:
             # Add spatial smoothing to create correlation
             from scipy.ndimage import gaussian_filter
+
             obs_grid = gaussian_filter(obs_grid, sigma=2)
 
         # Add noise for model data
@@ -147,10 +165,12 @@ class TestDataGenerator:
         return obs_grid, mod_grid
 
 
-def assert_statistical_property(value: Any, expected_value: Any, tolerance: float = 1e-10, name: str = "statistic") -> None:
+def assert_statistical_property(
+    value: Any, expected_value: Any, tolerance: float = 1e-10, name: str = "statistic"
+) -> None:
     """
     Assert that a statistical property is within tolerance of expected value.
-    
+
     Parameters
     ----------
     value : float or array
@@ -161,7 +181,7 @@ def assert_statistical_property(value: Any, expected_value: Any, tolerance: floa
         Absolute tolerance
     name : str
         Name of statistic for error message
-        
+
     Raises
     ------
     AssertionError
@@ -205,10 +225,16 @@ def check_array_shapes(*arrays: ArrayLike, name: str = "arrays") -> None:
         raise AssertionError(f"{name} have incompatible shapes: {shapes}")
 
 
-def validate_metric_output(metric_func: Callable, obs: ArrayLike, mod: ArrayLike, expected_type: Any = None, **kwargs: Any) -> Any:
+def validate_metric_output(
+    metric_func: Callable,
+    obs: ArrayLike,
+    mod: ArrayLike,
+    expected_type: Any = None,
+    **kwargs: Any,
+) -> Any:
     """
     Validate output of a metric function.
-    
+
     Parameters
     ----------
     metric_func : callable
@@ -221,12 +247,12 @@ def validate_metric_output(metric_func: Callable, obs: ArrayLike, mod: ArrayLike
         Expected return type
     **kwargs
         Additional arguments for metric function
-        
+
     Returns
     -------
     result
         Result of metric function
-        
+
     Raises
     ------
     AssertionError
@@ -243,7 +269,9 @@ def validate_metric_output(metric_func: Callable, obs: ArrayLike, mod: ArrayLike
 
     # Check return type
     if expected_type is not None and not isinstance(result, expected_type):
-        raise AssertionError(f"Expected return type {expected_type}, got {type(result)}")
+        raise AssertionError(
+            f"Expected return type {expected_type}, got {type(result)}"
+        )
 
     # Check for NaN/inf values
     if np.any(np.isnan(result)) or np.any(np.isinf(result)):
@@ -262,7 +290,7 @@ class MetricTester:
 
     def test_perfect_agreement(self) -> Any:
         """Test metric with perfectly agreeing data."""
-        obs, mod = self.data_gen.generate_perfect_relationship(relationship='linear')
+        obs, mod = self.data_gen.generate_perfect_relationship(relationship="linear")
         result = validate_metric_output(self.metric_func, obs, mod)
         return result
 

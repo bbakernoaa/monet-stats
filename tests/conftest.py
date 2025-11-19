@@ -1,11 +1,13 @@
 """
 Global pytest configuration and fixtures for monet-stats testing framework.
 """
+
+from typing import Any, Dict, Tuple
+
 import numpy as np
 import pytest
 import xarray as xr
 from hypothesis import HealthCheck, settings
-from typing import Any, Dict, Tuple
 
 # Configure hypothesis settings for better test performance
 settings.register_profile(
@@ -38,12 +40,7 @@ def small_test_data(random_seed: int) -> Dict[str, Any]:
     obs = np.random.normal(10, 2, n_obs)
     mod = obs + np.random.normal(0, 0.5, n_mod)  # Model slightly biased
 
-    return {
-        'obs': obs,
-        'mod': mod,
-        'n_obs': n_obs,
-        'n_mod': n_mod
-    }
+    return {"obs": obs, "mod": mod, "n_obs": n_obs, "n_mod": n_mod}
 
 
 @pytest.fixture(scope="session")
@@ -66,13 +63,13 @@ def medium_test_data(random_seed: int) -> Dict[str, Any]:
     mod_ts = obs_ts + np.random.normal(0, 0.1, 100)
 
     return {
-        'obs_2d': obs_2d,
-        'mod_2d': mod_2d,
-        'obs_ts': obs_ts,
-        'mod_ts': mod_ts,
-        'X': X,
-        'Y': Y,
-        'time': time
+        "obs_2d": obs_2d,
+        "mod_2d": mod_2d,
+        "obs_ts": obs_ts,
+        "mod_ts": mod_ts,
+        "X": X,
+        "Y": Y,
+        "time": time,
     }
 
 
@@ -92,25 +89,19 @@ def xarray_test_data(random_seed: int) -> Dict[str, Any]:
 
     obs_da = xr.DataArray(
         obs_data,
-        coords={'time': time, 'lat': lat, 'lon': lon},
-        dims=['time', 'lat', 'lon'],
-        name='observation'
+        coords={"time": time, "lat": lat, "lon": lon},
+        dims=["time", "lat", "lon"],
+        name="observation",
     )
 
     mod_da = xr.DataArray(
         mod_data,
-        coords={'time': time, 'lat': lat, 'lon': lon},
-        dims=['time', 'lat', 'lon'],
-        name='model'
+        coords={"time": time, "lat": lat, "lon": lon},
+        dims=["time", "lat", "lon"],
+        name="model",
     )
 
-    return {
-        'obs': obs_da,
-        'mod': mod_da,
-        'lat': lat,
-        'lon': lon,
-        'time': time
-    }
+    return {"obs": obs_da, "mod": mod_da, "lat": lat, "lon": lon, "time": time}
 
 
 @pytest.fixture
@@ -134,13 +125,13 @@ def no_correlation_data() -> Tuple[np.ndarray, np.ndarray]:
 def edge_case_data() -> Dict[str, np.ndarray]:
     """Generate edge case datasets."""
     return {
-        'zeros': np.zeros(50),
-        'constants': np.ones(50) * 5,
-        'nans': np.full(50, np.nan),
-        'mixed': np.array([1, 2, np.nan, 4, 5, np.inf, 7, 8, -np.inf, 10]),
-        'empty': np.array([]),
-        'single': np.array([42]),
-        'two_values': np.array([1, 2])
+        "zeros": np.zeros(50),
+        "constants": np.ones(50) * 5,
+        "nans": np.full(50, np.nan),
+        "mixed": np.array([1, 2, np.nan, 4, 5, np.inf, 7, 8, -np.inf, 10]),
+        "empty": np.array([]),
+        "single": np.array([42]),
+        "two_values": np.array([1, 2]),
     }
 
 
@@ -158,10 +149,10 @@ def contingency_table_data() -> Dict[str, np.ndarray]:
     mod_binary = np.array([1, 1, 1, 0, 0, 1, 1, 0, 1, 1])
 
     return {
-        'table_2x2': table_2x2,
-        'table_3x3': table_3x3,
-        'obs_binary': obs_binary,
-        'mod_binary': mod_binary
+        "table_2x2": table_2x2,
+        "table_3x3": table_3x3,
+        "obs_binary": obs_binary,
+        "mod_binary": mod_binary,
     }
 
 
@@ -171,15 +162,9 @@ def pytest_configure(config: Any) -> None:
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests"
-    )
-    config.addinivalue_line(
-        "markers", "unit: marks tests as unit tests"
-    )
-    config.addinivalue_line(
-        "markers", "edge_case: marks tests as edge case tests"
-    )
+    config.addinivalue_line("markers", "integration: marks tests as integration tests")
+    config.addinivalue_line("markers", "unit: marks tests as unit tests")
+    config.addinivalue_line("markers", "edge_case: marks tests as edge case tests")
     config.addinivalue_line(
         "markers", "performance: marks tests as performance benchmarks"
     )

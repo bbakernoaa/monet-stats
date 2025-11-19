@@ -9,21 +9,27 @@ import pandas as pd
 import xarray as xr
 
 
-def to_numpy(data: Union[np.ndarray, xr.DataArray, pd.Series, pd.DataFrame, list]) -> np.ndarray:
+def to_numpy(
+    data: Union[np.ndarray, xr.DataArray, pd.Series, pd.DataFrame, list],
+) -> np.ndarray:
     """
     Convert data to numpy array.
-    
+
     Parameters
     ----------
     data : array-like or xarray.DataArray or pandas Series/DataFrame or list
         Input data to convert.
-        
+
     Returns
     -------
     numpy.ndarray
         Converted numpy array.
     """
-    if isinstance(data, xr.DataArray) or isinstance(data, pd.Series) or isinstance(data, pd.DataFrame):
+    if (
+        isinstance(data, xr.DataArray)
+        or isinstance(data, pd.Series)
+        or isinstance(data, pd.DataFrame)
+    ):
         return np.asarray(data.values)
     elif isinstance(data, list):
         return np.array(data)
@@ -31,18 +37,19 @@ def to_numpy(data: Union[np.ndarray, xr.DataArray, pd.Series, pd.DataFrame, list
         return np.asarray(data)
 
 
-def align_arrays(obs: Union[np.ndarray, xr.DataArray],
-                mod: Union[np.ndarray, xr.DataArray]) -> Tuple:
+def align_arrays(
+    obs: Union[np.ndarray, xr.DataArray], mod: Union[np.ndarray, xr.DataArray]
+) -> Tuple:
     """
     Align two arrays for comparison.
-    
+
     Parameters
     ----------
     obs : array-like or xarray.DataArray
         Observed values.
     mod : array-like or xarray.DataArray
         Model/predicted values.
-        
+
     Returns
     -------
     tuple
@@ -57,16 +64,19 @@ def align_arrays(obs: Union[np.ndarray, xr.DataArray],
         mod = to_numpy(mod)
 
         if obs.shape != mod.shape:
-            raise ValueError(f"Arrays must have the same shape, got {obs.shape} and {mod.shape}")
+            raise ValueError(
+                f"Arrays must have the same shape, got {obs.shape} and {mod.shape}"
+            )
 
         return obs, mod
 
 
-def handle_missing_values(obs: np.ndarray, mod: np.ndarray,
-                         strategy: str = "pairwise") -> Tuple[np.ndarray, np.ndarray]:
+def handle_missing_values(
+    obs: np.ndarray, mod: np.ndarray, strategy: str = "pairwise"
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Handle missing values in arrays.
-    
+
     Parameters
     ----------
     obs : numpy.ndarray
@@ -75,7 +85,7 @@ def handle_missing_values(obs: np.ndarray, mod: np.ndarray,
         Model/predicted values.
     strategy : str, optional
         Strategy for handling missing values ('pairwise', 'listwise').
-        
+
     Returns
     -------
     tuple of numpy.ndarray
@@ -93,12 +103,14 @@ def handle_missing_values(obs: np.ndarray, mod: np.ndarray,
         raise ValueError(f"Unknown strategy: {strategy}")
 
 
-def normalize_data(obs: Union[np.ndarray, xr.DataArray],
-                  mod: Union[np.ndarray, xr.DataArray],
-                  method: str = "zscore") -> Tuple:
+def normalize_data(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    method: str = "zscore",
+) -> Tuple:
     """
     Normalize data using various methods.
-    
+
     Parameters
     ----------
     obs : array-like or xarray.DataArray
@@ -107,7 +119,7 @@ def normalize_data(obs: Union[np.ndarray, xr.DataArray],
         Model/predicted values.
     method : str, optional
         Normalization method ('zscore', 'minmax', 'robust').
-        
+
     Returns
     -------
     tuple
@@ -175,12 +187,14 @@ def normalize_data(obs: Union[np.ndarray, xr.DataArray],
     return obs_norm, mod_norm
 
 
-def detrend_data(obs: Union[np.ndarray, xr.DataArray],
-                mod: Union[np.ndarray, xr.DataArray],
-                method: str = "linear") -> Tuple:
+def detrend_data(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    method: str = "linear",
+) -> Tuple:
     """
     Remove trend from data.
-    
+
     Parameters
     ----------
     obs : array-like or xarray.DataArray
@@ -189,7 +203,7 @@ def detrend_data(obs: Union[np.ndarray, xr.DataArray],
         Model/predicted values.
     method : str, optional
         Detrending method ('linear', 'constant').
-        
+
     Returns
     -------
     tuple
@@ -201,16 +215,22 @@ def detrend_data(obs: Union[np.ndarray, xr.DataArray],
         if isinstance(obs, xr.DataArray):
             # For xarray, use scipy's detrend function
             from scipy.signal import detrend
+
             # Simple approach: convert to numpy, detrend, then back to xarray
             obs_np = np.asarray(obs.values)
             mod_np = np.asarray(mod.values)
             obs_detrended = detrend(obs_np, axis=-1)
             mod_detrended = detrend(mod_np, axis=-1)
             # Convert back to xarray if original was xarray
-            obs_detrended = xr.DataArray(obs_detrended, coords=obs.coords, dims=obs.dims)
-            mod_detrended = xr.DataArray(mod_detrended, coords=mod.coords, dims=mod.dims)
+            obs_detrended = xr.DataArray(
+                obs_detrended, coords=obs.coords, dims=obs.dims
+            )
+            mod_detrended = xr.DataArray(
+                mod_detrended, coords=mod.coords, dims=mod.dims
+            )
         else:
             from scipy.signal import detrend
+
             obs_detrended = detrend(obs, axis=-1)
             mod_detrended = detrend(mod, axis=-1)
     elif method == "constant":
@@ -231,12 +251,14 @@ def detrend_data(obs: Union[np.ndarray, xr.DataArray],
     return obs_detrended, mod_detrended
 
 
-def compute_anomalies(obs: Union[np.ndarray, xr.DataArray],
-                     mod: Union[np.ndarray, xr.DataArray],
-                     reference_period: Optional[Tuple[int, int]] = None) -> Tuple:
+def compute_anomalies(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    reference_period: Optional[Tuple[int, int]] = None,
+) -> Tuple:
     """
     Compute anomalies relative to a reference period.
-    
+
     Parameters
     ----------
     obs : array-like or xarray.DataArray
@@ -245,7 +267,7 @@ def compute_anomalies(obs: Union[np.ndarray, xr.DataArray],
         Model/predicted values.
     reference_period : tuple of int, optional
         Reference period as (start_year, end_year) for computing climatology.
-        
+
     Returns
     -------
     tuple

@@ -5,36 +5,42 @@ This directory contains comprehensive Jupyter notebooks demonstrating the usage 
 ## Available Notebooks
 
 ### 1. Basic Statistical Analysis ([`01_basic_statistical_analysis.ipynb`](01_basic_statistical_analysis.ipynb))
+
 - **Focus**: Introduction to core statistical metrics and workflows
 - **Topics**: Error metrics, skill scores, correlation analysis, visualization
 - **Data**: Temperature datasets with station-wise analysis
 - **Level**: Beginner
 
 ### 2. Model-Observation Comparison ([`02_model_observation_comparison.ipynb`](02_model_observation_comparison.ipynb))
+
 - **Focus**: Comprehensive model verification techniques
 - **Topics**: Multi-variable analysis (temperature, precipitation, wind), performance by variable range, seasonal analysis
 - **Data**: Temperature, precipitation, and wind datasets
 - **Level**: Intermediate
 
 ### 3. Spatial Analysis and Downscaling ([`03_spatial_analysis_downscaling.ipynb`](03_spatial_analysis_downscaling.ipynb))
+
 - **Focus**: Spatial verification and downscaling workflows
 - **Topics**: Spatial correlation, pattern verification, grid-scale analysis
 - **Data**: Spatial temperature fields with xarray integration
 - **Level**: Advanced
 
 ### 4. Ensemble Analysis and Multi-Model Evaluation ([`04_ensemble_analysis_multi_model.ipynb`](04_ensemble_analysis_multi_model.ipynb))
+
 - **Focus**: Ensemble forecasting and multi-model integration
 - **Topics**: Ensemble statistics, probabilistic verification, member ranking
 - **Data**: Ensemble forecast data with multiple members
 - **Level**: Advanced
 
 ### 5. Performance Optimization for Large Datasets ([`05_performance_optimization_large_datasets.ipynb`](05_performance_optimization_large_datasets.ipynb))
+
 - **Focus**: Efficient computation for large-scale atmospheric data
 - **Topics**: Chunked processing, parallel computing, memory optimization
 - **Data**: Synthetic large datasets for performance testing
 - **Level**: Advanced
 
 ### 6. Integration Examples ([`06_integration_examples.ipynb`](06_integration_examples.ipynb))
+
 - **Focus**: Holistic analysis combining multiple metrics and techniques
 - **Topics**: Multi-dataset integration, machine learning integration, comprehensive dashboards
 - **Data**: Combined temperature, precipitation, wind, and spatial data
@@ -43,12 +49,14 @@ This directory contains comprehensive Jupyter notebooks demonstrating the usage 
 ## Getting Started
 
 1. **Prerequisites**: Ensure you have Monet Stats installed with all dependencies:
+
    ```bash
    pip install monet-stats
    pip install matplotlib seaborn pandas numpy xarray scikit-learn psutil
    ```
 
 2. **Example Datasets**: The notebooks use example datasets generated in the `data/` directory. Run:
+
    ```bash
    cd data
    python generate_example_datasets.py
@@ -73,6 +81,7 @@ Each notebook follows a consistent structure:
 ## Key Features Demonstrated
 
 ### Statistical Metrics
+
 - Error metrics (MAE, RMSE, MBE, MAPE, MPE)
 - Correlation metrics (Pearson, Spearman, R²)
 - Skill scores (NSE, mNSE, rNSE, NSEm)
@@ -80,6 +89,7 @@ Each notebook follows a consistent structure:
 - Spatial verification metrics
 
 ### Advanced Techniques
+
 - Ensemble analysis and verification
 - Probabilistic forecasting evaluation
 - Machine learning integration
@@ -87,6 +97,7 @@ Each notebook follows a consistent structure:
 - Multi-variable integration workflows
 
 ### Visualization
+
 - Comprehensive performance dashboards
 - Time series analysis plots
 - Spatial distribution maps
@@ -115,6 +126,7 @@ We welcome contributions to improve these notebooks! Please:
 ## Support
 
 For questions or issues:
+
 - Check the [Monet Stats documentation](../docs/)
 - Review existing issues on GitHub
 - Create a new issue with detailed description
@@ -122,4 +134,4 @@ For questions or issues:
 
 ---
 
-*These notebooks provide practical examples and workflows for using Monet Stats in atmospheric sciences research and applications.*
+_These notebooks provide practical examples and workflows for using Monet Stats in atmospheric sciences research and applications._

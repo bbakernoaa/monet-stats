@@ -47,7 +47,7 @@ mae = ms.MAE(observed_temps, model_temps)
 mb = ms.MB(observed_temps, model_temps)
 
 print(f"RMSE: {rmse:.3f}°C")
-print(f"MAE: {mae:.3f}°C") 
+print(f"MAE: {mae:.3f}°C")
 print(f"Mean Bias: {mb:.3f}°C")
 ```
 
@@ -265,25 +265,25 @@ print(f"  Circular Bias: {circular_bias:.1f}°")
 ```python
 def comprehensive_analysis(obs, mod):
     """Perform comprehensive statistical analysis"""
-    
+
     metrics = {
         # Error metrics
         'RMSE': ms.RMSE(obs, mod),
         'MAE': ms.MAE(obs, mod),
         'Mean Bias': ms.MB(obs, mod),
         'Normalized Mean Bias': ms.NMB(obs, mod),
-        
+
         # Skill scores
         'R²': ms.R2(obs, mod),
         'NSE': ms.NSE(obs, mod),
         'Index of Agreement': ms.IOA(obs, mod),
         'Kling-Gupta Efficiency': ms.KGE(obs, mod),
-        
+
         # Relative metrics
         'Mean Percentage Error': ms.MPE(obs, mod),
         'Normalized Mean Error': ms.NME(obs, mod)
     }
-    
+
     return metrics
 
 # Run comprehensive analysis
@@ -317,7 +317,7 @@ import matplotlib.pyplot as plt
 plt.figure(figsize=(8, 6))
 plt.scatter(observed_temps, model_temps, alpha=0.6, s=50)
 plt.plot([observed_temps.min(), observed_temps.max()],
-         [observed_temps.min(), observed_temps.max()], 
+         [observed_temps.min(), observed_temps.max()],
          'r--', lw=2, label='Perfect correlation')
 
 plt.xlabel('Observed Temperature (°C)')
@@ -342,21 +342,25 @@ Now that you've learned the basics:
 ## Tips for Best Practices
 
 ### Data Preparation
+
 - Always check for data quality and missing values
 - Ensure temporal/spatial alignment between observations and model data
 - Consider data preprocessing (normalization, transformation)
 
 ### Metric Selection
+
 - Use multiple complementary metrics for comprehensive evaluation
 - Consider the specific application when choosing metrics
 - Skill scores are often more interpretable than raw error metrics
 
 ### Performance Optimization
+
 - For large datasets, consider chunked processing
 - Use NumPy arrays for best performance
 - Leverage xarray for multidimensional data
 
 ### Documentation
+
 - Always document your analysis methods
 - Include units and metadata with your data
 - Consider reproducibility when setting up analysis pipelines

@@ -1,6 +1,7 @@
 """
 Tests for performance.py module.
 """
+
 import numpy as np
 
 from src.monet_stats.performance import (
@@ -29,8 +30,9 @@ class TestPerformance:
 
     def test_vectorize_function(self):
         """Test that vectorize_function applies a function to an array."""
+
         def square(x):
-            return x ** 2
+            return x**2
 
         arr = np.array([1, 2, 3])
         result = vectorize_function(square, arr)
@@ -61,11 +63,11 @@ class TestPerformance:
         obs = np.array([1, 2, 3])
         mod = np.array([1, 2, 4])
         result = fast_rmse(obs, mod)
-        assert np.isclose(result, np.sqrt(1/3))
+        assert np.isclose(result, np.sqrt(1 / 3))
 
     def test_fast_mae(self):
         """Test fast_mae."""
         obs = np.array([1, 2, 3])
         mod = np.array([1, 2, 4])
         result = fast_mae(obs, mod)
-        assert np.isclose(result, 1/3)
+        assert np.isclose(result, 1 / 3)

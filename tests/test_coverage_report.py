@@ -2,6 +2,7 @@
 Comprehensive test coverage report and analysis.
 Provides detailed coverage information and identifies gaps.
 """
+
 import subprocess
 import sys
 from pathlib import Path
@@ -14,16 +15,24 @@ def generate_coverage_report():
 
     # Run coverage analysis
     try:
-        result = subprocess.run([
-            sys.executable, "-m", "pytest",
-            "tests/",
-            "--cov=src/monet_stats",
-            "--cov-report=term-missing",
-            "--cov-report=html:htmlcov",
-            "--cov-report=xml",
-            "--cov-fail-under=0",  # Don't fail for low coverage
-            "-q"
-        ], check=False, capture_output=True, text=True, cwd=Path(__file__).parent.parent)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/",
+                "--cov=src/monet_stats",
+                "--cov-report=term-missing",
+                "--cov-report=html:htmlcov",
+                "--cov-report=xml",
+                "--cov-fail-under=0",  # Don't fail for low coverage
+                "-q",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent,
+        )
 
         print("COVERAGE ANALYSIS OUTPUT:")
         print("=" * 50)
@@ -36,7 +45,7 @@ def generate_coverage_report():
 
         # Parse coverage percentage
         if "TOTAL" in result.stdout:
-            lines = result.stdout.split('\n')
+            lines = result.stdout.split("\n")
             for line in lines:
                 if "TOTAL" in line:
                     parts = line.split()
@@ -60,7 +69,7 @@ def generate_coverage_report():
         "efficiency_metrics",
         "relative_metrics",
         "spatial_ensemble_metrics",
-        "utils_stats"
+        "utils_stats",
     ]
 
     for module in modules:
@@ -97,7 +106,7 @@ def validate_test_structure():
         "test_comprehensive_integration.py",
         "test_edge_cases.py",
         "test_regression_validation.py",
-        "test_utils.py"
+        "test_utils.py",
     ]
 
     base_path = Path(__file__).parent
@@ -114,26 +123,44 @@ def validate_test_structure():
 
     # Test that key tests can run
     test_commands = [
-        ["test_property_based.py::TestMathematicalProperties::test_error_metrics_non_negative"],
-        ["test_comprehensive_integration.py::TestModuleInteractions::test_error_correlation_consistency"],
+        [
+            "test_property_based.py::TestMathematicalProperties::test_error_metrics_non_negative"
+        ],
+        [
+            "test_comprehensive_integration.py::TestModuleInteractions::test_error_correlation_consistency"
+        ],
         ["test_edge_cases.py::TestEdgeCases::test_single_value_arrays"],
-        ["test_regression_validation.py::TestKnownValues::test_simple_linear_relationship"]
+        [
+            "test_regression_validation.py::TestKnownValues::test_simple_linear_relationship"
+        ],
     ]
 
     for command in test_commands:
         try:
-            result = subprocess.run([
-                sys.executable, "-m", "pytest",
-                f"tests/{command[0]}",
-                "-v", "--tb=short", "--no-cov"
-            ], check=False, capture_output=True, text=True, cwd=base_path.parent)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    f"tests/{command[0]}",
+                    "-v",
+                    "--tb=short",
+                    "--no-cov",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=base_path.parent,
+            )
 
             if result.returncode == 0:
                 print(f"✓ {command[0]} - PASSED")
             else:
                 print(f"✗ {command[0]} - FAILED")
                 if "error" in result.stdout.lower():
-                    print(f"  Error: {result.stdout.split('ERROR:')[1].split('===')[0].strip()}")
+                    print(
+                        f"  Error: {result.stdout.split('ERROR:')[1].split('===')[0].strip()}"
+                    )
         except Exception as e:
             print(f"✗ {command[0]} - EXCEPTION: {e}")
 
@@ -152,7 +179,7 @@ def analyze_test_quality():
         "Performance Tests": "✓ Benchmark framework established",
         "Error Handling": "✓ Exception handling tests included",
         "Data Format Tests": "✓ Multiple data format compatibility tested",
-        "API Consistency": "✓ Cross-module API validation implemented"
+        "API Consistency": "✓ Cross-module API validation implemented",
     }
 
     for aspect, status in quality_metrics.items():

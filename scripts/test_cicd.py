@@ -20,10 +20,11 @@ def run_command(cmd: Union[str, List[str]], description: str) -> bool:
     try:
         result = subprocess.run(
             cmd,
-            check=False, shell=isinstance(cmd, str),
+            check=False,
+            shell=isinstance(cmd, str),
             capture_output=True,
             text=True,
-            cwd=Path(__file__).parent.parent
+            cwd=Path(__file__).parent.parent,
         )
 
         if result.returncode == 0:
@@ -49,7 +50,15 @@ def main() -> int:
         (["black", "--check", "src/", "tests/"], "Black Formatting"),
         (["isort", "--check-only", "src/", "tests/"], "Import Sorting"),
         (["mypy", "src/", "tests/"], "MyPy Type Checking"),
-        (["pytest", "--cov=src/monet_stats", "--cov-report=term-missing", "--cov-fail-under=95"], "Pytest Coverage"),
+        (
+            [
+                "pytest",
+                "--cov=src/monet_stats",
+                "--cov-report=term-missing",
+                "--cov-fail-under=95",
+            ],
+            "Pytest Coverage",
+        ),
     ]
 
     all_passed = True

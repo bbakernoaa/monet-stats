@@ -19,12 +19,15 @@ class PluginInterface(ABC):
         """Return the name of the metric."""
 
     @abstractmethod
-    def compute(self, obs: Union[np.ndarray, xr.DataArray],
-                mod: Union[np.ndarray, xr.DataArray],
-                **kwargs) -> Union[float, np.ndarray, xr.DataArray]:
+    def compute(
+        self,
+        obs: Union[np.ndarray, xr.DataArray],
+        mod: Union[np.ndarray, xr.DataArray],
+        **kwargs,
+    ) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute the custom metric.
-        
+
         Parameters
         ----------
         obs : array-like or xarray.DataArray
@@ -33,7 +36,7 @@ class PluginInterface(ABC):
             Model/predicted values.
         **kwargs : dict
             Additional parameters.
-            
+
         Returns
         -------
         float or array-like or xarray.DataArray
@@ -45,12 +48,15 @@ class PluginInterface(ABC):
         """Return the description of the metric."""
 
     @abstractmethod
-    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray],
-                       mod: Union[np.ndarray, xr.DataArray],
-                       **kwargs) -> bool:
+    def validate_inputs(
+        self,
+        obs: Union[np.ndarray, xr.DataArray],
+        mod: Union[np.ndarray, xr.DataArray],
+        **kwargs,
+    ) -> bool:
         """
         Validate inputs for the metric.
-        
+
         Parameters
         ----------
         obs : array-like or xarray.DataArray
@@ -59,7 +65,7 @@ class PluginInterface(ABC):
             Model/predicted values.
         **kwargs : dict
             Additional parameters.
-            
+
         Returns
         -------
         bool
@@ -78,7 +84,7 @@ class PluginManager:
     def register_plugin(self, plugin: PluginInterface) -> None:
         """
         Register a plugin.
-        
+
         Parameters
         ----------
         plugin : PluginInterface
@@ -89,7 +95,7 @@ class PluginManager:
     def unregister_plugin(self, name: str) -> None:
         """
         Unregister a plugin by name.
-        
+
         Parameters
         ----------
         name : str
@@ -101,12 +107,12 @@ class PluginManager:
     def get_plugin(self, name: str) -> Optional[PluginInterface]:
         """
         Get a registered plugin by name.
-        
+
         Parameters
         ----------
         name : str
             Name of the plugin to retrieve.
-            
+
         Returns
         -------
         PluginInterface or None
@@ -117,7 +123,7 @@ class PluginManager:
     def list_plugins(self) -> List[str]:
         """
         List all registered plugin names.
-        
+
         Returns
         -------
         list of str
@@ -125,12 +131,16 @@ class PluginManager:
         """
         return list(self._plugins.keys())
 
-    def compute_metric(self, name: str, obs: Union[np.ndarray, xr.DataArray],
-                      mod: Union[np.ndarray, xr.DataArray],
-                      **kwargs) -> Union[float, np.ndarray, xr.DataArray]:
+    def compute_metric(
+        self,
+        name: str,
+        obs: Union[np.ndarray, xr.DataArray],
+        mod: Union[np.ndarray, xr.DataArray],
+        **kwargs,
+    ) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute a metric using a registered plugin.
-        
+
         Parameters
         ----------
         name : str
@@ -141,7 +151,7 @@ class PluginManager:
             Model/predicted values.
         **kwargs : dict
             Additional parameters for the metric.
-            
+
         Returns
         -------
         float or array-like or xarray.DataArray
@@ -173,9 +183,12 @@ class CustomMetric(PluginInterface):
     def description(self) -> str:
         return self._description
 
-    def compute(self, obs: Union[np.ndarray, xr.DataArray],
-                mod: Union[np.ndarray, xr.DataArray],
-                **kwargs) -> Union[float, np.ndarray, xr.DataArray]:
+    def compute(
+        self,
+        obs: Union[np.ndarray, xr.DataArray],
+        mod: Union[np.ndarray, xr.DataArray],
+        **kwargs,
+    ) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute the custom metric using the provided function.
         """
@@ -184,25 +197,34 @@ class CustomMetric(PluginInterface):
         except ImportError:
             xr = None
 
-        if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        if (
+            xr is not None
+            and isinstance(obs, xr.DataArray)
+            and isinstance(mod, xr.DataArray)
+        ):
             obs, mod = xr.align(obs, mod, join="inner")
             return self._func(obs, mod, **kwargs)
         else:
             return self._func(obs, mod, **kwargs)
 
-    def validate_inputs(self, obs: Union[np.ndarray, xr.DataArray],
-                       mod: Union[np.ndarray, xr.DataArray],
-                       **kwargs) -> bool:
+    def validate_inputs(
+        self,
+        obs: Union[np.ndarray, xr.DataArray],
+        mod: Union[np.ndarray, xr.DataArray],
+        **kwargs,
+    ) -> bool:
         """
         Validate inputs for the custom metric.
         """
         # Check if inputs are arrays or xarray DataArrays
-        if not (isinstance(obs, (np.ndarray, xr.DataArray)) and
-                isinstance(mod, (np.ndarray, xr.DataArray))):
+        if not (
+            isinstance(obs, (np.ndarray, xr.DataArray))
+            and isinstance(mod, (np.ndarray, xr.DataArray))
+        ):
             return False
 
         # Check if shapes match
-        if hasattr(obs, 'shape') and hasattr(mod, 'shape'):
+        if hasattr(obs, "shape") and hasattr(mod, "shape"):
             if obs.shape != mod.shape:
                 return False
 
@@ -217,13 +239,18 @@ class ExampleMetrics:
     @staticmethod
     def wmape_plugin():
         """Weighted Mean Absolute Percentage Error (WMAPE) as a plugin."""
+
         def wmape_func(obs, mod, axis=None):
             try:
                 import xarray as xr
             except ImportError:
                 xr = None
 
-            if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+            if (
+                xr is not None
+                and isinstance(obs, xr.DataArray)
+                and isinstance(mod, xr.DataArray)
+            ):
                 obs, mod = xr.align(obs, mod, join="inner")
                 numerator = (abs(mod - obs)).sum(dim=axis)
                 denominator = (abs(obs)).sum(dim=axis)
@@ -236,39 +263,48 @@ class ExampleMetrics:
         return CustomMetric(
             name="WMAPE",
             description="Weighted Mean Absolute Percentage Error",
-            func=wmape_func
+            func=wmape_func,
         )
 
     @staticmethod
     def mape_bias_plugin():
         """MAPE Bias as a plugin."""
+
         def mape_bias_func(obs, mod, axis=None):
             try:
                 import xarray as xr
             except ImportError:
                 xr = None
 
-            if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+            if (
+                xr is not None
+                and isinstance(obs, xr.DataArray)
+                and isinstance(mod, xr.DataArray)
+            ):
                 obs, mod = xr.align(obs, mod, join="inner")
-                positive_errors = ((mod >= obs) * abs(mod - obs) / abs(obs)).mean(dim=axis)
-                negative_errors = ((mod < obs) * abs(mod - obs) / abs(obs)).mean(dim=axis)
+                positive_errors = ((mod >= obs) * abs(mod - obs) / abs(obs)).mean(
+                    dim=axis
+                )
+                negative_errors = ((mod < obs) * abs(mod - obs) / abs(obs)).mean(
+                    dim=axis
+                )
                 return positive_errors - negative_errors
             else:
                 positive_mask = mod >= obs
                 positive_errors = np.mean(
                     np.where(positive_mask, np.abs(mod - obs) / np.abs(obs), 0),
-                    axis=axis
+                    axis=axis,
                 )
                 negative_errors = np.mean(
                     np.where(~positive_mask, np.abs(mod - obs) / np.abs(obs), 0),
-                    axis=axis
+                    axis=axis,
                 )
                 return positive_errors - negative_errors
 
         return CustomMetric(
             name="MAPE_Bias",
             description="MAPE Bias - difference between positive and negative percentage errors",
-            func=mape_bias_func
+            func=mape_bias_func,
         )
 
 

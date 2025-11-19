@@ -1,6 +1,7 @@
 """
 Tests for data_processing.py module.
 """
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -33,7 +34,7 @@ class TestDataProcessing:
         assert isinstance(to_numpy(data_pd_series), np.ndarray)
 
         # Test with pandas DataFrame
-        data_pd_df = pd.DataFrame({'a': [1, 2, 3]})
+        data_pd_df = pd.DataFrame({"a": [1, 2, 3]})
         assert isinstance(to_numpy(data_pd_df), np.ndarray)
 
         # Test with list
@@ -50,8 +51,8 @@ class TestDataProcessing:
         assert np.array_equal(mod_aligned, mod_np)
 
         # Test with xarray DataArrays
-        obs_xr = xr.DataArray([1, 2, 3], dims=['time'], coords={'time': [0, 1, 2]})
-        mod_xr = xr.DataArray([4, 5, 6], dims=['time'], coords={'time': [1, 2, 3]})
+        obs_xr = xr.DataArray([1, 2, 3], dims=["time"], coords={"time": [0, 1, 2]})
+        mod_xr = xr.DataArray([4, 5, 6], dims=["time"], coords={"time": [1, 2, 3]})
         obs_aligned, mod_aligned = align_arrays(obs_xr, mod_xr)
         assert obs_aligned.shape == (2,)
         assert mod_aligned.shape == (2,)

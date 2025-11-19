@@ -31,6 +31,7 @@ pre-commit install
 ### Development Dependencies
 
 The development setup includes:
+
 - **Code Quality**: `black`, `flake8`, `isort`, `mypy`
 - **Testing**: `pytest`, `pytest-cov`, `hypothesis`
 - **Documentation**: `mkdocs`, `mkdocstrings`
@@ -41,6 +42,7 @@ The development setup includes:
 ### 1. Making Changes
 
 1. Create a new branch for your changes:
+
    ```bash
    git checkout -b feature/new-metric-name
    ```
@@ -50,6 +52,7 @@ The development setup includes:
 3. Write tests for new functionality
 
 4. Run tests to ensure everything works:
+
    ```bash
    pytest tests/ -v
    ```
@@ -62,6 +65,52 @@ The development setup includes:
    mypy src/
    ```
 
+### 6. Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality standards. The hooks run automatically before each commit to check code formatting, linting, and other quality checks.
+
+#### 6.1 Installing Pre-commit
+
+To install the pre-commit hooks, run:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+This will install the hooks in your local repository and they will run automatically on each commit.
+
+#### 6.2 Running Pre-commit Manually
+
+You can run the pre-commit hooks manually on all files:
+
+```bash
+pre-commit run --all-files
+```
+
+Or run on specific files:
+
+```bash
+pre-commit run --files file1.py file2.py
+```
+
+#### 6.3 Pre-commit Configuration
+
+The pre-commit configuration is defined in `.pre-commit-config.yaml` and includes:
+
+- **Black**: Code formatting following PEP 8 standards
+- **Isort**: Import organization and sorting
+- **Flake8**: Code linting
+- **Pycodestyle**: Additional style checks
+- **MyPy**: Static type checking
+- **Gitlint**: Commit message formatting
+- **Trailing whitespace removal**: Removes trailing whitespace
+- **End-of-file fixer**: Ensures files end with a newline
+- **Large file checker**: Prevents accidentally committing large files
+- **Merge conflict checker**: Detects merge conflict markers
+- **JSON/YAML validators**: Ensures configuration files are valid
+- **Debug statement checker**: Prevents committing debug statements
+
 ### 2. Adding New Metrics
 
 When adding a new statistical metric, follow these steps:
@@ -73,26 +122,26 @@ When adding a new statistical metric, follow these steps:
 import numpy as np
 from typing import Union
 
-def new_metric(obs: Union[np.ndarray, list], 
+def new_metric(obs: Union[np.ndarray, list],
                mod: Union[np.ndarray, list],
                **kwargs) -> float:
     """
     Calculate the new metric.
-    
+
     Parameters
     ----------
     obs : array-like
         Observed values
-    mod : array-like  
+    mod : array-like
         Modeled values
     **kwargs : dict
         Additional parameters
-        
+
     Returns
     -------
     float
         The calculated metric value
-        
+
     Raises
     ------
     ValueError
@@ -100,13 +149,13 @@ def new_metric(obs: Union[np.ndarray, list],
     """
     obs = np.asarray(obs)
     mod = np.asarray(mod)
-    
+
     if len(obs) != len(mod):
         raise ValueError("Observed and modeled arrays must have same length")
-    
+
     # Implementation goes here
     result = np.mean((obs - mod) ** 2)  # Example implementation
-    
+
     return float(result)
 ```
 
@@ -137,7 +186,7 @@ def test_new_metric_basic():
     """Test basic functionality of new_metric"""
     obs = [1, 2, 3, 4, 5]
     mod = [1.1, 2.1, 2.9, 4.1, 4.8]
-    
+
     result = new_metric(obs, mod)
     assert isinstance(result, float)
     assert result >= 0
@@ -146,7 +195,7 @@ def test_new_metric_nan_handling():
     """Test that new_metric handles NaN values correctly"""
     obs = [1, 2, np.nan, 4, 5]
     mod = [1.1, 2.1, 3.0, 4.1, 4.8]
-    
+
     result = new_metric(obs, mod)
     assert not np.isnan(result)
 
@@ -155,7 +204,7 @@ def test_new_metric_edge_cases():
     # Empty arrays
     with pytest.raises(ValueError):
         new_metric([], [])
-    
+
     # Different lengths
     with pytest.raises(ValueError):
         new_metric([1, 2], [1, 2, 3])
@@ -195,10 +244,10 @@ from monet_stats import new_metric
 def test_new_metric_properties(obs, mod):
     """Test mathematical properties of new_metric"""
     result = new_metric(obs, mod)
-    
+
     # Test non-negative result
     assert result >= 0
-    
+
     # Test symmetry (if applicable)
     if len(obs) == len(mod):
         result_swapped = new_metric(mod, obs)
@@ -227,19 +276,19 @@ Follow NumPy-style docstrings:
 def example_function(param1, param2=0):
     """
     Calculate example metric.
-    
+
     Parameters
     ----------
     param1 : array-like
         Description of param1
     param2 : float, optional
         Description of param2 (default: 0)
-        
+
     Returns
     -------
     float
         Description of return value
-        
+
     Raises
     ------
     ValueError
@@ -290,16 +339,16 @@ from monet_stats import new_metric
 def benchmark_new_metric():
     """Performance benchmark for new_metric"""
     sizes = [1000, 10000, 100000]
-    
+
     for size in sizes:
         obs = np.random.normal(20, 5, size)
         mod = obs + np.random.normal(0, 2, size)
-        
+
         time_taken = timeit.timeit(
             lambda: new_metric(obs, mod),
             number=100
         )
-        
+
         print(f"Size: {size}, Time: {time_taken:.4f}s per call")
 
 if __name__ == "__main__":
@@ -319,20 +368,24 @@ if __name__ == "__main__":
 
 ```markdown
 ## Description
+
 Brief description of changes made
 
 ## Changes Made
+
 - [ ] Added new metric `new_metric`
 - [ ] Updated documentation
 - [ ] Added tests
 - [ ] Fixed bug in existing function
 
 ## Testing
+
 - [ ] All tests pass
 - [ ] New functionality tested
 - [ ] Edge cases covered
 
 ## Checklist
+
 - [ ] Code follows style guidelines
 - [ ] Type hints included
 - [ ] Documentation updated
@@ -354,6 +407,7 @@ Brief description of changes made
 ### Version Bumping
 
 Follow semantic versioning:
+
 - **Patch**: Bug fixes (0.0.x)
 - **Minor**: New features (0.x.0)
 - **Major**: Breaking changes (x.0.0)

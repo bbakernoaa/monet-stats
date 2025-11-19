@@ -5,13 +5,16 @@ This guide covers the installation process, system requirements, and setup instr
 ## Requirements
 
 ### System Requirements
+
 - **Python**: 3.8 or higher
 - **Operating System**: Windows, macOS, or Linux
 - **Memory**: 512 MB minimum (2GB recommended for large datasets)
 - **Storage**: 100 MB for installation
 
 ### Software Dependencies
+
 Monet Stats requires the following Python packages:
+
 - **NumPy**: ≥1.19.0
 - **Pandas**: ≥1.3.0
 - **SciPy**: ≥1.7.0
@@ -45,6 +48,22 @@ pip install -e .
 
 # Install with all optional dependencies
 pip install -e ".[dev,test]"
+```
+
+### Pre-commit Hooks
+
+To maintain code quality standards, this project uses pre-commit hooks. After installing the development dependencies, install the pre-commit hooks:
+
+```bash
+pre-commit install
+```
+
+This will ensure code formatting, linting, and other quality checks run automatically before each commit.
+
+To run pre-commit checks manually on all files:
+
+```bash
+pre-commit run --all-files
 ```
 
 ### Option 3: Conda Installation
@@ -87,21 +106,25 @@ print(f"✓ Sample calculation - R²: {r2:.3f}, RMSE: {rmse:.3f}")
 ### For Advanced Features
 
 #### XArray Support
+
 ```bash
 pip install xarray dask netcdf4
 ```
 
 #### Enhanced Statistical Testing
+
 ```bash
 pip install statsmodels pingouin
 ```
 
 #### Parallel Processing
+
 ```bash
 pip install dask joblib
 ```
 
 #### Visualization
+
 ```bash
 pip install matplotlib seaborn plotly
 ```
@@ -127,7 +150,9 @@ pre-commit install
 ```
 
 ### Development Dependencies
+
 The `dev` extra includes:
+
 - **Code Quality**: black, flake8, isort, mypy
 - **Testing**: pytest, pytest-cov, hypothesis
 - **Documentation**: mkdocs, mkdocstrings
@@ -138,6 +163,7 @@ The `dev` extra includes:
 ### Environment Variables
 
 Set `MONET_STATS_CACHE_DIR` to control the cache location:
+
 ```bash
 export MONET_STATS_CACHE_DIR=/path/to/cache
 ```
@@ -166,6 +192,7 @@ scientific_notation = false
 ### Installation Problems
 
 #### Permission Issues
+
 ```bash
 # Use user installation
 pip install --user monet-stats
@@ -177,6 +204,7 @@ pip install monet-stats
 ```
 
 #### Version Conflicts
+
 ```bash
 # Upgrade pip
 pip install --upgrade pip
@@ -189,6 +217,7 @@ pip cache purge
 ```
 
 #### Missing Dependencies
+
 ```bash
 # Install specific versions
 pip install numpy==1.21.0 pandas==1.3.0
@@ -200,6 +229,7 @@ conda install numpy pandas scipy
 ### Runtime Issues
 
 #### ImportError: No module named 'monet_stats'
+
 ```bash
 # Verify installation
 pip show monet-stats
@@ -209,6 +239,7 @@ pip install --reinstall monet-stats
 ```
 
 #### Memory Issues with Large Datasets
+
 ```python
 import monet_stats
 import numpy as np
@@ -217,21 +248,22 @@ import numpy as np
 def process_in_chunks(obs, mod, chunk_size=10000):
     n = len(obs)
     results = []
-    
+
     for i in range(0, n, chunk_size):
         obs_chunk = obs[i:i+chunk_size]
         mod_chunk = mod[i:i+chunk_size]
-        
+
         # Calculate metrics for chunk
         r2 = monet_stats.R2(obs_chunk, mod_chunk)
         rmse = monet_stats.RMSE(obs_chunk, mod_chunk)
-        
+
         results.append({'R2': r2, 'RMSE': rmse})
-    
+
     return results
 ```
 
 #### XArray Compatibility
+
 ```python
 import monet_stats as ms
 import xarray as xr
@@ -252,6 +284,7 @@ r2 = ms.R2(obs_da, mod_da)  # Works with xarray
 ## Docker Installation
 
 ### Using Docker
+
 ```bash
 # Build the Docker image
 docker build -t monet-stats .
@@ -268,8 +301,9 @@ import numpy as np
 ```
 
 ### Docker Compose
+
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   monet-stats:
     build: .
@@ -283,6 +317,7 @@ services:
 ## Performance Optimization
 
 ### For Large Datasets
+
 ```python
 # Use NumPy arrays for best performance
 import numpy as np
@@ -300,6 +335,7 @@ results = batch_metrics(
 ```
 
 ### Parallel Processing
+
 ```python
 # Enable parallel processing (if available)
 import monet_stats

@@ -11,14 +11,14 @@ import xarray as xr
 def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     """
     Split array into chunks for memory-efficient processing.
-    
+
     Parameters
     ----------
     arr : numpy.ndarray
         Input array to chunk.
     chunk_size : int, optional
         Size of each chunk (number of elements).
-        
+
     Returns
     -------
     list
@@ -30,14 +30,14 @@ def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     num_elements = arr.size
     chunks = []
     for i in range(0, num_elements, chunk_size):
-        chunks.append(arr[i:i + chunk_size])
+        chunks.append(arr[i : i + chunk_size])  # noqa: E203
     return chunks
 
 
 def vectorize_function(func: Callable, *args, **kwargs) -> Any:
     """
     Apply function in a vectorized manner.
-    
+
     Parameters
     ----------
     func : callable
@@ -46,7 +46,7 @@ def vectorize_function(func: Callable, *args, **kwargs) -> Any:
         Arguments to pass to function.
     **kwargs : dict
         Keyword arguments to pass to function.
-        
+
     Returns
     -------
     result
@@ -55,11 +55,15 @@ def vectorize_function(func: Callable, *args, **kwargs) -> Any:
     return np.vectorize(func)(*args, **kwargs)
 
 
-def parallel_compute(func: Callable, data: Union[np.ndarray, xr.DataArray],
-                    chunk_size: int = 1000000, axis=None) -> Any:
+def parallel_compute(
+    func: Callable,
+    data: Union[np.ndarray, xr.DataArray],
+    chunk_size: int = 1000000,
+    axis=None,
+) -> Any:
     """
     Compute function in parallel using chunking strategy.
-    
+
     Parameters
     ----------
     func : callable
@@ -70,7 +74,7 @@ def parallel_compute(func: Callable, data: Union[np.ndarray, xr.DataArray],
         Size of data chunks for processing.
     axis : int, optional
         Axis along which to compute.
-        
+
     Returns
     -------
     result
@@ -96,11 +100,15 @@ def parallel_compute(func: Callable, data: Union[np.ndarray, xr.DataArray],
             return func(data, axis=axis)
 
 
-def optimize_for_size(func: Callable, obs: Union[np.ndarray, xr.DataArray],
-                     mod: Union[np.ndarray, xr.DataArray], axis=None) -> Any:
+def optimize_for_size(
+    func: Callable,
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis=None,
+) -> Any:
     """
     Optimize function computation based on data size.
-    
+
     Parameters
     ----------
     func : callable
@@ -111,14 +119,14 @@ def optimize_for_size(func: Callable, obs: Union[np.ndarray, xr.DataArray],
         Model values.
     axis : int, optional
         Axis along which to compute.
-        
+
     Returns
     -------
     result
         Optimized computation result.
     """
     # Check if data is large enough to warrant optimization
-    if hasattr(obs, 'size') and hasattr(mod, 'size'):
+    if hasattr(obs, "size") and hasattr(mod, "size"):
         max_size = max(obs.size, mod.size)
         if max_size > 100000:  # 100K elements
             # Use chunked processing for large arrays
@@ -132,7 +140,7 @@ def optimize_for_size(func: Callable, obs: Union[np.ndarray, xr.DataArray],
 def memory_efficient_correlation(x: np.ndarray, y: np.ndarray, axis=None) -> float:
     """
     Memory-efficient computation of Pearson correlation coefficient.
-    
+
     Parameters
     ----------
     x : numpy.ndarray
@@ -141,7 +149,7 @@ def memory_efficient_correlation(x: np.ndarray, y: np.ndarray, axis=None) -> flo
         Second variable.
     axis : int, optional
         Axis along which to compute correlation.
-        
+
     Returns
     -------
     float
@@ -166,12 +174,14 @@ def memory_efficient_correlation(x: np.ndarray, y: np.ndarray, axis=None) -> flo
     return correlation
 
 
-def fast_rmse(obs: Union[np.ndarray, xr.DataArray],
-              mod: Union[np.ndarray, xr.DataArray],
-              axis=None) -> Union[float, np.ndarray, xr.DataArray]:
+def fast_rmse(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis=None,
+) -> Union[float, np.ndarray, xr.DataArray]:
     """
     Fast computation of Root Mean Square Error.
-    
+
     Parameters
     ----------
     obs : array_like or xarray.DataArray
@@ -180,7 +190,7 @@ def fast_rmse(obs: Union[np.ndarray, xr.DataArray],
         Model or predicted values.
     axis : int, optional
         Axis along which to compute RMSE.
-        
+
     Returns
     -------
     rmse : float or ndarray or DataArray
@@ -191,19 +201,25 @@ def fast_rmse(obs: Union[np.ndarray, xr.DataArray],
     except ImportError:
         xr = None
 
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if (
+        xr is not None
+        and isinstance(obs, xr.DataArray)
+        and isinstance(mod, xr.DataArray)
+    ):
         obs, mod = xr.align(obs, mod, join="inner")
         return ((mod - obs) ** 2).mean(dim=axis) ** 0.5
     else:
         return np.sqrt(np.mean((mod - obs) ** 2, axis=axis))
 
 
-def fast_mae(obs: Union[np.ndarray, xr.DataArray],
-             mod: Union[np.ndarray, xr.DataArray],
-             axis=None) -> Any:
+def fast_mae(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis=None,
+) -> Any:
     """
     Fast computation of Mean Absolute Error.
-    
+
     Parameters
     ----------
     obs : array_like or xarray.DataArray
@@ -212,7 +228,7 @@ def fast_mae(obs: Union[np.ndarray, xr.DataArray],
         Model or predicted values.
     axis : int, optional
         Axis along which to compute MAE.
-        
+
     Returns
     -------
     mae : float or ndarray or DataArray
@@ -223,7 +239,11 @@ def fast_mae(obs: Union[np.ndarray, xr.DataArray],
     except ImportError:
         xr = None
 
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if (
+        xr is not None
+        and isinstance(obs, xr.DataArray)
+        and isinstance(mod, xr.DataArray)
+    ):
         obs, mod = xr.align(obs, mod, join="inner")
         return abs(mod - obs).mean(dim=axis)
     else:
