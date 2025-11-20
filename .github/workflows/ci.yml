@@ -80,7 +80,6 @@ jobs:
           path: dist/
 
   documentation:
-    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
