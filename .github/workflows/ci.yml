@@ -19,7 +19,6 @@ jobs:
       - uses: pre-commit/action@v3.0.1
 
   test:
-    needs: pre-commit
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -51,7 +50,7 @@ jobs:
           fail_ci_if_error: true
 
   build:
-    needs: test
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +80,7 @@ jobs:
           path: dist/
 
   documentation:
-    needs: test
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
