@@ -40,15 +40,9 @@ class TestKnownValues:
         rmse = root_mean_squared_error(x, expected_x)
         bias = mean_bias_error(x, expected_x)
 
-        assert (
-            abs(mae) < 1e-10
-        ), f"MAE should be zero for perfect relationship, got {mae}"
-        assert (
-            abs(rmse) < 1e-10
-        ), f"RMSE should be zero for perfect relationship, got {rmse}"
-        assert (
-            abs(bias) < 1e-10
-        ), f"Bias should be zero for perfect relationship, got {bias}"
+        assert abs(mae) < 1e-10, f"MAE should be zero for perfect relationship, got {mae}"
+        assert abs(rmse) < 1e-10, f"RMSE should be zero for perfect relationship, got {rmse}"
+        assert abs(bias) < 1e-10, f"Bias should be zero for perfect relationship, got {bias}"
 
         # Correlation should be 1.0
         corr = pearson_correlation(x, y)
@@ -76,9 +70,7 @@ class TestKnownValues:
 
         # Should have small but non-zero error
         mae_noisy = mean_absolute_error(x, y_noisy / 2)
-        assert (
-            0 < mae_noisy < 0.5
-        ), f"MAE with noise should be small but positive, got {mae_noisy}"
+        assert 0 < mae_noisy < 0.5, f"MAE with noise should be small but positive, got {mae_noisy}"
 
     def test_contingency_table_known_values(self):
         """Test contingency table metrics with known values."""
@@ -117,9 +109,7 @@ class TestMathematicalIdentities:
 
         # Test with various correlation levels
         for correlation in [0.0, 0.5, 0.8, 0.95]:
-            obs, mod = data_gen.generate_correlated_data(
-                n_samples=1000, correlation=correlation
-            )
+            obs, mod = data_gen.generate_correlated_data(n_samples=1000, correlation=correlation)
 
             mae = mean_absolute_error(obs, mod)
             rmse = root_mean_squared_error(obs, mod)
@@ -146,12 +136,8 @@ class TestMathematicalIdentities:
             r2 = coefficient_of_determination(obs, mod)
 
             # Check bounds
-            assert (
-                -1 <= pearson_r <= 1
-            ), f"Pearson correlation {pearson_r} outside [-1, 1]"
-            assert (
-                -1 <= spearman_r <= 1
-            ), f"Spearman correlation {spearman_r} outside [-1, 1]"
+            assert -1 <= pearson_r <= 1, f"Pearson correlation {pearson_r} outside [-1, 1]"
+            assert -1 <= spearman_r <= 1, f"Spearman correlation {spearman_r} outside [-1, 1]"
             assert 0 <= r2 <= 1, f"R² {r2} outside [0, 1]"
 
             # R² should equal Pearson correlation squared
@@ -172,18 +158,14 @@ class TestMathematicalIdentities:
         ]
 
         for correlation, description in scenarios:
-            obs, mod = data_gen.generate_correlated_data(
-                n_samples=1000, correlation=correlation
-            )
+            obs, mod = data_gen.generate_correlated_data(n_samples=1000, correlation=correlation)
 
             ioa = index_of_agreement(obs, mod)
             mioa = modified_index_of_agreement(obs, mod)
 
             # IOA should be in [0, 1]
             assert 0 <= ioa <= 1, f"IOA {ioa} outside [0, 1] for {description}"
-            assert (
-                0 <= mioa <= 1
-            ), f"Modified IOA {mioa} outside [0, 1] for {description}"
+            assert 0 <= mioa <= 1, f"Modified IOA {mioa} outside [0, 1] for {description}"
 
             # Higher correlation should generally give higher IOA
             if correlation > 0.5:
@@ -210,9 +192,7 @@ class TestMathematicalIdentities:
 
             # Check bounds
             assert 0 <= hr <= 1, f"Hit rate {hr} outside [0, 1] for {description}"
-            assert (
-                0 <= far <= 1
-            ), f"False alarm rate {far} outside [0, 1] for {description}"
+            assert 0 <= far <= 1, f"False alarm rate {far} outside [0, 1] for {description}"
             assert 0 <= csi <= 1, f"CSI {csi} outside [0, 1] for {description}"
             assert -1 / 3 <= ets <= 1, f"ETS {ets} outside [-1/3, 1] for {description}"
 
@@ -274,15 +254,11 @@ class TestErrorMetricConsistency:
 
         # Test relationships
         assert rmse >= mae, f"RMSE should be >= MAE: {rmse} vs {mae}"
-        assert (
-            abs(bias) <= rmse
-        ), f"Absolute bias should be <= RMSE: {abs(bias)} vs {rmse}"
+        assert abs(bias) <= rmse, f"Absolute bias should be <= RMSE: {abs(bias)} vs {rmse}"
 
         # For non-zero errors, RMSE should be > MAE (strict inequality)
         if mae > 1e-10:
-            assert (
-                rmse > mae
-            ), f"RMSE should be > MAE for non-uniform errors: {rmse} vs {mae}"
+            assert rmse > mae, f"RMSE should be > MAE for non-uniform errors: {rmse} vs {mae}"
 
     def test_normalized_metrics(self):
         """Test normalized error metrics."""
@@ -309,9 +285,7 @@ class TestReproducibility:
     def test_deterministic_results(self):
         """Test that metrics produce deterministic results."""
         data_gen = TestDataGenerator()
-        obs, mod = data_gen.generate_correlated_data(
-            n_samples=100, correlation=0.8, seed=42
-        )
+        obs, mod = data_gen.generate_correlated_data(n_samples=100, correlation=0.8, seed=42)
 
         # Compute metrics multiple times
         results = []

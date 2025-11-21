@@ -4,9 +4,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 
-def HSS(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+def HSS(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Heidke Skill Score (HSS)
 
@@ -53,9 +51,7 @@ def HSS(
         return np.nan
 
 
-def ETS(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+def ETS(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Equitable Threat Score (ETS)
 
@@ -105,9 +101,7 @@ def ETS(
         return np.nan
 
 
-def CSI(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+def CSI(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Critical Success Index (CSI)
 
@@ -153,9 +147,7 @@ def CSI(
     return csi
 
 
-def scores(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> Tuple[int, int, int, int]:
+def scores(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> Tuple[int, int, int, int]:
     """Calculate scores using the new _contingency_table.
 
     Parameters
@@ -178,9 +170,7 @@ def scores(
     return _contingency_table(obs, mod, minval, maxval)
 
 
-def POD(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+def POD(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Probability of Detection (POD) for a given event threshold.
 
@@ -216,9 +206,7 @@ def POD(
     return a / (a + b) if (a + b) > 0 else np.nan
 
 
-def FAR(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+def FAR(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     False Alarm Rate (FAR) for a given event threshold.
 
@@ -262,9 +250,7 @@ def FAR(
     return c / (a + c) if (a + c) > 0 else np.nan
 
 
-def FBI(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+def FBI(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Frequency Bias Index (FBI) for a given event threshold.
 
@@ -294,9 +280,7 @@ def FBI(
     return (a + c) / (a + b) if (a + b) > 0 else np.nan
 
 
-def TSS(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+def TSS(obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None) -> float:
     """
     Hanssen-Kuipers Discriminant (True Skill Statistic, TSS).
 
@@ -430,11 +414,7 @@ def _contingency_table(
     except ImportError:
         xr = None
     # Drop NaNs and align for xarray
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         mask = (~xr.ufuncs.isnan(obs)) & (~xr.ufuncs.isnan(mod))
         obs = obs.where(mask, drop=True)

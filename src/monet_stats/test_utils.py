@@ -44,7 +44,9 @@ class TestDataGenerator:
 
         # Create correlated data
         obs = signal + np.random.normal(0, noise_level, n_samples)
-        mod = correlation * signal + np.random.normal(0, np.sqrt(1 - correlation**2) * noise_level, n_samples)
+        mod = correlation * signal + np.random.normal(
+            0, np.sqrt(1 - correlation**2) * noise_level, n_samples
+        )
 
         return obs, mod
 
@@ -193,7 +195,8 @@ def assert_statistical_property(
 
     if not np.allclose(value, expected_value, atol=tolerance, rtol=1e-12):
         raise AssertionError(
-            f"{name} = {value}, expected {expected_value}, " f"difference = {abs(value - expected_value)} > {tolerance}"
+            f"{name} = {value}, expected {expected_value}, "
+            f"difference = {abs(value - expected_value)} > {tolerance}"
         )
 
 
@@ -266,7 +269,9 @@ def validate_metric_output(
 
     # Check return type
     if expected_type is not None and not isinstance(result, expected_type):
-        raise AssertionError(f"Expected return type {expected_type}, got {type(result)}")
+        raise AssertionError(
+            f"Expected return type {expected_type}, got {type(result)}"
+        )
 
     # Check for NaN/inf values
     if np.any(np.isnan(result)) or np.any(np.isinf(result)):

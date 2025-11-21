@@ -50,9 +50,7 @@ class PerformanceBenchmark:
 
         return obs, mod
 
-    def benchmark_function(
-        self, func: Callable, obs: np.ndarray, mod: np.ndarray, runs: int = 100
-    ) -> Dict:
+    def benchmark_function(self, func: Callable, obs: np.ndarray, mod: np.ndarray, runs: int = 100) -> Dict:
         """
         Benchmark a single function.
 
@@ -161,9 +159,7 @@ class PerformanceBenchmark:
             print("-" * 40)
 
             # Sort by average time
-            sorted_results = sorted(
-                size_results.items(), key=lambda x: x[1].get("avg_time", float("inf"))
-            )
+            sorted_results = sorted(size_results.items(), key=lambda x: x[1].get("avg_time", float("inf")))
 
             for name, result in sorted_results:
                 if "error" not in result:
@@ -256,9 +252,7 @@ class AccuracyVerification:
         results["MAPE_known"] = {
             "computed": mape_result,
             "expected": expected_mape,
-            "passed": np.isclose(
-                mape_result, expected_mape, atol=0.1
-            ),  # Higher tolerance for MAPE
+            "passed": np.isclose(mape_result, expected_mape, atol=0.1),  # Higher tolerance for MAPE
         }
 
         return results

@@ -80,9 +80,7 @@ def WDNMB_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     elif hasattr(mod, "sum") and hasattr(obs, "sum"):
         return circlebias_m(mod - obs).sum(axis=axis) / obs.sum(axis=axis) * 100.0
     else:
-        return (
-            np.sum(circlebias_m(mod - obs), axis=axis) / np.sum(obs, axis=axis) * 100.0
-        )
+        return np.sum(circlebias_m(mod - obs), axis=axis) / np.sum(obs, axis=axis) * 100.0
 
 
 def NMB_ABS(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
@@ -188,9 +186,7 @@ def FB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     elif hasattr(mod, "mean") and hasattr(obs, "mean"):
         return ((mod - obs) / (mod + obs)).mean(axis=axis) * 2.0 * 100.0
     else:
-        return (
-            np.ma.masked_invalid((mod - obs) / (mod + obs)).mean(axis=axis) * 2.0
-        ) * 100.0
+        return (np.ma.masked_invalid((mod - obs) / (mod + obs)).mean(axis=axis) * 2.0) * 100.0
 
 
 def ME(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
@@ -562,11 +558,7 @@ def NMdnE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         obs, mod = xr.align(obs, mod, join="inner")
         return abs(mod - obs).median(dim=axis) / obs.median(dim=axis) * 100
     else:
-        out = (
-            np.ma.median(np.ma.abs(mod - obs), axis=axis)
-            / np.ma.median(obs, axis=axis)
-            * 100
-        )
+        out = np.ma.median(np.ma.abs(mod - obs), axis=axis) / np.ma.median(obs, axis=axis) * 100
         return out
 
 
@@ -642,10 +634,7 @@ def USUTPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     elif isinstance(mod, np.ndarray) and isinstance(obs, np.ndarray):
         return ((mod.max(axis=axis) - obs.max(axis=axis)) / obs.max(axis=axis)) * 100.0
     else:
-        return (
-            (np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis))
-            / np.ma.max(obs, axis=axis)
-        ) * 100.0
+        return ((np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis)) / np.ma.max(obs, axis=axis)) * 100.0
 
 
 def USUTPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
@@ -685,14 +674,9 @@ def USUTPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         obs, mod = xr.align(obs, mod, join="inner")
         return (abs(mod.max(dim=axis) - obs.max(dim=axis)) / obs.max(dim=axis)) * 100.0
     elif isinstance(mod, np.ndarray) and isinstance(obs, np.ndarray):
-        return (
-            np.abs(mod.max(axis=axis) - obs.max(axis=axis)) / obs.max(axis=axis)
-        ) * 100.0
+        return (np.abs(mod.max(axis=axis) - obs.max(axis=axis)) / obs.max(axis=axis)) * 100.0
     else:
-        return (
-            np.ma.abs(np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis))
-            / np.ma.max(obs, axis=axis)
-        ) * 100.0
+        return (np.ma.abs(np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis)) / np.ma.max(obs, axis=axis)) * 100.0
 
 
 def MNPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
@@ -717,21 +701,14 @@ def MNPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None)
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (
-            ((mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).mean(
-                dim=axis
-            )
-        ) * 100.0
+        return (((mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).mean(dim=axis)) * 100.0
     else:
-        return (
-            (np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis))
-            / np.ma.max(obs, axis=paxis)
-        ).mean(axis=axis) * 100.0
+        return ((np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)) / np.ma.max(obs, axis=paxis)).mean(
+            axis=axis
+        ) * 100.0
 
 
-def MdnNPB(
-    obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None
-) -> Any:
+def MdnNPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Median Normalized Peak Bias (%)
 
@@ -753,16 +730,11 @@ def MdnNPB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return ((mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).median(
-            dim=axis
-        ) * 100.0
+        return ((mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).median(dim=axis) * 100.0
     else:
         return (
             np.ma.median(
-                (
-                    (np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis))
-                    / np.ma.max(obs, axis=paxis)
-                ),
+                ((np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)) / np.ma.max(obs, axis=paxis)),
                 axis=axis,
             )
             * 100.0
@@ -806,19 +778,14 @@ def MNPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None)
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).mean(
-            dim=axis
-        ) * 100.0
+        return (abs(mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).mean(dim=axis) * 100.0
     else:
-        return (
-            np.ma.abs(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis))
-            / np.ma.max(obs, axis=paxis)
-        ).mean(axis=axis) * 100.0
+        return (np.ma.abs(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)) / np.ma.max(obs, axis=paxis)).mean(
+            axis=axis
+        ) * 100.0
 
 
-def MdnNPE(
-    obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None
-) -> Any:
+def MdnNPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Median Normalized Peak Error (MdnNPE, %)
 
@@ -856,16 +823,11 @@ def MdnNPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (
-            abs(mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)
-        ).median(dim=axis) * 100.0
+        return (abs(mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).median(dim=axis) * 100.0
     else:
         return (
             np.ma.median(
-                (
-                    np.ma.abs(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis))
-                    / np.ma.max(obs, axis=paxis)
-                ),
+                (np.ma.abs(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)) / np.ma.max(obs, axis=paxis)),
                 axis=axis,
             )
             * 100.0
@@ -908,10 +870,7 @@ def NMPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None)
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (
-            (mod.max(dim=paxis) - obs.max(dim=paxis)).mean(dim=axis)
-            / obs.max(dim=paxis).mean(dim=axis)
-        ) * 100.0
+        return ((mod.max(dim=paxis) - obs.max(dim=paxis)).mean(dim=axis) / obs.max(dim=paxis).mean(dim=axis)) * 100.0
     else:
         return (
             (np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)).mean(axis=axis)
@@ -919,9 +878,7 @@ def NMPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None)
         ) * 100.0
 
 
-def NMdnPB(
-    obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None
-) -> Any:
+def NMdnPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Normalized Median Peak Bias (NMdnPB, %)
 
@@ -957,16 +914,10 @@ def NMdnPB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (
-            (mod.max(dim=paxis) - obs.max(dim=paxis)).median(dim=axis)
-            / obs.max(dim=paxis).median(dim=axis)
-            * 100.0
-        )
+        return (mod.max(dim=paxis) - obs.max(dim=paxis)).median(dim=axis) / obs.max(dim=paxis).median(dim=axis) * 100.0
     else:
         return (
-            np.ma.median(
-                np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis), axis=axis
-            )
+            np.ma.median(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis), axis=axis)
             / np.ma.median(np.ma.max(obs, axis=paxis), axis=axis)
         ) * 100.0
 
@@ -1007,22 +958,15 @@ def NMPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None)
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (
-            abs(mod.max(dim=paxis) - obs.max(dim=paxis)).mean(dim=axis)
-            / obs.max(dim=paxis).mean(dim=axis)
-        ) * 100.0
+        return (abs(mod.max(dim=paxis) - obs.max(dim=paxis)).mean(dim=axis) / obs.max(dim=paxis).mean(dim=axis)) * 100.0
     else:
         return (
-            np.ma.abs(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)).mean(
-                axis=axis
-            )
+            np.ma.abs(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)).mean(axis=axis)
             / np.ma.max(obs, axis=paxis).mean(axis=axis)
         ) * 100.0
 
 
-def NMdnPE(
-    obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None
-) -> Any:
+def NMdnPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
     """
     Normalized Median Peak Error (NMdnPE, %)
 
@@ -1237,14 +1181,11 @@ def MPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (
-            abs(mod.max(dim=axis) - obs.max(dim=axis)) / obs.max(dim=axis)
-        ).mean() * 100.0
+        return (abs(mod.max(dim=axis) - obs.max(dim=axis)) / obs.max(dim=axis)).mean() * 100.0
     else:
-        return (
-            np.ma.abs(np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis))
-            / np.ma.max(obs, axis=axis)
-        ).mean(axis=axis) * 100.0
+        return (np.ma.abs(np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis)) / np.ma.max(obs, axis=axis)).mean(
+            axis=axis
+        ) * 100.0
 
 
 def MdnPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
@@ -1283,16 +1224,11 @@ def MdnPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (
-            abs(mod.max(dim=axis) - obs.max(dim=axis)) / obs.max(dim=axis)
-        ).median() * 100.0
+        return (abs(mod.max(dim=axis) - obs.max(dim=axis)) / obs.max(dim=axis)).median() * 100.0
     else:
         return (
             np.ma.median(
-                (
-                    np.ma.abs(np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis))
-                    / np.ma.max(obs, axis=axis)
-                ),
+                (np.ma.abs(np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis)) / np.ma.max(obs, axis=axis)),
                 axis=axis,
             )
             * 100.0

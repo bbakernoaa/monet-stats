@@ -77,9 +77,7 @@ class TestErrorMetrics:
     def test_mae_perfect_agreement(self):
         """Test Mean Absolute Error with perfect agreement."""
         result = MAE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MAE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MAE=0.0, got {result}"
 
     def test_mae_positive_values(self):
         """Test that MAE is always positive."""
@@ -89,9 +87,7 @@ class TestErrorMetrics:
     def test_mb_perfect_agreement(self):
         """Test Mean Bias with perfect agreement."""
         result = MB(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MB=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MB=0.0, got {result}"
 
     def test_mb_systematic_bias(self):
         """Test Mean Bias with systematic bias."""
@@ -102,101 +98,73 @@ class TestErrorMetrics:
     def test_rm_perfect_agreement(self):
         """Test RM (Root Mean) with perfect agreement."""
         result = RM(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give RM=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give RM=0.0, got {result}"
 
     def test_rmdn_perfect_agreement(self):
         """Test Root Median with perfect agreement."""
         result = RMdn(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give RMdn=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give RMdn=0.0, got {result}"
 
     def test_stdo_perfect_agreement(self):
         """Test STDO with perfect agreement."""
         result = STDO(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give STDO=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give STDO=0.0, got {result}"
 
     def test_stdp_perfect_agreement(self):
         """Test STDP with perfect agreement."""
         result = STDP(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give STDP=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give STDP=0.0, got {result}"
 
     def test_nrmse_perfect_agreement(self):
         """Test Normalized RMSE with perfect agreement."""
         result = NRMSE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give NRMSE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give NRMSE=0.0, got {result}"
 
     def test_wdmb_perfect_agreement(self):
         """Test Wind Direction Mean Bias with perfect agreement."""
         result = WDMB(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give WDMB=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give WDMB=0.0, got {result}"
 
     def test_wdmb_m_perfect_agreement(self):
         """Test Wind Direction Mean Bias modified with perfect agreement."""
         result = WDMB_m(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give WDMB_m=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give WDMB_m=0.0, got {result}"
 
     def test_mdnb_perfect_agreement(self):
         """Test Median Bias with perfect agreement."""
         result = MdnB(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MdnB=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MdnB=0.0, got {result}"
 
     def test_medae_perfect_agreement(self):
         """Test Median Absolute Error with perfect agreement."""
         result = MedAE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MedAE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MedAE=0.0, got {result}"
 
     def test_rmse_m_perfect_agreement(self):
         """Test RMSE modified with perfect agreement."""
         result = RMSE_m(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give RMSE_m=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give RMSE_m=0.0, got {result}"
 
     def test_ioa_m_perfect_agreement(self):
         """Test IOA modified with perfect agreement."""
         result = IOA_m(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give IOA_m=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give IOA_m=1.0, got {result}"
 
     def test_mne_perfect_agreement(self):
         """Test Mean Normalized Error with perfect agreement."""
         result = MNE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MNE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MNE=0.0, got {result}"
 
     def test_mnb_perfect_agreement(self):
         """Test Mean Normalized Bias with perfect agreement."""
         result = MNB(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MNB=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MNB=0.0, got {result}"
 
     def test_mo_perfect_agreement(self):
         """Test Mean Observed with perfect agreement."""
         result = MO(self.obs_perfect, self.mod_perfect)
         expected = np.mean(np.abs(self.obs_perfect - self.mod_perfect))
-        assert (
-            abs(result - expected) < 1e-10
-        ), f"MO should match expected value, got {result}"
+        assert abs(result - expected) < 1e-10, f"MO should match expected value, got {result}"
 
     def test_nop_perfect_agreement(self):
         """Test Number of Pairs with perfect agreement."""
@@ -213,39 +181,29 @@ class TestErrorMetrics:
     def test_mdnne_perfect_agreement(self):
         """Test Median Normalized Error with perfect agreement."""
         result = MdnNE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MdnNE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MdnNE=0.0, got {result}"
 
     def test_mdno_perfect_agreement(self):
         """Test Median Observed with perfect agreement."""
         result = MdnO(self.obs_perfect, self.mod_perfect)
         expected = np.median(np.abs(self.obs_perfect - self.mod_perfect))
-        assert (
-            abs(result - expected) < 1e-10
-        ), f"MdnO should match expected value, got {result}"
+        assert abs(result - expected) < 1e-10, f"MdnO should match expected value, got {result}"
 
     def test_mdnp_perfect_agreement(self):
         """Test Median Predicted with perfect agreement."""
         result = MdnP(self.obs_perfect, self.mod_perfect)
         expected = np.median(np.abs(self.obs_perfect - self.mod_perfect))
-        assert (
-            abs(result - expected) < 1e-10
-        ), f"MdnP should match expected value, got {result}"
+        assert abs(result - expected) < 1e-10, f"MdnP should match expected value, got {result}"
 
     def test_mdnnb_perfect_agreement(self):
         """Test Median Normalized Bias with perfect agreement."""
         result = MdnNB(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MdnNB=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MdnNB=0.0, got {result}"
 
     def test_nmdnge_perfect_agreement(self):
         """Test Normalized Median GE with perfect agreement."""
         result = NMdnGE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give NMdnGE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give NMdnGE=0.0, got {result}"
 
     @pytest.mark.parametrize(
         "metric_func",
@@ -272,14 +230,10 @@ class TestErrorMetrics:
         mod_zeros = np.zeros(10)
 
         result = MAE(obs_zeros, mod_zeros)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Identical zeros should give MAE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Identical zeros should give MAE=0.0, got {result}"
 
         result = MB(obs_zeros, mod_zeros)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Identical zeros should give MB=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Identical zeros should give MB=0.0, got {result}"
 
     def test_edge_case_all_ones(self):
         """Test behavior with all one arrays."""
@@ -287,9 +241,7 @@ class TestErrorMetrics:
         mod_ones = np.ones(10)
 
         result = MAE(obs_ones, mod_ones)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Identical arrays should give MAE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Identical arrays should give MAE=0.0, got {result}"
 
     @pytest.mark.unit
     def test_error_metrics_mathematical_correctness(self):
@@ -329,69 +281,49 @@ class TestErrorMetrics:
         result_beta = NSE_beta(self.obs_perfect, self.mod_perfect)
 
         # With perfect agreement, both should be close to 1
-        assert (
-            abs(result_alpha - 1.0) < 1e-10
-        ), f"Perfect agreement should give NSE_alpha=1.0, got {result_alpha}"
-        assert (
-            abs(result_beta - 1.0) < 1e-10
-        ), f"Perfect agreement should give NSE_beta=1.0, got {result_beta}"
+        assert abs(result_alpha - 1.0) < 1e-10, f"Perfect agreement should give NSE_alpha=1.0, got {result_alpha}"
+        assert abs(result_beta - 1.0) < 1e-10, f"Perfect agreement should give NSE_beta=1.0, got {result_beta}"
 
     def test_mae_m_modified(self):
         """Test MAE modified metric."""
         result = MAE_m(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MAE_m=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MAE_m=0.0, got {result}"
 
     def test_wdmdnb_perfect_agreement(self):
         """Test Wind Direction Median Bias with perfect agreement."""
         result = WDMdnB(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give WDMdnB=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give WDMdnB=0.0, got {result}"
 
     # Tests for missing error metric functions
     def test_mape_mod_perfect_agreement(self):
         """Test Modified MAPE with perfect agreement."""
         result = MAPE_mod(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MAPE_mod=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MAPE_mod=0.0, got {result}"
 
     def test_mase_mod_perfect_agreement(self):
         """Test Modified MASE with perfect agreement."""
         result = MASE_mod(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MASE_mod=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MASE_mod=0.0, got {result}"
 
     def test_rmse_norm_perfect_agreement(self):
         """Test Normalized RMSE with perfect agreement."""
         result = RMSE_norm(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give RMSE_norm=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give RMSE_norm=0.0, got {result}"
 
     def test_mae_norm_perfect_agreement(self):
         """Test Normalized MAE with perfect agreement."""
         result = MAE_norm(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give MAE_norm=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give MAE_norm=0.0, got {result}"
 
     def test_bias_fraction_perfect_agreement(self):
         """Test Bias Fraction with perfect agreement."""
         result = bias_fraction(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give bias_fraction=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give bias_fraction=0.0, got {result}"
 
     def test_nmse_perfect_agreement(self):
         """Test Normalized MSE with perfect agreement."""
         result = NMSE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give NMSE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give NMSE=0.0, got {result}"
 
     def test_log_error_perfect_agreement(self):
         """Test Log Error with perfect agreement."""
@@ -399,34 +331,24 @@ class TestErrorMetrics:
         obs_pos = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod_pos = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         result = LOG_ERROR(obs_pos, mod_pos)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give LOG_ERROR=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give LOG_ERROR=0.0, got {result}"
 
     def test_coe_perfect_agreement(self):
         """Test Center of Mass Error with perfect agreement."""
         result = COE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give COE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give COE=0.0, got {result}"
 
     def test_volumetric_error_perfect_agreement(self):
         """Test Volumetric Error with perfect agreement."""
         result = VOLUMETRIC_ERROR(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give VOLUMETRIC_ERROR=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give VOLUMETRIC_ERROR=0.0, got {result}"
 
     def test_corr_index_perfect_agreement(self):
         """Test Correlation Index with perfect agreement."""
         result = CORR_INDEX(self.obs_perfect, self.mod_perfect)
         # Convert to float for comparison
-        result_float = (
-            np.asarray(result).item() if hasattr(result, "item") else float(result)
-        )
-        assert (
-            abs(result_float - 1.0) < 1e-10
-        ), f"Perfect agreement should give CORR_INDEX=1.0, got {result_float}"
+        result_float = np.asarray(result).item() if hasattr(result, "item") else float(result)
+        assert abs(result_float - 1.0) < 1e-10, f"Perfect agreement should give CORR_INDEX=1.0, got {result_float}"
 
     @pytest.mark.parametrize(
         "metric_func,expected_value",
@@ -440,9 +362,7 @@ class TestErrorMetrics:
             (VOLUMETRIC_ERROR, 0.0),
         ],
     )
-    def test_missing_error_functions_perfect_agreement(
-        self, metric_func, expected_value
-    ):
+    def test_missing_error_functions_perfect_agreement(self, metric_func, expected_value):
         """Test perfect agreement for all missing error metric functions."""
         result = metric_func(self.obs_perfect, self.mod_perfect)
         assert (
@@ -457,9 +377,7 @@ class TestErrorMetrics:
         # Manual calculation with epsilon handling
         # Should be close to regular MAPE for non-zero values
         expected = np.mean(np.abs((mod - obs) / obs)) * 100
-        assert (
-            abs(result - expected) < 1e-10
-        ), f"MAPE_mod should match expected calculation, got {result}"
+        assert abs(result - expected) < 1e-10, f"MAPE_mod should match expected calculation, got {result}"
 
     def test_mathematical_correctness_nmse(self):
         """Test mathematical correctness of NMSE."""
@@ -472,9 +390,7 @@ class TestErrorMetrics:
         mse = np.mean((mod - obs) ** 2)
         obs_var = np.var(obs)
         expected = mse / obs_var
-        assert (
-            abs(result - expected) < 1e-10
-        ), f"NMSE should be {expected}, got {result}"
+        assert abs(result - expected) < 1e-10, f"NMSE should be {expected}, got {result}"
 
     def test_edge_cases_error_metrics(self):
         """Test edge cases for error metrics."""
@@ -492,9 +408,7 @@ class TestErrorMetrics:
         single_obs = np.array([5.0])
         single_mod = np.array([5.0])
         result_volumetric = VOLUMETRIC_ERROR(single_obs, single_mod)
-        assert (
-            abs(result_volumetric - 0.0) < 1e-10
-        ), "VOLUMETRIC_ERROR should handle single elements"
+        assert abs(result_volumetric - 0.0) < 1e-10, "VOLUMETRIC_ERROR should handle single elements"
 
     def test_error_handling_error_metrics(self):
         """Test error handling for error metrics."""
@@ -534,16 +448,12 @@ class TestErrorMetrics:
 
     @given(
         st.lists(
-            st.floats(
-                min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            st.floats(min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False),
             min_size=2,
             max_size=50,
         ),
         st.lists(
-            st.floats(
-                min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            st.floats(min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False),
             min_size=2,
             max_size=50,
         ),
@@ -567,16 +477,12 @@ class TestErrorMetrics:
 
     @given(
         st.lists(
-            st.floats(
-                min_value=-100, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            st.floats(min_value=-100, max_value=100, allow_nan=False, allow_infinity=False),
             min_size=2,
             max_size=50,
         ),
         st.lists(
-            st.floats(
-                min_value=-100, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            st.floats(min_value=-100, max_value=100, allow_nan=False, allow_infinity=False),
             min_size=2,
             max_size=50,
         ),
@@ -600,16 +506,12 @@ class TestErrorMetrics:
 
     @given(
         st.lists(
-            st.floats(
-                min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            st.floats(min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False),
             min_size=2,
             max_size=50,
         ),
         st.lists(
-            st.floats(
-                min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            st.floats(min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False),
             min_size=2,
             max_size=50,
         ),
@@ -638,23 +540,17 @@ class TestErrorMetrics:
 
         # Test MAPE_mod with xarray
         result_mape = MAPE_mod(obs_xr, mod_xr)
-        assert isinstance(
-            result_mape, xr.DataArray
-        ), "MAPE_mod should return xarray.DataArray"
+        assert isinstance(result_mape, xr.DataArray), "MAPE_mod should return xarray.DataArray"
         assert np.isfinite(result_mape), "MAPE_mod should return finite value"
 
         # Test NMSE with xarray
         result_nmse = NMSE(obs_xr, mod_xr)
-        assert isinstance(
-            result_nmse, xr.DataArray
-        ), "NMSE should return xarray.DataArray"
+        assert isinstance(result_nmse, xr.DataArray), "NMSE should return xarray.DataArray"
         assert np.isfinite(result_nmse), "NMSE should return finite value"
 
         # Test VOLUMETRIC_ERROR with xarray
         result_vol = VOLUMETRIC_ERROR(obs_xr, mod_xr)
-        assert isinstance(
-            result_vol, xr.DataArray
-        ), "VOLUMETRIC_ERROR should return xarray.DataArray"
+        assert isinstance(result_vol, xr.DataArray), "VOLUMETRIC_ERROR should return xarray.DataArray"
         assert np.isfinite(result_vol), "VOLUMETRIC_ERROR should return finite value"
 
 

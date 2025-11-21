@@ -4,11 +4,7 @@ Tests for interfaces.py module.
 
 import numpy as np
 
-from monet_stats.interfaces import (
-    BaseStatisticalMetric,
-    DataProcessor,
-    PerformanceOptimizer,
-)
+from monet_stats.interfaces import BaseStatisticalMetric, DataProcessor, PerformanceOptimizer
 
 
 class TestBaseStatisticalMetric(BaseStatisticalMetric):

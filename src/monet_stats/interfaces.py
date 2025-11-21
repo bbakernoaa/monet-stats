@@ -105,35 +105,24 @@ class BaseStatisticalMetric(StatisticalMetric):
             True if inputs are valid, False otherwise.
         """
         # Check if inputs are arrays or xarray DataArrays
-        if not (
-            isinstance(obs, (np.ndarray, xr.DataArray))
-            and isinstance(mod, (np.ndarray, xr.DataArray))
-        ):
+        if not (isinstance(obs, (np.ndarray, xr.DataArray)) and isinstance(mod, (np.ndarray, xr.DataArray))):
             raise TypeError("obs and mod must be numpy arrays or xarray DataArrays")
 
         # Check if shapes match
         if hasattr(obs, "shape") and hasattr(mod, "shape"):
             if obs.shape != mod.shape:
-                raise ValueError(
-                    f"obs and mod must have the same shape, got {obs.shape} and {mod.shape}"
-                )
+                raise ValueError(f"obs and mod must have the same shape, got {obs.shape} and {mod.shape}")
 
         # Check for finite values
-        obs_finite = (
-            np.isfinite(obs) if isinstance(obs, np.ndarray) else np.isfinite(obs.values)
-        )
-        mod_finite = (
-            np.isfinite(mod) if isinstance(mod, np.ndarray) else np.isfinite(mod.values)
-        )
+        obs_finite = np.isfinite(obs) if isinstance(obs, np.ndarray) else np.isfinite(obs.values)
+        mod_finite = np.isfinite(mod) if isinstance(mod, np.ndarray) else np.isfinite(mod.values)
 
         if not np.any(obs_finite) or not np.any(mod_finite):
             raise ValueError("No finite values in obs or mod")
 
         return True
 
-    def _handle_xarray(
-        self, obs: xr.DataArray, mod: xr.DataArray, func, axis=None, **kwargs
-    ):
+    def _handle_xarray(self, obs: xr.DataArray, mod: xr.DataArray, func, axis=None, **kwargs):
         """
         Handle xarray DataArray inputs by aligning and applying function.
 
@@ -167,9 +156,7 @@ class BaseStatisticalMetric(StatisticalMetric):
         else:
             return func(obs, mod, **kwargs)
 
-    def _handle_numpy(
-        self, obs: np.ndarray, mod: np.ndarray, func, axis=None, **kwargs
-    ):
+    def _handle_numpy(self, obs: np.ndarray, mod: np.ndarray, func, axis=None, **kwargs):
         """
         Handle numpy array inputs by applying function.
 
@@ -193,9 +180,7 @@ class BaseStatisticalMetric(StatisticalMetric):
         """
         return func(obs, mod, axis=axis, **kwargs)
 
-    def _handle_masked_arrays(
-        self, obs: np.ndarray, mod: np.ndarray, func, axis=None, **kwargs
-    ):
+    def _handle_masked_arrays(self, obs: np.ndarray, mod: np.ndarray, func, axis=None, **kwargs):
         """
         Handle masked array inputs by applying function.
 
@@ -251,9 +236,7 @@ class DataProcessor:
             return np.asarray(data)
 
     @staticmethod
-    def align_arrays(
-        obs: Union[np.ndarray, xr.DataArray], mod: Union[np.ndarray, xr.DataArray]
-    ) -> tuple:
+    def align_arrays(obs: Union[np.ndarray, xr.DataArray], mod: Union[np.ndarray, xr.DataArray]) -> tuple:
         """
         Align two arrays for comparison.
 
@@ -278,16 +261,12 @@ class DataProcessor:
             mod = DataProcessor.to_numpy(mod)
 
             if obs.shape != mod.shape:
-                raise ValueError(
-                    f"Arrays must have the same shape, got {obs.shape} and {mod.shape}"
-                )
+                raise ValueError(f"Arrays must have the same shape, got {obs.shape} and {mod.shape}")
 
             return obs, mod
 
     @staticmethod
-    def handle_missing_values(
-        obs: np.ndarray, mod: np.ndarray, strategy: str = "pairwise"
-    ) -> tuple:
+    def handle_missing_values(obs: np.ndarray, mod: np.ndarray, strategy: str = "pairwise") -> tuple:
         """
         Handle missing values in arrays.
 
