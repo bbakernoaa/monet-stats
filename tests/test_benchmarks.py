@@ -4,7 +4,7 @@ Tests for benchmarks.py module.
 
 from typing import Any
 
-from src.monet_stats.benchmarks import AccuracyVerification, PerformanceBenchmark
+from monet_stats.benchmarks import AccuracyVerification, PerformanceBenchmark
 
 
 class TestPerformanceBenchmark:

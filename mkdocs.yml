@@ -1,0 +1,42 @@
+site_name: MONET Stats
+theme:
+  name: material
+repo_url: https://github.com/noaa-oar-arl/monet-stats
+repo_name: noaa-oar-arl/monet-stats
+docs_dir: docs
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Getting Started: getting-started.md
+  - System Integration: system-integration.md
+  - API:
+    - Overview: api/overview.md
+    - Contingency Metrics: api/contingency-metrics.md
+  - Math:
+    - Overview: math/overview.md
+  - Workflows:
+    - Climate Data Analysis: workflows/climate-data-analysis.md
+  - Notebooks:
+    - Basic Statistical Analysis: notebooks/01_basic_statistical_analysis.ipynb
+    - Model Observation Comparison: notebooks/02_model_observation_comparison.ipynb
+    - Spatial Analysis Downscaling: notebooks/03_spatial_analysis_downscaling_fixed.ipynb
+    - Ensemble Analysis Multi Model: notebooks/04_ensemble_analysis_multi_model.ipynb
+    - Performance Optimization: notebooks/05_performance_optimization_large_datasets.ipynb
+    - Integration Examples: notebooks/06_integration_examples.ipynb
+  - Contributing: contributing.md
+  - FAQ: faq.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+  # mknotebooks plugin removed due to deprecation warnings and JSON parsing errors in notebooks
+  # - mknotebooks:
+  #     execute: false
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences

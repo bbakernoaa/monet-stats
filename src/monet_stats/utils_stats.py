@@ -148,9 +148,7 @@ def circlebias(b: ArrayLike) -> Any:
     return (b + 180) % 360 - 180
 
 
-def angular_difference(
-    angle1: ArrayLike, angle2: ArrayLike, units: str = "degrees"
-) -> Any:
+def angular_difference(angle1: ArrayLike, angle2: ArrayLike, units: str = "degrees") -> Any:
     """
     Calculate the smallest angular difference between two angles.
 

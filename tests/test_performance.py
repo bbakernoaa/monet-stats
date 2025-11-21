@@ -4,7 +4,7 @@ Tests for performance.py module.
 
 import numpy as np
 
-from src.monet_stats.performance import (
+from monet_stats.performance import (
     chunk_array,
     fast_mae,
     fast_rmse,

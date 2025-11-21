@@ -28,7 +28,7 @@ from monet_stats.test_aliases import (
     root_mean_squared_error,
     spearman_correlation,
 )
-from tests.test_utils import TestDataGenerator
+from monet_stats.test_utils import TestDataGenerator
 
 
 class TestPerformanceBenchmarks:
@@ -323,9 +323,7 @@ class TestMemoryUsage:
         benchmark(run_with_size)
 
     @pytest.mark.parametrize("size", [1000, 10000, 100000])
-    def test_memory_scaling_correlation_metrics(
-        self, benchmark: BenchmarkFixture, size: int
-    ):
+    def test_memory_scaling_correlation_metrics(self, benchmark: BenchmarkFixture, size: int):
         """Test memory scaling of correlation metrics."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=size, correlation=0.8)
@@ -376,9 +374,7 @@ class TestRealWorldScenarios:
 
         TestDataGenerator()
         obs_forecast = np.random.normal(15, 8, (n_forecasts, n_hours, n_locations))
-        mod_forecast = obs_forecast + np.random.normal(
-            0, 2, (n_forecasts, n_hours, n_locations)
-        )
+        mod_forecast = obs_forecast + np.random.normal(0, 2, (n_forecasts, n_hours, n_locations))
 
         def run_verification():
             # Flatten for current metrics

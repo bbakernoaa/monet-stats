@@ -297,17 +297,30 @@ contingency_metrics = {
 }
 ```
 
-## API Reference Navigation
+## API Reference
 
-Use the following links to navigate to specific module documentation:
+The following sections provide auto-generated documentation for each core module based on docstrings.
 
-- **[Contingency Metrics](contingency-metrics.md)**: Binary event verification
-- **[Correlation Metrics](correlation-metrics.md)**: Statistical correlation and skill scores
-- **[Error Metrics](error-metrics.md)**: Error analysis and bias quantification
-- **[Efficiency Metrics](efficiency-metrics.md)**: Model efficiency measures
-- **[Relative Metrics](relative-metrics.md)**: Normalized error measures
-- **[Spatial & Ensemble Metrics](spatial-ensemble-metrics.md)**: Spatial verification and ensemble analysis
-- **[Utility Functions](utils-stats.md)**: Helper functions and utilities
+### Contingency Metrics
+::: monet_stats.contingency_metrics
+
+### Correlation Metrics
+::: monet_stats.correlation_metrics
+
+### Error Metrics
+::: monet_stats.error_metrics
+
+### Efficiency Metrics
+::: monet_stats.efficiency_metrics
+
+### Relative Metrics
+::: monet_stats.relative_metrics
+
+### Spatial & Ensemble Metrics
+::: monet_stats.spatial_ensemble_metrics
+
+### Utility Functions
+::: monet_stats.utils_stats
 
 ## Contributing to API Documentation
 

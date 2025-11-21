@@ -159,21 +159,13 @@ def contingency_table_data() -> Dict[str, np.ndarray]:
 # Markers for test categorization
 def pytest_configure(config: Any) -> None:
     """Configure custom pytest markers."""
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
-    )
+    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
     config.addinivalue_line("markers", "unit: marks tests as unit tests")
     config.addinivalue_line("markers", "edge_case: marks tests as edge case tests")
-    config.addinivalue_line(
-        "markers", "performance: marks tests as performance benchmarks"
-    )
-    config.addinivalue_line(
-        "markers", "mathematical: marks tests as mathematical correctness tests"
-    )
-    config.addinivalue_line(
-        "markers", "xarray: marks tests that require xarray functionality"
-    )
+    config.addinivalue_line("markers", "performance: marks tests as performance benchmarks")
+    config.addinivalue_line("markers", "mathematical: marks tests as mathematical correctness tests")
+    config.addinivalue_line("markers", "xarray: marks tests that require xarray functionality")
 
 
 # Custom exception for test validation

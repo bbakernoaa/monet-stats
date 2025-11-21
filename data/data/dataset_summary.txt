@@ -1,0 +1,13 @@
+
+Dataset Summary:
+- Temperature: 3653 days, 10 stations
+- Precipitation: 3653 days, 10 stations
+- Wind: 43825 hours, 5 stations
+- Spatial: 366 days, 50x80 grid
+
+Files created:
+- data/temperature_obs_mod.csv
+- data/precipitation_obs_mod.csv
+- data/wind_obs_mod.csv
+- data/spatial_obs.nc
+- data/spatial_mod.nc
