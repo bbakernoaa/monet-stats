@@ -1,6 +1,7 @@
 """
 Tests for Spatial Skill Metrics
 """
+
 import numpy as np
 import pytest
 import xarray as xr

@@ -123,16 +123,10 @@ def validate_test_structure():
 
     # Test that key tests can run
     test_commands = [
-        [
-            "test_property_based.py::TestMathematicalProperties::test_error_metrics_non_negative"
-        ],
-        [
-            "test_comprehensive_integration.py::TestModuleInteractions::test_error_correlation_consistency"
-        ],
+        ["test_property_based.py::TestMathematicalProperties::test_error_metrics_non_negative"],
+        ["test_comprehensive_integration.py::TestModuleInteractions::test_error_correlation_consistency"],
         ["test_edge_cases.py::TestEdgeCases::test_single_value_arrays"],
-        [
-            "test_regression_validation.py::TestKnownValues::test_simple_linear_relationship"
-        ],
+        ["test_regression_validation.py::TestKnownValues::test_simple_linear_relationship"],
     ]
 
     for command in test_commands:
@@ -158,9 +152,7 @@ def validate_test_structure():
             else:
                 print(f"✗ {command[0]} - FAILED")
                 if "error" in result.stdout.lower():
-                    print(
-                        f"  Error: {result.stdout.split('ERROR:')[1].split('===')[0].strip()}"
-                    )
+                    print(f"  Error: {result.stdout.split('ERROR:')[1].split('===')[0].strip()}")
         except Exception as e:
             print(f"✗ {command[0]} - EXCEPTION: {e}")
 

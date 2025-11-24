@@ -8,7 +8,7 @@ mask handling, circular statistics, and basic statistical functions.
 import numpy as np
 import pytest
 
-from src.monet_stats.utils_stats import (
+from monet_stats.utils_stats import (
     angular_difference,
     circlebias,
     circlebias_m,

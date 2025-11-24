@@ -27,7 +27,7 @@ from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 
 # Import all relative metrics functions
-from src.monet_stats.relative_metrics import (
+from monet_stats.relative_metrics import (
     FB,
     FE,
     ME,
@@ -54,7 +54,7 @@ from src.monet_stats.relative_metrics import (
     WDME_m,
     WDNMB_m,
 )
-from src.monet_stats.utils_stats import circlebias, circlebias_m
+from monet_stats.utils_stats import circlebias, circlebias_m
 
 
 class TestRelativeMetrics:
@@ -115,35 +115,27 @@ class TestRelativeMetrics:
     def test_nmb_normalized_mean_bias(self):
         """Test NMB (Normalized Mean Bias)."""
         result = NMB(self.obs_perfect, self.mod_perfect)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect agreement NMB should be 0%, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect agreement NMB should be 0%, got {result}"
 
         # Test with known bias
         obs = np.array([10, 20, 30])
         mod = np.array([11, 22, 33])  # 10% high bias
         result = NMB(obs, mod)
         expected = ((11 - 10) + (22 - 20) + (33 - 30)) / (10 + 20 + 30) * 100
-        assert np.isclose(
-            result, expected
-        ), f"NMB calculation incorrect. Expected {expected}, got {result}"
+        assert np.isclose(result, expected), f"NMB calculation incorrect. Expected {expected}, got {result}"
 
     @pytest.mark.unit
     def test_wdnmb_wind_direction_normalized_bias(self):
         """Test WDNMB_m (Wind Direction Normalized Mean Bias)."""
         # Test with perfect agreement
         result = WDNMB_m(self.wind_obs, self.wind_obs)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect wind direction agreement should give 0%, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect wind direction agreement should give 0%, got {result}"
 
         # Test with known wind direction bias
         obs_dir = np.array([0, 90, 180, 270])
         mod_dir = np.array([5, 95, 185, 275])  # 5 degree bias
         result = WDNMB_m(obs_dir, mod_dir)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"WDNMB_m should return numeric, got {type(result)}"
+        assert isinstance(result, (float, np.floating)), f"WDNMB_m should return numeric, got {type(result)}"
 
     @pytest.mark.unit
     def test_nmb_abs_normalized_bias_absolute(self):
@@ -153,34 +145,26 @@ class TestRelativeMetrics:
 
         result = NMB_ABS(obs, mod)
         expected = ((11 - 10) + (22 - 20) + (33 - 30)) / abs(10 + 20 + 30) * 100
-        assert np.isclose(
-            result, expected
-        ), f"NMB_ABS calculation incorrect. Expected {expected}, got {result}"
+        assert np.isclose(result, expected), f"NMB_ABS calculation incorrect. Expected {expected}, got {result}"
 
     @pytest.mark.unit
     def test_nmdnb_normalized_median_bias(self):
         """Test NMdnB (Normalized Median Bias)."""
         result = NMdnB(self.obs_perfect, self.mod_perfect)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect agreement NMdnB should be 0%, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect agreement NMdnB should be 0%, got {result}"
 
         # Test with known median bias
         obs = np.array([10, 20, 30, 40, 50])
         mod = np.array([11, 22, 33, 44, 55])  # 10% high bias
         result = NMdnB(obs, mod)
         expected = (33 - 30) / 30 * 100  # median bias
-        assert np.isclose(
-            result, expected
-        ), f"NMdnB calculation incorrect. Expected {expected}, got {result}"
+        assert np.isclose(result, expected), f"NMdnB calculation incorrect. Expected {expected}, got {result}"
 
     @pytest.mark.unit
     def test_fb_fractional_bias(self):
         """Test FB (Fractional Bias)."""
         result = FB(self.obs_perfect, self.mod_perfect)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect agreement FB should be 0%, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect agreement FB should be 0%, got {result}"
 
         # Test with known fractional bias
         obs = np.array([10, 20])
@@ -188,43 +172,33 @@ class TestRelativeMetrics:
         result = FB(obs, mod)
         # FB = 2 * mean((mod-obs)/(mod+obs)) * 100
         expected = 2 * np.mean([(11 - 10) / (11 + 10), (22 - 20) / (22 + 20)]) * 100
-        assert np.isclose(
-            result, expected
-        ), f"FB calculation incorrect. Expected {expected}, got {result}"
+        assert np.isclose(result, expected), f"FB calculation incorrect. Expected {expected}, got {result}"
 
     @pytest.mark.unit
     def test_me_mean_gross_error(self):
         """Test ME (Mean Gross Error)."""
         result = ME(self.obs_perfect, self.mod_perfect)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect agreement ME should be 0, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect agreement ME should be 0, got {result}"
 
         # Test with known error
         obs = np.array([10, 20, 30])
         mod = np.array([11, 21, 31])  # 1 unit error each
         result = ME(obs, mod)
         expected = np.mean([1, 1, 1])
-        assert np.isclose(
-            result, expected
-        ), f"ME calculation incorrect. Expected {expected}, got {result}"
+        assert np.isclose(result, expected), f"ME calculation incorrect. Expected {expected}, got {result}"
 
     @pytest.mark.unit
     def test_mdne_median_gross_error(self):
         """Test MdnE (Median Gross Error)."""
         result = MdnE(self.obs_perfect, self.mod_perfect)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect agreement MdnE should be 0, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect agreement MdnE should be 0, got {result}"
 
         # Test with known median error
         obs = np.array([10, 20, 30])
         mod = np.array([11, 21, 31])  # 1 unit error each
         result = MdnE(obs, mod)
         expected = np.median([1, 1, 1])
-        assert np.isclose(
-            result, expected
-        ), f"MdnE calculation incorrect. Expected {expected}, got {result}"
+        assert np.isclose(result, expected), f"MdnE calculation incorrect. Expected {expected}, got {result}"
 
     @pytest.mark.unit
     def test_wdme_wind_direction_mean_error(self):
@@ -232,28 +206,20 @@ class TestRelativeMetrics:
         # Perfect agreement
         result_m = WDME_m(self.wind_obs, self.wind_obs)
         result_std = WDME(self.wind_obs, self.wind_obs)
-        assert np.isclose(
-            result_m, 0.0
-        ), f"Perfect wind direction agreement should give 0, got {result_m}"
-        assert np.isclose(
-            result_std, 0.0
-        ), f"Perfect wind direction agreement should give 0, got {result_std}"
+        assert np.isclose(result_m, 0.0), f"Perfect wind direction agreement should give 0, got {result_m}"
+        assert np.isclose(result_std, 0.0), f"Perfect wind direction agreement should give 0, got {result_std}"
 
         # Test with known wind direction error
         obs_dir = np.array([0, 90])
         mod_dir = np.array([10, 80])  # 10 degree errors
         result = WDME_m(obs_dir, mod_dir)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"WDME_m should return numeric, got {type(result)}"
+        assert isinstance(result, (float, np.floating)), f"WDME_m should return numeric, got {type(result)}"
 
     @pytest.mark.unit
     def test_wdmnde_wind_direction_median_error(self):
         """Test WDMdnE (Wind Direction Median Error)."""
         result = WDMdnE(self.wind_obs, self.wind_obs)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect wind direction agreement should give 0, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect wind direction agreement should give 0, got {result}"
 
     @pytest.mark.unit
     def test_nme_normalized_mean_error(self):
@@ -263,110 +229,80 @@ class TestRelativeMetrics:
         result_abs = NME_m_ABS(self.obs_perfect, self.mod_perfect)
         result_std = NME(self.obs_perfect, self.mod_perfect)
 
-        assert np.isclose(
-            result_m, 0.0
-        ), f"Perfect agreement NME_m should be 0%, got {result_m}"
-        assert np.isclose(
-            result_abs, 0.0
-        ), f"Perfect agreement NME_m_ABS should be 0%, got {result_abs}"
-        assert np.isclose(
-            result_std, 0.0
-        ), f"Perfect agreement NME should be 0%, got {result_std}"
+        assert np.isclose(result_m, 0.0), f"Perfect agreement NME_m should be 0%, got {result_m}"
+        assert np.isclose(result_abs, 0.0), f"Perfect agreement NME_m_ABS should be 0%, got {result_abs}"
+        assert np.isclose(result_std, 0.0), f"Perfect agreement NME should be 0%, got {result_std}"
 
     @pytest.mark.unit
     def test_nmdne_normalized_median_error(self):
         """Test NMdnE (Normalized Median Error)."""
         result = NMdnE(self.obs_perfect, self.mod_perfect)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect agreement NMdnE should be 0%, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect agreement NMdnE should be 0%, got {result}"
 
     @pytest.mark.unit
     def test_fe_fractional_error(self):
         """Test FE (Fractional Error)."""
         result = FE(self.obs_perfect, self.mod_perfect)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect agreement FE should be 0%, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect agreement FE should be 0%, got {result}"
 
         # Test with known fractional error
         obs = np.array([10, 20])
         mod = np.array([11, 22])  # 10% high bias
         result = FE(obs, mod)
         # FE = 2 * mean(abs(mod-obs)/(mod+obs)) * 100
-        expected = (
-            2 * np.mean([abs(11 - 10) / (11 + 10), abs(22 - 20) / (22 + 20)]) * 100
-        )
-        assert np.isclose(
-            result, expected
-        ), f"FE calculation incorrect. Expected {expected}, got {result}"
+        expected = 2 * np.mean([abs(11 - 10) / (11 + 10), abs(22 - 20) / (22 + 20)]) * 100
+        assert np.isclose(result, expected), f"FE calculation incorrect. Expected {expected}, got {result}"
 
     @pytest.mark.unit
     def test_usutpb_unpaired_space_time_peak_bias(self):
         """Test USUTPB (Unpaired Space/Time Peak Bias)."""
         result = USUTPB(self.obs_2d, self.obs_2d)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect agreement USUTPB should be 0%, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect agreement USUTPB should be 0%, got {result}"
 
         # Test with known peak bias
         obs = np.array([1, 2, 3, 4])
         mod = np.array([1, 2, 3, 5])  # peak bias of (5-4)/4 * 100 = 25%
         result = USUTPB(obs, mod)
         expected = (5 - 4) / 4 * 100
-        assert np.isclose(
-            result, expected
-        ), f"USUTPB calculation incorrect. Expected {expected}, got {result}"
+        assert np.isclose(result, expected), f"USUTPB calculation incorrect. Expected {expected}, got {result}"
 
     @pytest.mark.unit
     def test_usutpe_unpaired_space_time_peak_error(self):
         """Test USUTPE (Unpaired Space/Time Peak Error)."""
         result = USUTPE(self.obs_2d, self.obs_2d)
-        assert np.isclose(
-            result, 0.0
-        ), f"Perfect agreement USUTPE should be 0%, got {result}"
+        assert np.isclose(result, 0.0), f"Perfect agreement USUTPE should be 0%, got {result}"
 
         # Test with known peak error
         obs = np.array([1, 2, 3, 4])
         mod = np.array([1, 2, 3, 6])  # peak error of abs(6-4)/4 * 100 = 50%
         result = USUTPE(obs, mod)
         expected = abs(6 - 4) / 4 * 100
-        assert np.isclose(
-            result, expected
-        ), f"USUTPE calculation incorrect. Expected {expected}, got {result}"
+        assert np.isclose(result, expected), f"USUTPE calculation incorrect. Expected {expected}, got {result}"
 
     @pytest.mark.unit
     def test_mnpb_mean_normalized_peak_bias(self):
         """Test MNPB (Mean Normalized Peak Bias)."""
         # Test with 2D data
         result = MNPB(self.obs_2d, self.mod_2d, paxis=1, axis=None)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"MNPB should return numeric, got {type(result)}"
+        assert isinstance(result, (float, np.floating)), f"MNPB should return numeric, got {type(result)}"
 
     @pytest.mark.unit
     def test_mdnnpb_median_normalized_peak_bias(self):
         """Test MdnNPB (Median Normalized Peak Bias)."""
         result = MdnNPB(self.obs_2d, self.mod_2d, paxis=1, axis=None)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"MdnNPB should return numeric, got {type(result)}"
+        assert isinstance(result, (float, np.floating)), f"MdnNPB should return numeric, got {type(result)}"
 
     @pytest.mark.unit
     def test_mnpe_mean_normalized_peak_error(self):
         """Test MNPE (Mean Normalized Peak Error)."""
         result = MNPE(self.obs_2d, self.mod_2d, paxis=1, axis=None)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"MNPE should return numeric, got {type(result)}"
+        assert isinstance(result, (float, np.floating)), f"MNPE should return numeric, got {type(result)}"
 
     @pytest.mark.unit
     def test_mdnpe_median_normalized_peak_error(self):
         """Test MdnNPE (Median Normalized Peak Error)."""
         result = MdnNPE(self.obs_2d, self.mod_2d, paxis=1, axis=None)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"MdnNPE should return numeric, got {type(result)}"
+        assert isinstance(result, (float, np.floating)), f"MdnNPE should return numeric, got {type(result)}"
 
     @pytest.mark.unit
     def test_psut_wrapper_functions(self):
@@ -375,28 +311,20 @@ class TestRelativeMetrics:
         result_mnpb = PSUTMNPB(self.obs_2d, self.mod_2d)
         result_mnpe = PSUTMNPE(self.obs_2d, self.mod_2d)
 
-        assert isinstance(
-            result_mnpb, (float, np.floating)
-        ), f"PSUTMNPB should return numeric, got {type(result_mnpb)}"
-        assert isinstance(
-            result_mnpe, (float, np.floating)
-        ), f"PSUTMNPE should return numeric, got {type(result_mnpe)}"
+        assert isinstance(result_mnpb, (float, np.floating)), f"PSUTMNPB should return numeric, got {type(result_mnpb)}"
+        assert isinstance(result_mnpe, (float, np.floating)), f"PSUTMNPE should return numeric, got {type(result_mnpe)}"
 
     @pytest.mark.unit
     def test_mpe_mean_peak_error(self):
         """Test MPE (Mean Peak Error)."""
         result = MPE(self.obs_2d, self.mod_2d)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"MPE should return numeric, got {type(result)}"
+        assert isinstance(result, (float, np.floating)), f"MPE should return numeric, got {type(result)}"
 
     @pytest.mark.unit
     def test_mdnpe_median_peak_error(self):
         """Test MdnPE (Median Peak Error)."""
         result = MdnPE(self.obs_2d, self.mod_2d)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"MdnPE should return numeric, got {type(result)}"
+        assert isinstance(result, (float, np.floating)), f"MdnPE should return numeric, got {type(result)}"
 
     @pytest.mark.xarray
     def test_xarray_dataarray_input(self):
@@ -422,9 +350,7 @@ class TestRelativeMetrics:
             result, (float, np.floating, xr.DataArray)
         ), f"MNPB should work with 2D xarray inputs, got {type(result)}"
 
-    @pytest.mark.parametrize(
-        "metric_func", [NMB, NMB_ABS, NMdnB, FB, ME, MdnE, NME, NMdnE, FE]
-    )
+    @pytest.mark.parametrize("metric_func", [NMB, NMB_ABS, NMdnB, FB, ME, MdnE, NME, NMdnE, FE])
     def test_relative_metrics_output_type(self, metric_func):
         """Test that relative metrics return appropriate values."""
         result = metric_func(self.obs_random, self.mod_random)
@@ -440,15 +366,11 @@ class TestRelativeMetrics:
         diff = angles_cross[1] - angles_cross[0]  # 10 - 350 = -340
         result_cross = circlebias(diff)
         # circlebias should convert -340 to 20 (going the other way around the circle)
-        assert (
-            result_cross == 20
-        ), f"circlebias should handle 0/360 crossing, got {result_cross}"
+        assert result_cross == 20, f"circlebias should handle 0/360 crossing, got {result_cross}"
 
         # Test circlebias_m function
         result_m = circlebias_m(diff)
-        assert (
-            result_m == 20
-        ), f"circlebias_m should handle 0/360 crossing, got {result_m}"
+        assert result_m == 20, f"circlebias_m should handle 0/360 crossing, got {result_m}"
 
     @pytest.mark.unit
     def test_zero_division_handling(self):
@@ -459,9 +381,7 @@ class TestRelativeMetrics:
 
         # Should handle zero gracefully (may return nan or inf depending on implementation)
         result = NMB(obs_zero, mod_zero)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"NMB should handle zero observations, got {type(result)}"
+        assert isinstance(result, (float, np.floating)), f"NMB should handle zero observations, got {type(result)}"
 
     @pytest.mark.unit
     def test_negative_values_handling(self):
@@ -495,9 +415,7 @@ class TestRelativeMetrics:
         elapsed_time = time.time() - start_time
 
         # Should complete in reasonable time (less than 2 seconds)
-        assert (
-            elapsed_time < 2.0
-        ), f"Performance test took too long: {elapsed_time:.3f}s"
+        assert elapsed_time < 2.0, f"Performance test took too long: {elapsed_time:.3f}s"
 
         # Results should be valid
         assert isinstance(nmb_result, (float, np.floating))
@@ -519,12 +437,8 @@ class TestRelativeMetrics:
                     np.isscalar(result) or result.shape == ()
                 ), f"{metric_func.__name__} with axis=None should return scalar"
             else:
-                expected_shape = (
-                    obs_2d.shape[:axis] + obs_2d.shape[axis + 1 :]  # noqa: E203
-                )  # noqa: E203
-                assert (
-                    result.shape == expected_shape
-                ), f"{metric_func.__name__} result shape mismatch"
+                expected_shape = obs_2d.shape[:axis] + obs_2d.shape[axis + 1 :]  # noqa: E203  # noqa: E203
+                assert result.shape == expected_shape, f"{metric_func.__name__} result shape mismatch"
 
 
 class TestRelativeMetricsHypothesis:
@@ -534,33 +448,25 @@ class TestRelativeMetricsHypothesis:
         arrays(
             np.float64,
             10,
-            elements=st.floats(
-                min_value=1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=1, max_value=100, allow_nan=False, allow_infinity=False),
         )
     )
     def test_nmb_zero_for_identical_arrays(self, data):
         """Test that NMB returns 0 for identical arrays."""
         assume(np.sum(data) != 0)  # Avoid division by zero
         result = NMB(data, data)
-        assert np.isclose(
-            result, 0.0, atol=1e-10
-        ), f"Identical arrays should give NMB=0%, got {result}"
+        assert np.isclose(result, 0.0, atol=1e-10), f"Identical arrays should give NMB=0%, got {result}"
 
     @given(
         arrays(
             np.float64,
             10,
-            elements=st.floats(
-                min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False),
         ),
         arrays(
             np.float64,
             10,
-            elements=st.floats(
-                min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=0.1, max_value=100, allow_nan=False, allow_infinity=False),
         ),
     )
     def test_me_non_negative_property(self, obs, mod):
@@ -573,16 +479,12 @@ class TestRelativeMetricsHypothesis:
         arrays(
             np.float64,
             5,
-            elements=st.floats(
-                min_value=1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=1, max_value=100, allow_nan=False, allow_infinity=False),
         ),
         arrays(
             np.float64,
             5,
-            elements=st.floats(
-                min_value=1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=1, max_value=100, allow_nan=False, allow_infinity=False),
         ),
     )
     def test_nme_me_relationship_property(self, obs, mod):
@@ -682,9 +584,7 @@ class TestRelativeMetricsEdgeCases:
         memory_increase = memory_after - memory_before
 
         # Memory increase should be reasonable (less than 100MB)
-        assert (
-            memory_increase < 100
-        ), f"Memory increase too large: {memory_increase:.1f}MB"
+        assert memory_increase < 100, f"Memory increase too large: {memory_increase:.1f}MB"
 
         # Results should be valid
         assert isinstance(nmb_result, (float, np.floating))

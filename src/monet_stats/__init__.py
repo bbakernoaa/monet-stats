@@ -29,17 +29,7 @@ from .correlation_metrics import (
     spearmanr,
     taylor_skill,
 )
-from .efficiency_metrics import (
-    MAPE,
-    MASE,
-    MSE,
-    NSE,
-    PC,
-    NSElog,
-    NSEm,
-    mNSE,
-    rNSE,
-)
+from .efficiency_metrics import MAPE, MASE, MSE, NSE, PC, NSElog, NSEm, mNSE, rNSE
 from .error_metrics import (
     MAE,
     MB,
@@ -68,28 +58,9 @@ from .error_metrics import (
     WDMB_m,
     WDMdnB,
 )
-from .relative_metrics import (
-    FB,
-    FE,
-    MPE,
-    NMB,
-    NMB_ABS,
-    NMdnB,
-)
-from .spatial_ensemble_metrics import (
-    BSS,
-    CRPS,
-    EDS,
-    SAL,
-    ensemble_mean,
-    ensemble_std,
-    rank_histogram,
-    spread_error,
-)
-from .spatial_skill_metrics import (
-    FSS,
-    VETS,
-)
+from .relative_metrics import FB, FE, MPE, NMB, NMB_ABS, NMdnB
+from .spatial_ensemble_metrics import BSS, CRPS, EDS, SAL, ensemble_mean, ensemble_std, rank_histogram, spread_error
+from .spatial_skill_metrics import FSS, VETS
 from .utils_stats import (
     angular_difference,
     circlebias,

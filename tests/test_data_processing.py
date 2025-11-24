@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from src.monet_stats.data_processing import (
+from monet_stats.data_processing import (
     align_arrays,
     compute_anomalies,
     detrend_data,

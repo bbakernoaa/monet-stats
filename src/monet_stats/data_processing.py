@@ -25,11 +25,7 @@ def to_numpy(
     numpy.ndarray
         Converted numpy array.
     """
-    if (
-        isinstance(data, xr.DataArray)
-        or isinstance(data, pd.Series)
-        or isinstance(data, pd.DataFrame)
-    ):
+    if isinstance(data, xr.DataArray) or isinstance(data, pd.Series) or isinstance(data, pd.DataFrame):
         return np.asarray(data.values)
     elif isinstance(data, list):
         return np.array(data)
@@ -37,9 +33,7 @@ def to_numpy(
         return np.asarray(data)
 
 
-def align_arrays(
-    obs: Union[np.ndarray, xr.DataArray], mod: Union[np.ndarray, xr.DataArray]
-) -> Tuple:
+def align_arrays(obs: Union[np.ndarray, xr.DataArray], mod: Union[np.ndarray, xr.DataArray]) -> Tuple:
     """
     Align two arrays for comparison.
 
@@ -64,9 +58,7 @@ def align_arrays(
         mod = to_numpy(mod)
 
         if obs.shape != mod.shape:
-            raise ValueError(
-                f"Arrays must have the same shape, got {obs.shape} and {mod.shape}"
-            )
+            raise ValueError(f"Arrays must have the same shape, got {obs.shape} and {mod.shape}")
 
         return obs, mod
 
@@ -222,12 +214,8 @@ def detrend_data(
             obs_detrended = detrend(obs_np, axis=-1)
             mod_detrended = detrend(mod_np, axis=-1)
             # Convert back to xarray if original was xarray
-            obs_detrended = xr.DataArray(
-                obs_detrended, coords=obs.coords, dims=obs.dims
-            )
-            mod_detrended = xr.DataArray(
-                mod_detrended, coords=mod.coords, dims=mod.dims
-            )
+            obs_detrended = xr.DataArray(obs_detrended, coords=obs.coords, dims=obs.dims)
+            mod_detrended = xr.DataArray(mod_detrended, coords=mod.coords, dims=mod.dims)
         else:
             from scipy.signal import detrend
 

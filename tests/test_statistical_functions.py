@@ -6,42 +6,14 @@ import numpy as np
 import pytest
 from scipy.stats import pearsonr
 
-from src.monet_stats.contingency_metrics import (
-    FAR,
-    POD,
-)
-from src.monet_stats.correlation_metrics import (
-    AC,
-    R2,
-)
-from src.monet_stats.correlation_metrics import pearsonr as stats_pearsonr
-from src.monet_stats.efficiency_metrics import NSE as eff_NSE
-from src.monet_stats.error_metrics import (
-    LOG_ERROR,
-    MAE,
-    MAPE,
-    MASE,
-    MB,
-    NMSE,
-    NRMSE,
-    RMSE,
-    MedAE,
-    sMAPE,
-)
-from src.monet_stats.relative_metrics import (
-    NMB,
-)
-from src.monet_stats.spatial_ensemble_metrics import (
-    CRPS,
-)
-from src.monet_stats.spatial_skill_metrics import (
-    FSS,
-    VETS,
-)
-from src.monet_stats.utils_stats import (
-    mae,
-    rmse,
-)
+from monet_stats.contingency_metrics import FAR, POD
+from monet_stats.correlation_metrics import AC, R2
+from monet_stats.correlation_metrics import pearsonr as stats_pearsonr
+from monet_stats.efficiency_metrics import NSE as eff_NSE
+from monet_stats.error_metrics import LOG_ERROR, MAE, MAPE, MASE, MB, NMSE, NRMSE, RMSE, MedAE, sMAPE
+from monet_stats.relative_metrics import NMB
+from monet_stats.spatial_ensemble_metrics import CRPS
+from monet_stats.utils_stats import mae, rmse
 
 
 class TestErrorMetrics:
