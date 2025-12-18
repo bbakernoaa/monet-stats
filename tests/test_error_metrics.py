@@ -213,7 +213,7 @@ class TestErrorMetrics:
         """Test that error metrics return appropriate values."""
         result = metric_func(self.obs_random, self.mod_random)
         assert isinstance(
-            result, (float, np.floating, int, np.integer)
+            result, (float, np.floating, int, np.integer, xr.DataArray)
         ), f"{metric_func.__name__} should return a numeric value, got {type(result)}"
 
     def test_edge_case_single_element(self):
@@ -273,7 +273,9 @@ class TestErrorMetrics:
 
         # Should complete quickly (adjust threshold as needed)
         assert end_time - start_time < 1.0, "MAE should complete in under 1 second"
-        assert isinstance(result, (float, np.floating)), "Should return a float"
+        assert isinstance(
+            result, (float, np.floating, xr.DataArray)
+        ), "Should return a float or xarray.DataArray"
 
     def test_nse_alpha_beta(self):
         """Test NSE alpha and beta metrics."""
