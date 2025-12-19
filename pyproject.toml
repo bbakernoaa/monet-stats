@@ -41,6 +41,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
+    "dask",
     "pytest>=7.0.0",
     "pytest-cov>=3.0.0",
     "hypothesis>=6.0.0",

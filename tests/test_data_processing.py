@@ -3,9 +3,9 @@ Tests for data_processing.py module.
 """
 
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
-import pandas as pd
 
 from monet_stats.data_processing import (
     align_arrays,
@@ -79,8 +79,16 @@ class TestDataProcessing:
         obs = factory([1, 2, 3, 4, 5])
         mod = factory([1, 2, 3, 4, 5])
         if isinstance(obs, xr.DataArray):
-            obs = xr.DataArray(obs, dims=["time"], coords={"time": pd.to_datetime(['2024-01-01', '2024-01-02', '2024-01-03', '2024-01-04', '2024-01-05'])})
-            mod = xr.DataArray(mod, dims=["time"], coords={"time": pd.to_datetime(['2024-01-01', '2024-01-02', '2024-01-03', '2024-01-04', '2024-01-05'])})
+            obs = xr.DataArray(
+                obs,
+                dims=["time"],
+                coords={"time": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"])},
+            )
+            mod = xr.DataArray(
+                mod,
+                dims=["time"],
+                coords={"time": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"])},
+            )
         obs_detrended, _ = detrend_data(obs, mod, method="linear")
         assert np.allclose(obs_detrended, 0, atol=1e-9)
 
@@ -89,7 +97,15 @@ class TestDataProcessing:
         obs = factory([1, 2, 3, 4, 5])
         mod = factory([1, 2, 3, 4, 5])
         if isinstance(obs, xr.DataArray):
-            obs = xr.DataArray(obs, dims=["time"], coords={"time": pd.to_datetime(['2024-01-01', '2024-01-02', '2024-01-03', '2024-01-04', '2024-01-05'])})
-            mod = xr.DataArray(mod, dims=["time"], coords={"time": pd.to_datetime(['2024-01-01', '2024-01-02', '2024-01-03', '2024-01-04', '2024-01-05'])})
+            obs = xr.DataArray(
+                obs,
+                dims=["time"],
+                coords={"time": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"])},
+            )
+            mod = xr.DataArray(
+                mod,
+                dims=["time"],
+                coords={"time": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"])},
+            )
         obs_anom, _ = compute_anomalies(obs, mod)
         assert np.isclose(np.mean(obs_anom), 0)

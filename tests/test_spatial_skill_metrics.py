@@ -2,10 +2,10 @@
 Tests for Spatial Skill Metrics
 """
 
+import dask.array as da
 import numpy as np
 import pytest
 import xarray as xr
-import dask.array as da
 
 from monet_stats.spatial_skill_metrics import FSS, VETS
 
