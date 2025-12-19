@@ -11,41 +11,12 @@ from numpy.typing import ArrayLike
 from .utils_stats import circlebias, circlebias_m
 
 
-def _to_aligned_xarray(obs: ArrayLike, mod: ArrayLike) -> tuple[xr.DataArray, xr.DataArray]:
-    """Convert inputs to aligned xarray.DataArrays.
-
-    If the inputs are already xarray.DataArray objects, they will be aligned.
-    If they are not, they will be converted to xarray.DataArray objects.
-
-    Parameters
-    ----------
-    obs : ArrayLike
-        Observed values.
-    mod : ArrayLike
-        Model predicted values.
-
-    Returns
-    -------
-    tuple[xr.DataArray, xr.DataArray]
-        A tuple containing two aligned xarray.DataArray objects.
-    """
-    if not isinstance(obs, xr.DataArray):
-        obs = xr.DataArray(obs)
-    if not isinstance(mod, xr.DataArray):
-        mod = xr.DataArray(mod)
-
-    # Align the data arrays to ensure they have the same dimensions and coordinates
-    obs, mod = xr.align(obs, mod, join="inner")
-
-    return obs, mod
-
-
 ############################################################
 # 1. Basic Error Metrics
 ############################################################
 
 
-def STDO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def STDO(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Standard deviation of Observation Errors
 
@@ -64,13 +35,13 @@ def STDO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Standard deviation of observation minus model errors.
         Returns 0.0 for perfect agreement.
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     errors = obs - mod
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return errors.std(dim=dim)
 
 
-def STDP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def STDP(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Standard deviation of Prediction Errors
 
@@ -89,13 +60,13 @@ def STDP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Standard deviation of model minus observation errors.
         Returns 0.0 for perfect agreement.
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     errors = mod - obs
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return errors.std(dim=dim)
 
 
-def MNB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MNB(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Normalized Bias (%)
 
@@ -113,12 +84,12 @@ def MNB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     float or ndarray
         Mean normalized bias (percent).
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return ((mod - obs) / obs).mean(dim=dim) * 100.0
 
 
-def MNE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MNE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Normalized Gross Error (%)
 
@@ -136,12 +107,12 @@ def MNE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     float or ndarray
         Mean normalized gross error (percent).
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (abs(mod - obs) / obs).mean(dim=dim) * 100.0
 
 
-def MdnNB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnNB(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Median Normalized Bias (%)
 
@@ -165,12 +136,12 @@ def MdnNB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Description of returned object.
 
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return ((mod - obs) / obs).median(dim=dim) * 100.0
 
 
-def MdnNE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnNE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Median Normalized Gross Error (%)
 
@@ -194,12 +165,12 @@ def MdnNE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Description of returned object.
 
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (abs(mod - obs) / obs).median(dim=dim) * 100.0
 
 
-def NMdnGE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NMdnGE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Normalized Median Gross Error (%)
 
@@ -223,12 +194,12 @@ def NMdnGE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Description of returned object.
 
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (abs(mod - obs).mean(dim=dim) / obs.mean(dim=dim)) * 100.0
 
 
-def NO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NO(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     N Observations (#)
 
@@ -252,12 +223,12 @@ def NO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Description of returned object.
 
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return obs.count(dim=dim)
 
 
-def NOP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NOP(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     N Observations/Prediction Pairs (#)
 
@@ -281,12 +252,12 @@ def NOP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Description of returned object.
 
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return obs.count(dim=dim)
 
 
-def NP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NP(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     N Predictions (#)
 
@@ -310,12 +281,12 @@ def NP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Description of returned object.
 
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = mod.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return mod.count(dim=dim)
 
 
-def MO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MO(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Error (MO) - Mean of (observation - model)
 
@@ -348,12 +319,12 @@ def MO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     >>> MO(obs, mod)
     -0.1
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (obs - mod).mean(dim=dim)
 
 
-def MP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MP(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Predictions (model unit)
 
@@ -377,12 +348,12 @@ def MP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Description of returned object.
 
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = mod.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return mod.mean(dim=dim)
 
 
-def MdnO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnO(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Median Error (MdnO) - Median of (observation - model)
 
@@ -415,12 +386,12 @@ def MdnO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     >>> MdnO(obs, mod)
     -0.1
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (obs - mod).median(dim=dim)
 
 
-def MdnP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnP(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Median Error (MdnP) - Median of (model - observation)
 
@@ -439,12 +410,12 @@ def MdnP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Median error (model - observation) in model units.
         Returns 0.0 for perfect agreement.
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (mod - obs).median(dim=dim)
 
 
-def RM(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def RM(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Root Mean Error (RM) - Root of mean squared error
 
@@ -463,12 +434,12 @@ def RM(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Root of mean squared error (observation units).
         Returns 0.0 for perfect agreement.
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return np.sqrt(((obs - mod) ** 2).mean(dim=dim))
 
 
-def RMdn(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def RMdn(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Root Median Error (RMdn) - Root of median squared error
 
@@ -487,13 +458,13 @@ def RMdn(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Root of median squared error (observation units).
         Returns 0.0 for perfect agreement.
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     squared_errors = (obs - mod) ** 2
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return np.sqrt(squared_errors.median(dim=dim))
 
 
-def MB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MB(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Bias (MB)
 
@@ -512,12 +483,12 @@ def MB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Mean bias value(s) = mean(observation - model).
         Negative values indicate model overestimation.
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (obs - mod).mean(dim=dim)
 
 
-def MdnB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnB(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Median Bias (MdnB)
 
@@ -536,12 +507,12 @@ def MdnB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         Median bias value(s) = median(observation - model).
         Negative values indicate model overestimation.
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (obs - mod).median(dim=dim)
 
 
-def WDMB_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDMB_m(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Mean Bias (WDMB, robust version for masked arrays)
 
@@ -562,7 +533,7 @@ def WDMB_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     float or xarray.DataArray
         Mean wind direction bias (degrees).
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     diff = mod - obs
     bias_values = circlebias_m(diff.values)
@@ -570,7 +541,7 @@ def WDMB_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     return bias_da.mean(dim=dim)
 
 
-def WDMB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDMB(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Mean Bias (WDMB, standard version)
 
@@ -591,7 +562,7 @@ def WDMB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     float or xarray.DataArray
         Mean wind direction bias (degrees).
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     diff = mod - obs
     bias_values = circlebias(diff.values)
@@ -599,7 +570,7 @@ def WDMB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     return bias_da.mean(dim=dim)
 
 
-def WDMdnB(obs, mod, axis=None):
+def WDMdnB(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Wind Direction Median Bias (WDMdnB)
 
@@ -617,7 +588,7 @@ def WDMdnB(obs, mod, axis=None):
     float or xarray.DataArray
         Median wind direction bias (degrees).
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     diff = mod - obs
     bias_values = circlebias(diff.values)
@@ -625,7 +596,7 @@ def WDMdnB(obs, mod, axis=None):
     return bias_da.median(dim=dim)
 
 
-def MAE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MAE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Absolute Error (MAE).
 
@@ -657,12 +628,12 @@ def MAE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     >>> stats.MAE(obs, mod)
     0.6666666666666666
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return abs(mod - obs).mean(dim=dim)
 
 
-def MedAE(obs, mod, axis=None):
+def MedAE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Median Absolute Error (MedAE).
 
@@ -694,12 +665,12 @@ def MedAE(obs, mod, axis=None):
     >>> stats.MedAE(obs, mod)
     1.0
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return abs(mod - obs).median(dim=dim)
 
 
-def sMAPE_original(obs, mod, axis=None):
+def sMAPE_original(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Symmetric Mean Absolute Percentage Error (sMAPE).
 
@@ -731,12 +702,12 @@ def sMAPE_original(obs, mod, axis=None):
     >>> stats.sMAPE(obs, mod)
     28.57142857142857
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=dim)
 
 
-def CRMSE(obs, mod, axis=None):
+def CRMSE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Centered Root Mean Square Error (CRMSE).
 
@@ -768,14 +739,14 @@ def CRMSE(obs, mod, axis=None):
     >>> stats.CRMSE(obs, mod)
     0.4714045207910317
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     o_ = obs - obs.mean(dim=dim)
     m_ = mod - mod.mean(dim=dim)
     return ((m_ - o_) ** 2).mean(dim=dim) ** 0.5
 
 
-def MAPE(obs, mod, axis=None):
+def MAPE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Absolute Percentage Error (MAPE).
 
@@ -807,12 +778,12 @@ def MAPE(obs, mod, axis=None):
     >>> stats.MAPE(obs, mod)
     50.0
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (100 * abs(mod - obs) / abs(obs)).mean(dim=dim)
 
 
-def sMAPE(obs, mod, axis=None):
+def sMAPE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Symmetric Mean Absolute Percentage Error (sMAPE).
 
@@ -844,12 +815,12 @@ def sMAPE(obs, mod, axis=None):
     >>> stats.sMAPE(obs, mod)
     28.57142857142857
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=dim)
 
 
-def NRMSE(obs, mod, axis=None):
+def NRMSE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Normalized Root Mean Square Error (NRMSE).
 
@@ -882,14 +853,14 @@ def NRMSE(obs, mod, axis=None):
     >>> stats.NRMSE(obs, mod)
     0.4714045207910317
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     rmse = ((mod - obs) ** 2).mean(dim=dim) ** 0.5
     obs_range = obs.max(dim=dim) - obs.min(dim=dim)
     return rmse / obs_range
 
 
-def MASE(obs, mod, axis=None):
+def MASE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Absolute Scaled Error (MASE).
 
@@ -922,7 +893,7 @@ def MASE(obs, mod, axis=None):
     >>> stats.MASE(obs, mod)
     0.1
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     shift_dim = dim if dim is not None else obs.dims[0]
     naive_error = abs(obs - obs.shift({shift_dim: 1})).mean(dim=dim, skipna=True)
@@ -930,7 +901,7 @@ def MASE(obs, mod, axis=None):
     return model_error / naive_error
 
 
-def MASEm(obs, mod, axis=None):
+def MASEm(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Absolute Scaled Error (MASE) - robust to masked arrays.
 
@@ -962,7 +933,7 @@ def MASEm(obs, mod, axis=None):
     >>> stats.MASEm(obs, mod)
     0.1
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     shift_dim = dim if dim is not None else obs.dims[0]
     naive_error = abs(obs - obs.shift({shift_dim: 1})).mean(dim=dim, skipna=True)
@@ -970,7 +941,7 @@ def MASEm(obs, mod, axis=None):
     return model_error / naive_error
 
 
-def RMSPE(obs, mod, axis=None):
+def RMSPE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Root Mean Square Percentage Error (RMSPE).
 
@@ -1002,12 +973,12 @@ def RMSPE(obs, mod, axis=None):
     >>> stats.RMSPE(obs, mod)
     50.0
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (100 * ((mod - obs) / obs) ** 2).mean(dim=dim) ** 0.5
 
 
-def MAPEm(obs, mod, axis=None):
+def MAPEm(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Absolute Percentage Error (MAPE) - robust to masked arrays.
 
@@ -1039,12 +1010,12 @@ def MAPEm(obs, mod, axis=None):
     >>> stats.MAPEm(obs, mod)
     50.0
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (100 * abs((mod - obs) / obs)).mean(dim=dim)
 
 
-def sMAPEm(obs, mod, axis=None):
+def sMAPEm(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Symmetric Mean Absolute Percentage Error (sMAPE) - robust to masked arrays.
 
@@ -1076,12 +1047,12 @@ def sMAPEm(obs, mod, axis=None):
     >>> stats.sMAPEm(obs, mod)
     28.57142857142857
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=dim)
 
 
-def NSC(obs, mod, axis=None):
+def NSC(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Nash-Sutcliffe Coefficient (NSC) - Alternative to NSE.
 
@@ -1113,7 +1084,7 @@ def NSC(obs, mod, axis=None):
     >>> stats.NSC(obs, mod)
     -0.3333
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     obs_mean = obs.mean(dim=dim)
     numerator = ((obs - mod) ** 2).sum(dim=dim)
@@ -1121,7 +1092,7 @@ def NSC(obs, mod, axis=None):
     return 1.0 - (numerator / denominator)
 
 
-def NSE_alpha(obs, mod, axis=None):
+def NSE_alpha(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     NSE Alpha - Decomposed NSE component measuring ratio of standard deviations.
 
@@ -1153,12 +1124,12 @@ def NSE_alpha(obs, mod, axis=None):
     >>> stats.NSE_alpha(obs, mod)
     0.0
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return mod.std(dim=dim) / obs.std(dim=dim)
 
 
-def NSE_beta(obs, mod, axis=None):
+def NSE_beta(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     NSE Beta - Decomposed NSE component measuring bias.
 
@@ -1190,12 +1161,12 @@ def NSE_beta(obs, mod, axis=None):
     >>> stats.NSE_beta(obs, mod)
     0.5
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return mod.mean(dim=dim) / obs.mean(dim=dim)
 
 
-def MAE_m(obs, mod, axis=None):
+def MAE_m(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Mean Absolute Error (MAE) - robust to masked arrays.
 
@@ -1227,12 +1198,12 @@ def MAE_m(obs, mod, axis=None):
     >>> stats.MAE_m(obs, mod)
     0.66666666
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return abs(mod - obs).mean(dim=dim)
 
 
-def MedAE_m(obs, mod, axis=None):
+def MedAE_m(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Median Absolute Error (MedAE) - robust to masked arrays and outliers.
 
@@ -1264,12 +1235,12 @@ def MedAE_m(obs, mod, axis=None):
     >>> stats.MedAE_m(obs, mod)
     1.0
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return abs(mod - obs).median(dim=dim)
 
 
-def RMSE(obs, mod, axis=None):
+def RMSE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Root Mean Square Error (RMSE).
 
@@ -1301,12 +1272,12 @@ def RMSE(obs, mod, axis=None):
     >>> stats.RMSE(obs, mod)
     0.816496580927726
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return ((mod - obs) ** 2).mean(dim=dim) ** 0.5
 
 
-def RMSE_m(obs, mod, axis=None):
+def RMSE_m(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Root Mean Square Error (RMSE) - robust to masked arrays.
 
@@ -1339,12 +1310,12 @@ def RMSE_m(obs, mod, axis=None):
     >>> stats.RMSE_m(obs, mod)
     0.816496580927726
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return ((mod - obs) ** 2).mean(dim=dim) ** 0.5
 
 
-def IOA(obs, mod, axis=None):
+def IOA(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Index of Agreement (IOA).
 
@@ -1376,7 +1347,7 @@ def IOA(obs, mod, axis=None):
     >>> stats.IOA(obs, mod)
     0.8
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     obs_mean = obs.mean(dim=dim)
     num = ((obs - mod) ** 2).sum(dim=dim)
@@ -1384,7 +1355,7 @@ def IOA(obs, mod, axis=None):
     return 1.0 - (num / denom)
 
 
-def IOA_m(obs, mod, axis=None):
+def IOA_m(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Index of Agreement (IOA) - robust to masked arrays.
 
@@ -1416,7 +1387,7 @@ def IOA_m(obs, mod, axis=None):
     >>> stats.IOA_m(obs, mod)
     0.8
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     obs_mean = obs.mean(dim=dim)
     num = ((obs - mod) ** 2).sum(dim=dim)
@@ -1427,7 +1398,7 @@ def IOA_m(obs, mod, axis=None):
 # Add the missing functions from the specification
 
 
-def MAPE_mod(obs, mod, axis=None):
+def MAPE_mod(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Modified Mean Absolute Percentage Error (MAPE).
 
@@ -1448,14 +1419,14 @@ def MAPE_mod(obs, mod, axis=None):
     mape : float or ndarray
         Mean absolute percentage error (in percent).
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     epsilon = 1e-8
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     obs_safe = xr.where(np.abs(obs) < epsilon, epsilon, obs)
     return (100 * abs(mod - obs) / abs(obs_safe)).mean(dim=dim)
 
 
-def MASE_mod(obs, mod, axis=None):
+def MASE_mod(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Modified Mean Absolute Scaled Error (MASE).
 
@@ -1476,7 +1447,7 @@ def MASE_mod(obs, mod, axis=None):
     mase : float or ndarray
         Mean absolute scaled error (unitless).
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
 
     # If dim is not specified, use the first dimension for shifting
@@ -1487,7 +1458,7 @@ def MASE_mod(obs, mod, axis=None):
     return xr.where(naive_error == 0, model_error, model_error / naive_error)
 
 
-def RMSE_norm(obs, mod, axis=None):
+def RMSE_norm(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Normalized Root Mean Square Error (RMSE_norm).
 
@@ -1507,7 +1478,7 @@ def RMSE_norm(obs, mod, axis=None):
     rmse_norm : float or ndarray
         Normalized root mean square error (unitless).
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     rmse = ((mod - obs) ** 2).mean(dim=dim) ** 0.5
     obs_min = obs.min(dim=dim)
@@ -1516,7 +1487,7 @@ def RMSE_norm(obs, mod, axis=None):
     return xr.where(obs_range == 0, rmse, rmse / obs_range)
 
 
-def MAE_norm(obs, mod, axis=None):
+def MAE_norm(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Normalized Mean Absolute Error (MAE_norm).
 
@@ -1536,7 +1507,7 @@ def MAE_norm(obs, mod, axis=None):
     mae_norm : float or ndarray
         Normalized mean absolute error (unitless).
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     mae = abs(mod - obs).mean(dim=dim)
     obs_min = obs.min(dim=dim)
@@ -1545,7 +1516,7 @@ def MAE_norm(obs, mod, axis=None):
     return xr.where(obs_range == 0, mae, mae / obs_range)
 
 
-def bias_fraction(obs, mod, axis=None):
+def bias_fraction(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Bias Fraction (BF).
 
@@ -1565,7 +1536,7 @@ def bias_fraction(obs, mod, axis=None):
     bf : float or ndarray
         Bias fraction (unitless, 0-1).
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     bias = (mod - obs).mean(dim=dim)
     total_error = np.sqrt(((mod - obs) ** 2).mean(dim=dim))
@@ -1575,7 +1546,7 @@ def bias_fraction(obs, mod, axis=None):
 # Add missing functions from the specification
 
 
-def NMSE(obs, mod, axis=None):
+def NMSE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Normalized Mean Square Error (NMSE).
 
@@ -1608,14 +1579,14 @@ def NMSE(obs, mod, axis=None):
     >>> NMSE(obs, mod)
     0.25
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     mse = ((mod - obs) ** 2).mean(dim=dim)
     obs_var = obs.var(dim=dim)
     return xr.where(obs_var == 0, 0, mse / obs_var)
 
 
-def LOG_ERROR(obs, mod, axis=None):
+def LOG_ERROR(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Logarithmic Error Metric.
 
@@ -1648,7 +1619,7 @@ def LOG_ERROR(obs, mod, axis=None):
     >>> LOG_ERROR(obs, mod)
     0.34657359027997264
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     epsilon = 1e-10
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     obs_safe = np.abs(obs) + epsilon
@@ -1658,7 +1629,7 @@ def LOG_ERROR(obs, mod, axis=None):
     return ((mod_log - obs_log) ** 2).mean(dim=dim) ** 0.5
 
 
-def COE(obs, mod, axis=None):
+def COE(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Center of Mass Error (COE).
 
@@ -1691,12 +1662,12 @@ def COE(obs, mod, axis=None):
     >>> COE(obs, mod)
     1.4142135623730951
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return ((mod - obs) ** 2).mean(dim=dim) ** 0.5
 
 
-def VOLUMETRIC_ERROR(obs, mod, axis=None):
+def VOLUMETRIC_ERROR(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Volumetric Error Metric.
 
@@ -1729,14 +1700,14 @@ def VOLUMETRIC_ERROR(obs, mod, axis=None):
     >>> VOLUMETRIC_ERROR(obs, mod)
     0.2
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     obs_sum = obs.sum(dim=dim)
     mod_sum = mod.sum(dim=dim)
     return np.abs(mod_sum - obs_sum) / np.abs(obs_sum)
 
 
-def CORR_INDEX(obs, mod, axis=None):
+def CORR_INDEX(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
     """
     Correlation Index (CORR_INDEX).
 
@@ -1769,6 +1740,6 @@ def CORR_INDEX(obs, mod, axis=None):
     >>> CORR_INDEX(obs, mod)
     1.0
     """
-    obs, mod = _to_aligned_xarray(obs, mod)
+    obs, mod = xr.align(obs, mod, join="inner")
     dim = obs.dims[axis] if axis is not None and isinstance(axis, int) else axis
     return xr.corr(obs, mod, dim=dim)
