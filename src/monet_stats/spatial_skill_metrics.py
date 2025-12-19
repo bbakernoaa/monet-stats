@@ -6,11 +6,31 @@ from typing import Any, Optional
 
 import numpy as np
 import xarray as xr
+from numpy.typing import ArrayLike
+from scipy.ndimage import uniform_filter
+
+
+def _uniform_filter(data: np.ndarray, window_size: int) -> np.ndarray:
+    """Apply a uniform filter to the data.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        The input data array.
+    window_size : int
+        The size of the filter window.
+
+    Returns
+    -------
+    np.ndarray
+        The filtered data.
+    """
+    return uniform_filter(data.astype(float), size=window_size)
 
 
 def FSS(
-    obs: xr.DataArray,
-    mod: xr.DataArray,
+    obs: ArrayLike,
+    mod: ArrayLike,
     threshold: float,
     window_size: int,
 ) -> Any:
@@ -25,9 +45,9 @@ def FSS(
 
     Parameters
     ----------
-    obs : xr.DataArray
+    obs : array_like or xarray.DataArray
         Observed values.
-    mod : xr.DataArray
+    mod : array_like or xarray.DataArray
         Model or predicted values.
     threshold : float
         The threshold to define an event.
@@ -39,22 +59,38 @@ def FSS(
     fss : float or ndarray
         The Fractions Skill Score, ranging from 0 (no skill) to 1 (perfect skill).
     """
-    obs, mod = xr.align(obs, mod, join="inner")
-    obs_binary = (obs >= threshold).astype(float)
-    mod_binary = (mod >= threshold).astype(float)
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        obs_binary = (obs >= threshold).astype(float)
+        mod_binary = (mod >= threshold).astype(float)
 
-    # Use xarray's rolling window operation, which is Dask-compatible
-    obs_frac = obs_binary.rolling(dim={d: window_size for d in obs.dims}, center=True).mean()
-    mod_frac = mod_binary.rolling(dim={d: window_size for d in mod.dims}, center=True).mean()
+        obs_frac = obs_binary.rolling(dim={d: window_size for d in obs.dims}, center=True).mean()
+        mod_frac = mod_binary.rolling(dim={d: window_size for d in mod.dims}, center=True).mean()
 
-    mse = ((obs_frac - mod_frac) ** 2).mean()
-    mse_ref = (obs_frac**2).mean() + (mod_frac**2).mean()
+        mse = ((obs_frac - mod_frac) ** 2).mean()
+        mse_ref = (obs_frac**2).mean() + (mod_frac**2).mean()
 
-    # Using xr.where to handle potential division by zero in a Dask-friendly way
-    return xr.where(mse_ref == 0, 1.0, 1 - (mse / mse_ref))
+        if mse_ref == 0:
+            return 1.0  # Perfect score if both fields are zero
+        else:
+            return 1 - (mse / mse_ref)
+    else:
+        obs_binary = (np.asarray(obs) >= threshold).astype(float)
+        mod_binary = (np.asarray(mod) >= threshold).astype(float)
+
+        obs_frac = _uniform_filter(obs_binary, window_size)
+        mod_frac = _uniform_filter(mod_binary, window_size)
+
+        mse = np.mean((obs_frac - mod_frac) ** 2)
+        mse_ref = np.mean(obs_frac**2) + np.mean(mod_frac**2)
+
+        if mse_ref == 0:
+            return 1.0
+        else:
+            return 1 - (mse / mse_ref)
 
 
-def VETS(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> Any:
+def VETS(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     """
     Volumetric Equitable Threat Score (VETS).
 
@@ -65,9 +101,9 @@ def VETS(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> An
 
     Parameters
     ----------
-    obs : xr.DataArray
+    obs : array_like or xarray.DataArray
         Observed values.
-    mod : xr.DataArray
+    mod : array_like or xarray.DataArray
         Model or predicted values.
     axis : int, optional
         Axis along which to compute the score.
@@ -77,17 +113,30 @@ def VETS(obs: xr.DataArray, mod: xr.DataArray, axis: Optional[int] = None) -> An
     vets : float or ndarray
         The Volumetric Equitable Threat Score.
     """
-    obs, mod = xr.align(obs, mod, join="inner")
-
-    # Use xr.ufuncs for element-wise operations to stay within xarray/dask ecosystem
-    hits = xr.ufuncs.minimum(obs, mod).sum(dim=axis)
-    sum_obs = obs.sum(dim=axis)
-    sum_mod = mod.sum(dim=axis)
-    misses = sum_obs - hits
-    false_alarms = sum_mod - hits
-    total_union = xr.ufuncs.maximum(obs, mod).sum(dim=axis)
-    hits_random = (sum_obs * sum_mod) / total_union
-    denominator = hits + misses + false_alarms - hits_random
-
-    # Use xr.where for safe division
-    return xr.where(denominator == 0, 1.0, (hits - hits_random) / denominator)
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        hits = np.minimum(obs, mod).sum(dim=axis)
+        sum_obs = obs.sum(dim=axis)
+        sum_mod = mod.sum(dim=axis)
+        misses = sum_obs - hits
+        false_alarms = sum_mod - hits
+        total_union = np.maximum(obs, mod).sum(dim=axis)
+        hits_random = (sum_obs * sum_mod) / total_union
+        denominator = hits + misses + false_alarms - hits_random
+        if denominator == 0:
+            return 1.0
+        return (hits - hits_random) / denominator
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        hits = np.sum(np.minimum(obs, mod), axis=axis)
+        sum_obs = np.sum(obs, axis=axis)
+        sum_mod = np.sum(mod, axis=axis)
+        misses = sum_obs - hits
+        false_alarms = sum_mod - hits
+        total_union = np.sum(np.maximum(obs, mod), axis=axis)
+        hits_random = (sum_obs * sum_mod) / total_union
+        denominator = hits + misses + false_alarms - hits_random
+        if denominator == 0:
+            return 1.0
+        return (hits - hits_random) / denominator
