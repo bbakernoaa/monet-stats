@@ -2,7 +2,7 @@
 Error Metrics for Model Evaluation
 """
 
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 import xarray as xr
@@ -119,35 +119,66 @@ def MNE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         return np.ma.masked_invalid(np.ma.abs(mod - obs) / obs).mean(axis=axis) * 100.0
 
 
-def MdnNB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnNB(
+    obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Median Normalized Bias (%)
+    Median Normalized Bias (MdnNB).
 
-    Typical Use Cases
-    -----------------
-    - Assessing the central tendency of model bias relative to observations, less sensitive to outliers than mean.
-    - Useful for robust model evaluation in the presence of skewed or non-normal error distributions.
+    Calculates the median of normalized bias, providing a robust measure of
+    central tendency for the bias that is less sensitive to outliers than the
+    Mean Normalized Bias (MNB).
 
     Parameters
     ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
+    obs : array-like
+        Observed values.
+    mod : array-like
+        Model predicted values.
+    axis : int, optional
+        Axis along which to compute the median. If None, computes on flattened array.
 
     Returns
     -------
-    type
-        Description of returned object.
+    float or ndarray
+        The Median Normalized Bias in percent (%). Returns 0 for a perfect model.
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.array([10, 20, 30, 40, 50])
+    >>> mod = np.array([11, 22, 28, 43, 55])
+    >>> MdnNB(obs, mod)
+    10.0
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return ((mod - obs) / obs).median(dim=axis) * 100.0
+
+        # Determine the dimension name from the axis integer
+        dim = None
+        if axis is not None:
+            # Ensure axis is within the valid range of dimensions
+            if axis < len(obs.dims):
+                dim = obs.dims[axis]
+            else:
+                raise ValueError(f"Axis {axis} is out of bounds for array with {len(obs.dims)} dimensions.")
+
+        result = ((mod - obs) / obs).median(dim=dim) * 100.0
+
+        # Update history attribute
+        history_message = "Calculated Median Normalized Bias (%)."
+        if 'history' in result.attrs:
+            result.attrs['history'] += f"\n{history_message}"
+        else:
+            result.attrs['history'] = history_message
+
+        return result
     else:
-        return np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
+        # For numpy arrays, handle masked arrays to avoid divide-by-zero warnings
+        with np.errstate(divide='ignore', invalid='ignore'):
+            bias = (mod - obs) / obs
+            masked_bias = np.ma.masked_invalid(bias)
+            return np.ma.median(masked_bias, axis=axis) * 100.0
 
 
 def MdnNE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:

@@ -695,3 +695,74 @@ class TestErrorMetricsXarray:
         result = MNE(self.obs_xr, self.mod_xr)
         assert isinstance(result, xr.DataArray)
         assert np.isclose(result, 4.56666667)
+
+
+# Test cases for MdnNB function
+@pytest.mark.parametrize(
+    "obs, mod, expected",
+    [
+        # Test case 1: Simple numpy arrays
+        (np.array([10, 20, 30, 40, 50]), np.array([11, 22, 28, 43, 55]), 10.0),
+
+        # Test case 2: Numpy arrays with negative values
+        (np.array([-10, -20, -30]), np.array([-11, -22, -28]), 10.0),
+
+        # Test case 3: Numpy arrays with zero observation (should be ignored)
+        (np.array([10, 0, 30]), np.array([11, 22, 28]), 1.666666666666667),
+
+        # Test case 4: Perfect agreement
+        (np.array([10, 20, 30]), np.array([10, 20, 30]), 0.0),
+    ],
+)
+def test_MdnNB_numpy(obs, mod, expected):
+    """Test MdnNB with numpy arrays."""
+    result = MdnNB(obs, mod)
+    assert np.isclose(result, expected)
+
+@pytest.mark.parametrize(
+    "obs_xr, mod_xr, axis, expected_xr",
+    [
+        # Test case 1: 1D xarray DataArray
+        (
+            xr.DataArray([10, 20, 30, 40, 50], dims=["x"], name="test"),
+            xr.DataArray([11, 22, 28, 43, 55], dims=["x"], name="test"),
+            None,
+            xr.DataArray(10.0, name="test"),
+        ),
+
+        # Test case 2: 2D xarray DataArray with axis=0
+        (
+            xr.DataArray([[10, 20], [30, 40]], dims=["x", "y"], name="test"),
+            xr.DataArray([[11, 22], [28, 43]], dims=["x", "y"], name="test"),
+            0,
+            xr.DataArray([1.66666667, 8.75], dims=["y"], name="test"),
+        ),
+
+        # Test case 3: 2D xarray DataArray with axis=1
+        (
+            xr.DataArray([[10, 20], [30, 40]], dims=["x", "y"], name="test"),
+            xr.DataArray([[11, 22], [28, 43]], dims=["x", "y"], name="test"),
+            1,
+            xr.DataArray([10. , 0.41666667], dims=["x"], name="test"),
+        ),
+    ],
+)
+def test_MdnNB_xarray(obs_xr, mod_xr, axis, expected_xr):
+    """Test MdnNB with xarray DataArrays."""
+    result_xr = MdnNB(obs_xr, mod_xr, axis=axis)
+    xr.testing.assert_allclose(result_xr, expected_xr)
+
+def test_MdnNB_history_numpy():
+    """Test that MdnNB does not add history to numpy arrays."""
+    obs = np.array([10, 20, 30])
+    mod = np.array([11, 22, 28])
+    result = MdnNB(obs, mod)
+    assert not hasattr(result, "attrs")
+
+def test_MdnNB_history_xarray():
+    """Test that MdnNB adds history to xarray DataArrays."""
+    obs_xr = xr.DataArray([10, 20, 30], dims=["x"])
+    mod_xr = xr.DataArray([11, 22, 28], dims=["x"])
+    result_xr = MdnNB(obs_xr, mod_xr)
+    assert "history" in result_xr.attrs
+    assert "Calculated Median Normalized Bias" in result_xr.attrs["history"]
