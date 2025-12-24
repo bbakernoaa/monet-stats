@@ -1,6 +1,5 @@
 """Tests for the `plugin_system` module."""
 import numpy as np
-import pytest
 
 from monet_stats import plugin_system
 
