@@ -139,9 +139,7 @@ class TestRelativeMetrics:
         obs_dir = np.array([0, 90, 180, 270])
         mod_dir = np.array([5, 95, 185, 275])  # 5 degree bias
         result = WDNMB_m(obs_dir, mod_dir)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"WDNMB_m should return numeric, got {type(result)}"
+        assert np.isclose(result, 3.7037037037037033)
 
     @pytest.mark.unit
     def test_nmb_abs_normalized_bias_absolute(self) -> None:
@@ -649,3 +647,23 @@ class TestRelativeMetricsEdgeCases:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+from monet_stats import relative_metrics
+
+def test_nmb_abs():
+    """Test the NMB_ABS function."""
+    obs = np.array([1, 2, 3, 4])
+    mod = np.array([2, 2, 2, 2])
+    assert np.isclose(relative_metrics.NMB_ABS(obs, mod), -20.0)
+
+def test_fb_perfect():
+    """Test the FB function for a perfect forecast."""
+    obs = np.array([1, 2, 3, 4])
+    mod = np.array([1, 2, 3, 4])
+    assert np.isclose(relative_metrics.FB(obs, mod), 0.0)
+
+def test_fe_perfect():
+    """Test the FE function for a perfect forecast."""
+    obs = np.array([1, 2, 3, 4])
+    mod = np.array([1, 2, 3, 4])
+    assert np.isclose(relative_metrics.FE(obs, mod), 0.0)
