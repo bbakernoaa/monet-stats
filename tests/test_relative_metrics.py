@@ -650,17 +650,20 @@ if __name__ == "__main__":
 
 from monet_stats import relative_metrics
 
+
 def test_nmb_abs():
     """Test the NMB_ABS function."""
     obs = np.array([1, 2, 3, 4])
     mod = np.array([2, 2, 2, 2])
     assert np.isclose(relative_metrics.NMB_ABS(obs, mod), -20.0)
 
+
 def test_fb_perfect():
     """Test the FB function for a perfect forecast."""
     obs = np.array([1, 2, 3, 4])
     mod = np.array([1, 2, 3, 4])
     assert np.isclose(relative_metrics.FB(obs, mod), 0.0)
+
 
 def test_fe_perfect():
     """Test the FE function for a perfect forecast."""

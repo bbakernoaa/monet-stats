@@ -1,4 +1,5 @@
 """Tests for the `plugin_system` module."""
+
 import numpy as np
 
 from monet_stats import plugin_system
@@ -46,8 +47,10 @@ def test_compute_metric():
     result = manager.compute_metric("WMAPE", obs, mod)
     assert np.isclose(result, 10.0)
 
+
 def test_custom_metric():
     """Test the CustomMetric class."""
+
     def my_metric(obs, mod):
         return np.mean(obs - mod)
 
