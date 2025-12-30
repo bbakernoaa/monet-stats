@@ -140,8 +140,10 @@ def MdnNB(
 
     Returns
     -------
-    float or ndarray
-        The Median Normalized Bias in percent (%). Returns 0 for a perfect model.
+    float or xarray.DataArray
+        The Median Normalized Bias, expressed as a percentage.
+        Returns 0.0 for a perfect model. Positive values indicate model
+        overestimation, negative values indicate underestimation.
 
     Examples
     --------
@@ -149,36 +151,30 @@ def MdnNB(
     >>> obs = np.array([10, 20, 30, 40, 50])
     >>> mod = np.array([11, 22, 28, 43, 55])
     >>> MdnNB(obs, mod)
-    10.0
+    5.0
+
+    Using xarray.DataArray:
+    >>> import xarray as xr
+    >>> obs_da = xr.DataArray(obs, dims=['time'], name='temperature')
+    >>> mod_da = xr.DataArray(mod, dims=['time'], name='temperature')
+    >>> result = MdnNB(obs_da, mod_da)
+    >>> print(result.item())
+    5.0
+    >>> print(result.attrs['history'])
+    Calculated MdnNB(%)
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-
-        # Determine the dimension name from the axis integer
-        dim = None
-        if axis is not None:
-            # Ensure axis is within the valid range of dimensions
-            if axis < len(obs.dims):
-                dim = obs.dims[axis]
-            else:
-                raise ValueError(f"Axis {axis} is out of bounds for array with {len(obs.dims)} dimensions.")
-
-        result = ((mod - obs) / obs).median(dim=dim) * 100.0
-
-        # Update history attribute
-        history_message = "Calculated Median Normalized Bias (%)."
-        if 'history' in result.attrs:
-            result.attrs['history'] += f"\n{history_message}"
-        else:
-            result.attrs['history'] = history_message
-
+        # Mask where obs is zero to avoid division by zero, then calculate
+        normalized_bias = (mod - obs) / obs
+        result = (
+            normalized_bias.where(np.isfinite(normalized_bias)).median(dim=axis) * 100.0
+        )
+        result.attrs["history"] = "Calculated MdnNB(%)"
         return result
     else:
-        # For numpy arrays, handle masked arrays to avoid divide-by-zero warnings
-        with np.errstate(divide='ignore', invalid='ignore'):
-            bias = (mod - obs) / obs
-            masked_bias = np.ma.masked_invalid(bias)
-            return np.ma.median(masked_bias, axis=axis) * 100.0
+        # np.ma.masked_invalid will handle NaNs and Infs correctly
+        return np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
 
 
 def MdnNE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:

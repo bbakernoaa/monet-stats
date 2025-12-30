@@ -393,10 +393,10 @@ def save_datasets() -> None:
     # Create summary file
     summary = f"""
 Dataset Summary:
-- Temperature: {len(temp_data['dates'])} days, {len(temp_data['stations'])} stations
-- Precipitation: {len(precip_data['dates'])} days, {len(precip_data['stations'])} stations
-- Wind: {len(wind_data['dates'])} hours, {len(wind_data['stations'])} stations
-- Spatial: {len(spatial_data['dates'])} days, {len(spatial_data['lats'])}x{len(spatial_data['lons'])} grid
+- Temperature: {len(temp_data["dates"])} days, {len(temp_data["stations"])} stations
+- Precipitation: {len(precip_data["dates"])} days, {len(precip_data["stations"])} stations
+- Wind: {len(wind_data["dates"])} hours, {len(wind_data["stations"])} stations
+- Spatial: {len(spatial_data["dates"])} days, {len(spatial_data["lats"])}x{len(spatial_data["lons"])} grid
 
 Files created:
 - data/temperature_obs_mod.csv

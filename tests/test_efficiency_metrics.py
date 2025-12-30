@@ -287,8 +287,8 @@ class TestEfficiencyMetrics:
         for metric_func in [MSE, MAE]:
             result = metric_func(obs_empty, mod_empty)
             # Empty arrays should return NaN or similar indicator
-            assert np.isnan(result) or np.ma.is_masked(
-                result
+            assert (
+                np.isnan(result) or np.ma.is_masked(result)
             ), f"{metric_func.__name__} should handle empty arrays gracefully, got {result}"
 
     @pytest.mark.unit

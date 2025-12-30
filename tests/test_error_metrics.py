@@ -240,6 +240,22 @@ class TestErrorMetrics:
             abs(result - 0.0) < 1e-10
         ), f"Perfect agreement should give MdnNB=0.0, got {result}"
 
+    def test_mdnnb_systematic_bias(self) -> None:
+        """Test MdnNB with a known bias."""
+        obs_known = np.array([10, 20, 30, 40, 50])
+        mod_known = np.array([11, 21, 31.5, 42, 55])
+        result = MdnNB(obs_known, mod_known)
+        assert np.isclose(result, 5.0), f"Expected MdnNB=5.0, got {result}"
+
+    def test_mdnnb_with_zeros_in_obs(self) -> None:
+        """Test MdnNB handles zeros in observation correctly."""
+        obs_with_zeros = np.array([10, 0, 30, 40, 50])
+        mod_val = np.array([11, 22, 27, 44, 55])
+        result = MdnNB(obs_with_zeros, mod_val)
+        # The (22-0)/0 term should be masked. The median of the rest is 10%.
+        expected = np.ma.median([10.0, -10.0, 10.0, 10.0])
+        assert np.isclose(result, expected), f"Expected MdnNB={expected}, got {result}"
+
     def test_nmdnge_perfect_agreement(self) -> None:
         """Test Normalized Median GE with perfect agreement."""
         result = NMdnGE(self.obs_perfect, self.mod_perfect)
@@ -695,7 +711,6 @@ class TestErrorMetricsXarray:
         result = MNE(self.obs_xr, self.mod_xr)
         assert isinstance(result, xr.DataArray)
         assert np.isclose(result, 4.56666667)
-
 
 # Test cases for MdnNB function
 @pytest.mark.parametrize(

@@ -393,8 +393,8 @@ class TestSpatialEnsembleMetrics:
         assert isinstance(
             result, np.ndarray
         ), f"CRPS should return array, got {type(result)}"
-        assert result.shape == (
-            1,
+        assert (
+            result.shape == (1,)
         ), f"CRPS with single location should return shape (1,), got shape {result.shape}"
 
     @pytest.mark.slow
