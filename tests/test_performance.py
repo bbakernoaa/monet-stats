@@ -3,6 +3,7 @@ Tests for performance.py module.
 """
 
 import numpy as np
+
 from monet_stats.performance import (
     chunk_array,
     fast_mae,

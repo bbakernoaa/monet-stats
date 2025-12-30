@@ -169,9 +169,7 @@ class PerformanceBenchmark:
                 if "error" not in result:
                     avg_time = result["avg_time"]
                     std_time = result["std_time"]
-                    print(
-                        f"{name:<20}: {avg_time * 1000:>8.4f}±{std_time * 1000:.4f} ms"
-                    )
+                    print(f"{name:<20}: {avg_time*1000:>8.4f}±{std_time*1000:.4f} ms")
                 else:
                     print(f"{name:<20}: ERROR - {result['error']}")
 
@@ -258,9 +256,7 @@ class AccuracyVerification:
         results["MAPE_known"] = {
             "computed": mape_result,
             "expected": expected_mape,
-            "passed": np.isclose(
-                mape_result, expected_mape, atol=0.1
-            ),  # Higher tolerance for MAPE
+            "passed": np.isclose(mape_result, expected_mape, atol=0.1),  # Higher tolerance for MAPE
         }
 
         return results

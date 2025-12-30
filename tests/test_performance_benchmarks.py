@@ -6,6 +6,8 @@ Tests various data sizes and optimization strategies.
 import numpy as np
 import pytest
 import xarray as xr
+from pytest_benchmark.fixture import BenchmarkFixture
+
 from monet_stats.test_aliases import (
     akaike_information_criterion,
     bayesian_information_criterion,
@@ -26,8 +28,6 @@ from monet_stats.test_aliases import (
     root_mean_squared_error,
     spearman_correlation,
 )
-from pytest_benchmark.fixture import BenchmarkFixture
-
 from tests.test_utils import TestDataGenerator
 
 
@@ -50,9 +50,7 @@ class TestPerformanceBenchmarks:
         result = benchmark(run_metrics)
         assert result is not None
 
-    def test_error_metrics_performance_medium(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_error_metrics_performance_medium(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark error metrics on medium datasets (10K points)."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=10000, correlation=0.8)
@@ -84,9 +82,7 @@ class TestPerformanceBenchmarks:
         result = benchmark(run_metrics)
         assert result is not None
 
-    def test_correlation_metrics_performance_small(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_correlation_metrics_performance_small(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark correlation metrics on small datasets (1K points)."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=1000, correlation=0.8)
@@ -100,9 +96,7 @@ class TestPerformanceBenchmarks:
         result = benchmark(run_metrics)
         assert result is not None
 
-    def test_correlation_metrics_performance_medium(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_correlation_metrics_performance_medium(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark correlation metrics on medium datasets (10K points)."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=10000, correlation=0.8)
@@ -116,9 +110,7 @@ class TestPerformanceBenchmarks:
         result = benchmark(run_metrics)
         assert result is not None
 
-    def test_correlation_metrics_performance_large(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_correlation_metrics_performance_large(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark correlation metrics on large datasets (100K points)."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=100000, correlation=0.8)
@@ -132,9 +124,7 @@ class TestPerformanceBenchmarks:
         result = benchmark(run_metrics)
         assert result is not None
 
-    def test_contingency_metrics_performance_small(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_contingency_metrics_performance_small(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark contingency metrics on small datasets (1K points)."""
         TestDataGenerator()
         obs_binary = np.random.choice([0, 1], size=1000)
@@ -152,9 +142,7 @@ class TestPerformanceBenchmarks:
         result = benchmark(run_metrics)
         assert result is not None
 
-    def test_contingency_metrics_performance_large(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_contingency_metrics_performance_large(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark contingency metrics on large datasets (100K points)."""
         TestDataGenerator()
         obs_binary = np.random.choice([0, 1], size=100000)
@@ -172,9 +160,7 @@ class TestPerformanceBenchmarks:
         result = benchmark(run_metrics)
         assert result is not None
 
-    def test_efficiency_metrics_performance_small(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_efficiency_metrics_performance_small(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark efficiency metrics on small datasets (1K points)."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=1000, correlation=0.8)
@@ -189,9 +175,7 @@ class TestPerformanceBenchmarks:
         result = benchmark(run_metrics)
         assert result is not None
 
-    def test_efficiency_metrics_performance_large(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_efficiency_metrics_performance_large(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark efficiency metrics on large datasets (100K points)."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=100000, correlation=0.8)
@@ -210,9 +194,7 @@ class TestPerformanceBenchmarks:
 class TestSpatialPerformance:
     """Performance tests for spatial data operations."""
 
-    def test_spatial_error_metrics_performance(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_spatial_error_metrics_performance(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark spatial error metrics on 2D grids."""
         data_gen = TestDataGenerator()
         obs_grid, mod_grid = data_gen.generate_spatial_data(shape=(100, 100))
@@ -243,9 +225,7 @@ class TestXarrayPerformance:
     """Performance tests for xarray DataArray operations."""
 
     @pytest.mark.xarray
-    def test_xarray_error_metrics_performance_small(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_xarray_error_metrics_performance_small(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark xarray error metrics on small datasets."""
         np.random.seed(42)
 
@@ -270,9 +250,7 @@ class TestXarrayPerformance:
         assert result is not None
 
     @pytest.mark.xarray
-    def test_xarray_error_metrics_performance_medium(
-        self, benchmark: BenchmarkFixture
-    ) -> None:
+    def test_xarray_error_metrics_performance_medium(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark xarray error metrics on medium datasets."""
         np.random.seed(42)
 
@@ -332,9 +310,7 @@ class TestMemoryUsage:
     """Test memory usage patterns for different data sizes."""
 
     @pytest.mark.parametrize("size", [1000, 10000, 100000])
-    def test_memory_scaling_error_metrics(
-        self, benchmark: BenchmarkFixture, size: int
-    ) -> None:
+    def test_memory_scaling_error_metrics(self, benchmark: BenchmarkFixture, size: int) -> None:
         """Test memory scaling of error metrics."""
         data_gen = TestDataGenerator()
         obs, mod = data_gen.generate_correlated_data(n_samples=size, correlation=0.8)
@@ -400,9 +376,7 @@ class TestRealWorldScenarios:
 
         TestDataGenerator()
         obs_forecast = np.random.normal(15, 8, (n_forecasts, n_hours, n_locations))
-        mod_forecast = obs_forecast + np.random.normal(
-            0, 2, (n_forecasts, n_hours, n_locations)
-        )
+        mod_forecast = obs_forecast + np.random.normal(0, 2, (n_forecasts, n_hours, n_locations))
 
         def run_verification():
             # Flatten for current metrics

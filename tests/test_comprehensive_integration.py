@@ -6,6 +6,8 @@ Tests module interactions, API consistency, and end-to-end workflows.
 import numpy as np
 import pytest
 import xarray as xr
+from pytest_benchmark.fixture import BenchmarkFixture
+
 from monet_stats.test_aliases import (
     coefficient_of_determination,
     critical_success_index,
@@ -17,8 +19,6 @@ from monet_stats.test_aliases import (
     pearson_correlation,
     root_mean_squared_error,
 )
-from pytest_benchmark.fixture import BenchmarkFixture
-
 from tests.test_utils import TestDataGenerator
 
 
@@ -42,9 +42,7 @@ class TestModuleInteractions:
         assert rmse >= mae, "RMSE should be >= MAE"
         assert pearson_r >= 0, "Correlation should be positive for correlated data"
         assert r2 >= 0, "R² should be non-negative"
-        assert (
-            abs(pearson_r**2 - r2) < 1e-10
-        ), "R² should equal Pearson correlation squared"
+        assert abs(pearson_r**2 - r2) < 1e-10, "R² should equal Pearson correlation squared"
 
     def test_spatial_error_consistency(self) -> None:
         """Test spatial data handling across modules."""
@@ -177,9 +175,7 @@ class TestAPIConsistency:
 
         # All should be numeric types
         for metric in metrics:
-            assert isinstance(
-                metric, (int, float, np.number)
-            ), f"Metric {metric} should be numeric"
+            assert isinstance(metric, (int, float, np.number)), f"Metric {metric} should be numeric"
 
 
 class TestEndToEndWorkflows:
@@ -224,9 +220,7 @@ class TestEndToEndWorkflows:
 
         TestDataGenerator()
         obs_forecast = np.random.normal(15, 8, (n_forecasts, n_hours, n_locations))
-        mod_forecast = obs_forecast + np.random.normal(
-            0, 2, (n_forecasts, n_hours, n_locations)
-        )
+        mod_forecast = obs_forecast + np.random.normal(0, 2, (n_forecasts, n_hours, n_locations))
 
         # Flatten for current metrics
         obs_flat = obs_forecast.flatten()
@@ -324,15 +318,11 @@ class TestMathematicalCorrectness:
         assert (
             abs(pearson_r - 1.0) < 1e-10
         ), f"Perfect linear data should have correlation 1.0, got {pearson_r}"
-        assert (
-            abs(r2 - 1.0) < 1e-10
-        ), f"Perfect linear data should have R² = 1.0, got {r2}"
+        assert abs(r2 - 1.0) < 1e-10, f"Perfect linear data should have R² = 1.0, got {r2}"
 
         # Error should be zero for perfect linear relationship
         mae = mean_absolute_error(x, y / 2 - 0.5)  # y/2 - 0.5 = x
-        assert (
-            abs(mae) < 1e-10
-        ), f"Perfect linear data should have zero error, got {mae}"
+        assert abs(mae) < 1e-10, f"Perfect linear data should have zero error, got {mae}"
 
     def test_identity_properties(self) -> None:
         """Test properties when obs == mod."""

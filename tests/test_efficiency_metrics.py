@@ -77,18 +77,14 @@ class TestEfficiencyMetrics:
     def test_nse_perfect_agreement(self) -> None:
         """Test NSE with perfect agreement (should return 1.0)."""
         result = NSE(self.obs_perfect, self.mod_perfect)
-        assert np.isclose(
-            result, 1.0
-        ), f"Perfect agreement NSE should be 1.0, got {result}"
+        assert np.isclose(result, 1.0), f"Perfect agreement NSE should be 1.0, got {result}"
 
     @pytest.mark.unit
     def test_nse_good_agreement(self) -> None:
         """Test NSE with good agreement (should be positive)."""
         result = NSE(self.obs_good, self.mod_good)
         assert result > 0.5, f"Good agreement NSE should be > 0.5, got {result}"
-        assert (
-            result < 1.0
-        ), f"NSE should be < 1.0 for imperfect agreement, got {result}"
+        assert result < 1.0, f"NSE should be < 1.0 for imperfect agreement, got {result}"
 
     @pytest.mark.unit
     def test_nse_poor_agreement(self) -> None:
@@ -112,9 +108,7 @@ class TestEfficiencyMetrics:
         obs_const = np.ones(10) * 5.0
         mod_diff = obs_const + 1.0
         result = NSE(obs_const, mod_diff)
-        assert (
-            np.isinf(result) and result < 0
-        ), f"Zero denominator should give -inf, got {result}"
+        assert np.isinf(result) and result < 0, f"Zero denominator should give -inf, got {result}"
 
     @pytest.mark.unit
     def test_nsem_robust_to_masked_arrays(self) -> None:
@@ -135,9 +129,7 @@ class TestEfficiencyMetrics:
         assert isinstance(
             result, (float, np.floating)
         ), f"NSElog should return float, got {type(result)}"
-        assert (
-            result < 1.0
-        ), f"NSElog should be < 1.0 for imperfect agreement, got {result}"
+        assert result < 1.0, f"NSElog should be < 1.0 for imperfect agreement, got {result}"
 
     @pytest.mark.unit
     def test_rnse_relative_normalization(self) -> None:
@@ -146,9 +138,7 @@ class TestEfficiencyMetrics:
         assert isinstance(
             result, (float, np.floating)
         ), f"rNSE should return float, got {type(result)}"
-        assert (
-            result < 1.0
-        ), f"rNSE should be < 1.0 for imperfect agreement, got {result}"
+        assert result < 1.0, f"rNSE should be < 1.0 for imperfect agreement, got {result}"
 
     @pytest.mark.unit
     def test_mnse_modified_calculation(self) -> None:
@@ -157,9 +147,7 @@ class TestEfficiencyMetrics:
         assert isinstance(
             result, (float, np.floating)
         ), f"mNSE should return float, got {type(result)}"
-        assert (
-            result < 1.0
-        ), f"mNSE should be < 1.0 for imperfect agreement, got {result}"
+        assert result < 1.0, f"mNSE should be < 1.0 for imperfect agreement, got {result}"
 
     @pytest.mark.unit
     def test_pc_percent_correct(self) -> None:
@@ -172,9 +160,7 @@ class TestEfficiencyMetrics:
 
         # Good agreement should give high percentage
         result_good = PC(self.obs_good, self.mod_good)
-        assert (
-            result_good > 50.0
-        ), f"Good agreement PC should be > 50%, got {result_good}"
+        assert result_good > 50.0, f"Good agreement PC should be > 50%, got {result_good}"
 
     @pytest.mark.unit
     def test_mae_mean_absolute_error(self) -> None:
@@ -200,9 +186,7 @@ class TestEfficiencyMetrics:
     def test_mape_mean_absolute_percentage_error(self) -> None:
         """Test MAPE (Mean Absolute Percentage Error)."""
         result = MAPE(self.obs_good, self.mod_good)
-        expected = (
-            np.mean(np.abs((self.obs_good - self.mod_good) / self.obs_good)) * 100
-        )
+        expected = np.mean(np.abs((self.obs_good - self.mod_good) / self.obs_good)) * 100
         assert np.isclose(
             result, expected
         ), f"MAPE calculation incorrect. Expected {expected}, got {result}"
@@ -217,9 +201,7 @@ class TestEfficiencyMetrics:
         ), f"MASE should return float, got {type(result)}"
         assert result >= 0, f"MASE should be non-negative, got {result}"
 
-    @pytest.mark.parametrize(
-        "metric_func", [NSE, NSEm, NSElog, MSE, MAPE, MASE, PC, mNSE, rNSE]
-    )
+    @pytest.mark.parametrize("metric_func", [NSE, NSEm, NSElog, MSE, MAPE, MASE, PC, mNSE, rNSE])
     def test_efficiency_metrics_output_type_parametrized(self, metric_func) -> None:
         """Test that efficiency metrics return appropriate values."""
         result = metric_func(self.obs_random, self.mod_random)
@@ -287,8 +269,8 @@ class TestEfficiencyMetrics:
         for metric_func in [MSE, MAE]:
             result = metric_func(obs_empty, mod_empty)
             # Empty arrays should return NaN or similar indicator
-            assert (
-                np.isnan(result) or np.ma.is_masked(result)
+            assert np.isnan(result) or np.ma.is_masked(
+                result
             ), f"{metric_func.__name__} should handle empty arrays gracefully, got {result}"
 
     @pytest.mark.unit
@@ -322,9 +304,7 @@ class TestEfficiencyMetrics:
     def test_xarray_alignment(self) -> None:
         """Test that xarray DataArrays are properly aligned."""
         # Create misaligned DataArrays
-        obs_misaligned = xr.DataArray(
-            [1, 2, 3, 4, 5], coords={"x": [0, 1, 2, 3, 4]}, dims=["x"]
-        )
+        obs_misaligned = xr.DataArray([1, 2, 3, 4, 5], coords={"x": [0, 1, 2, 3, 4]}, dims=["x"])
         mod_misaligned = xr.DataArray(
             [1.1, 2.1, 3.1, 4.1, 5.1], coords={"x": [1, 2, 3, 4, 5]}, dims=["x"]
         )
@@ -353,9 +333,7 @@ class TestEfficiencyMetrics:
         elapsed_time = time.time() - start_time
 
         # Should complete in reasonable time (less than 1 second)
-        assert (
-            elapsed_time < 1.0
-        ), f"Performance test took too long: {elapsed_time:.3f}s"
+        assert elapsed_time < 1.0, f"Performance test took too long: {elapsed_time:.3f}s"
 
         # Results should be valid
         assert isinstance(nse_result, (float, np.floating))
@@ -419,9 +397,7 @@ class TestEfficiencyMetrics:
 
         # With default tolerance (10%), should be 100% correct
         pc_result = PC(obs, mod)
-        assert (
-            pc_result == 100.0
-        ), f"5% error should be within 10% tolerance, got {pc_result}%"
+        assert pc_result == 100.0, f"5% error should be within 10% tolerance, got {pc_result}%"
 
         # Test with smaller tolerance manually
         tolerance = 0.03 * np.abs(obs)  # 3% tolerance
@@ -454,16 +430,12 @@ class TestEfficiencyMetricsHypothesis:
         arrays(
             np.float64,
             10,
-            elements=st.floats(
-                min_value=1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=1, max_value=100, allow_nan=False, allow_infinity=False),
         ),
         arrays(
             np.float64,
             10,
-            elements=st.floats(
-                min_value=1, max_value=100, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=1, max_value=100, allow_nan=False, allow_infinity=False),
         ),
     )
     def test_mape_non_negative_property(self, obs, mod) -> None:
@@ -555,9 +527,7 @@ class TestEfficiencyMetricsEdgeCases:
         memory_increase = memory_after - memory_before
 
         # Memory increase should be reasonable (less than 100MB)
-        assert (
-            memory_increase < 100
-        ), f"Memory increase too large: {memory_increase:.1f}MB"
+        assert memory_increase < 100, f"Memory increase too large: {memory_increase:.1f}MB"
 
         # Results should be valid
         assert isinstance(nse_result, (float, np.floating))

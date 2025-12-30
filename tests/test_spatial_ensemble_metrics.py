@@ -53,9 +53,7 @@ class TestSpatialEnsembleMetrics:
 
         # Ensemble data (n_ensemble, n_locations)
         np.random.seed(42)
-        self.ensemble_data = np.random.normal(
-            10, 2, (10, 20)
-        )  # 10 members, 20 locations
+        self.ensemble_data = np.random.normal(10, 2, (10, 20))  # 10 members, 20 locations
         self.obs_ensemble = np.random.normal(10, 1, 20)  # 20 observations
 
         # Binary data for BSS
@@ -211,9 +209,7 @@ class TestSpatialEnsembleMetrics:
         assert isinstance(
             spread, (float, np.floating)
         ), f"Spread should be float, got {type(spread)}"
-        assert isinstance(
-            error, (float, np.floating)
-        ), f"Error should be float, got {type(error)}"
+        assert isinstance(error, (float, np.floating)), f"Error should be float, got {type(error)}"
         assert spread >= 0, f"Spread should be non-negative, got {spread}"
         assert error >= 0, f"Error should be non-negative, got {error}"
 
@@ -334,9 +330,7 @@ class TestSpatialEnsembleMetrics:
     def test_spatial_metrics_output_type(self, metric_func) -> None:
         """Test that spatial metrics return appropriate values."""
         if metric_func == FSS:
-            result = metric_func(
-                self.obs_2d_good, self.mod_2d_good, window=3, threshold=5.0
-            )
+            result = metric_func(self.obs_2d_good, self.mod_2d_good, window=3, threshold=5.0)
         elif metric_func == EDS:
             result = metric_func(self.obs_2d_good, self.mod_2d_good, threshold=5.0)
         elif metric_func == BSS:
@@ -390,11 +384,9 @@ class TestSpatialEnsembleMetrics:
         single_loc_ens = np.array([[1], [2], [3]])  # 3 members, 1 location
         obs_single_loc = np.array([2])
         result = CRPS(single_loc_ens, obs_single_loc)
-        assert isinstance(
-            result, np.ndarray
-        ), f"CRPS should return array, got {type(result)}"
-        assert (
-            result.shape == (1,)
+        assert isinstance(result, np.ndarray), f"CRPS should return array, got {type(result)}"
+        assert result.shape == (
+            1,
         ), f"CRPS with single location should return shape (1,), got shape {result.shape}"
 
     @pytest.mark.slow
@@ -419,9 +411,7 @@ class TestSpatialEnsembleMetrics:
         elapsed_time = time.time() - start_time
 
         # Should complete in reasonable time (less than 5 seconds)
-        assert (
-            elapsed_time < 5.0
-        ), f"Performance test took too long: {elapsed_time:.3f}s"
+        assert elapsed_time < 5.0, f"Performance test took too long: {elapsed_time:.3f}s"
 
         # Results should be valid
         assert isinstance(fss_result, (float, np.floating))
@@ -471,9 +461,7 @@ class TestSpatialEnsembleMetricsHypothesis:
         arrays(
             np.float64,
             (5, 5),
-            elements=st.floats(
-                min_value=0, max_value=10, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=0, max_value=10, allow_nan=False, allow_infinity=False),
         )
     )
     def test_fss_bounds_property(self, data) -> None:
@@ -486,25 +474,19 @@ class TestSpatialEnsembleMetricsHypothesis:
         arrays(
             np.float64,
             10,
-            elements=st.floats(
-                min_value=0, max_value=1, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=0, max_value=1, allow_nan=False, allow_infinity=False),
         ),
         arrays(
             np.float64,
             10,
-            elements=st.floats(
-                min_value=0, max_value=1, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=0, max_value=1, allow_nan=False, allow_infinity=False),
         ),
     )
     def test_crps_non_negative_property(self, ensemble_member, obs) -> None:
         """Test that CRPS is always non-negative."""
         assume(len(ensemble_member) > 0)
         # Create ensemble with multiple identical members
-        ensemble = np.array(
-            [ensemble_member, ensemble_member * 1.1, ensemble_member * 0.9]
-        )
+        ensemble = np.array([ensemble_member, ensemble_member * 1.1, ensemble_member * 0.9])
         result = CRPS(ensemble, obs)
         assert np.all(result >= 0), f"CRPS should be non-negative: {result}"
 
@@ -512,9 +494,7 @@ class TestSpatialEnsembleMetricsHypothesis:
         arrays(
             np.float64,
             5,
-            elements=st.floats(
-                min_value=0, max_value=1, allow_nan=False, allow_infinity=False
-            ),
+            elements=st.floats(min_value=0, max_value=1, allow_nan=False, allow_infinity=False),
         )
     )
     def test_ensemble_std_non_negative_property(self, data) -> None:
@@ -646,9 +626,7 @@ class TestSpatialEnsembleMetricsEdgeCases:
         memory_increase = memory_after - memory_before
 
         # Memory increase should be reasonable (less than 200MB)
-        assert (
-            memory_increase < 200
-        ), f"Memory increase too large: {memory_increase:.1f}MB"
+        assert memory_increase < 200, f"Memory increase too large: {memory_increase:.1f}MB"
 
         # Result should be valid
         assert isinstance(fss_result, (float, np.floating))

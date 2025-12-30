@@ -4,6 +4,7 @@ Edge case testing for robust error handling and boundary conditions.
 
 import numpy as np
 import pytest
+
 from monet_stats.test_aliases import (
     coefficient_of_determination,
     critical_success_index,
@@ -110,9 +111,7 @@ class TestEdgeCases:
         try:
             mae = mean_absolute_error(obs, mod)
             # If it doesn't raise an error, it should handle the mismatch appropriately
-            assert (
-                np.isnan(mae) or mae >= 0
-            ), "Should handle mismatched sizes appropriately"
+            assert np.isnan(mae) or mae >= 0, "Should handle mismatched sizes appropriately"
         except Exception:
             pass  # Expected behavior for mismatched sizes
 
@@ -186,12 +185,8 @@ class TestMathematicalEdgeCases:
         spearman_r = spearman_correlation(x, y)
         r2 = coefficient_of_determination(x, y)
 
-        assert (
-            abs(pearson_r - 1.0) < 1e-10
-        ), "Perfect positive correlation should be 1.0"
-        assert (
-            abs(spearman_r - 1.0) < 1e-10
-        ), "Perfect positive rank correlation should be 1.0"
+        assert abs(pearson_r - 1.0) < 1e-10, "Perfect positive correlation should be 1.0"
+        assert abs(spearman_r - 1.0) < 1e-10, "Perfect positive rank correlation should be 1.0"
         assert abs(r2 - 1.0) < 1e-10, "Perfect correlation should give R² = 1.0"
 
         # Perfect negative correlation
@@ -200,12 +195,8 @@ class TestMathematicalEdgeCases:
         pearson_r_neg = pearson_correlation(x, y_neg)
         spearman_r_neg = spearman_correlation(x, y_neg)
 
-        assert (
-            abs(pearson_r_neg + 1.0) < 1e-10
-        ), "Perfect negative correlation should be -1.0"
-        assert (
-            abs(spearman_r_neg + 1.0) < 1e-10
-        ), "Perfect negative rank correlation should be -1.0"
+        assert abs(pearson_r_neg + 1.0) < 1e-10, "Perfect negative correlation should be -1.0"
+        assert abs(spearman_r_neg + 1.0) < 1e-10, "Perfect negative rank correlation should be -1.0"
 
     def test_constant_arrays_correlation(self) -> None:
         """Test correlation with constant arrays."""
@@ -234,9 +225,7 @@ class TestMathematicalEdgeCases:
         assert abs(mae) < 1e-10, "Identical arrays should have zero MAE"
         assert abs(rmse) < 1e-10, "Identical arrays should have zero RMSE"
         assert abs(bias) < 1e-10, "Identical arrays should have zero bias"
-        assert (
-            abs(pearson_r - 1.0) < 1e-10
-        ), "Identical arrays should have correlation 1.0"
+        assert abs(pearson_r - 1.0) < 1e-10, "Identical arrays should have correlation 1.0"
         assert abs(r2 - 1.0) < 1e-10, "Identical arrays should have R² = 1.0"
         assert abs(ioa - 1.0) < 1e-10, "Identical arrays should have IOA = 1.0"
 

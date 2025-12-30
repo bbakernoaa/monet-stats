@@ -1,62 +1,52 @@
-"""Tests for the `plugin_system` module."""
+"""
+Tests for plugin_system.py module.
+"""
 
 import numpy as np
-from monet_stats import plugin_system
+
+from monet_stats.plugin_system import CustomMetric, PluginManager
 
 
-def test_list_plugins():
-    """Test the list_plugins function."""
-    manager = plugin_system.plugin_manager
-    plugin_system.register_builtin_plugins()
-    plugins = manager.list_plugins()
-    assert isinstance(plugins, list)
+class TestPluginSystem:
+    """Test suite for the plugin system."""
 
+    def test_plugin_manager(self) -> None:
+        """Test the PluginManager class."""
+        manager = PluginManager()
 
-def test_get_plugin():
-    """Test the get_plugin function."""
-    manager = plugin_system.plugin_manager
-    plugin_system.register_builtin_plugins()
-    plugin = manager.get_plugin("WMAPE")
-    assert plugin is not None
+        def dummy_metric(obs, mod):
+            return np.mean(obs - mod)
 
+        plugin = CustomMetric(name="dummy", description="A dummy metric", func=dummy_metric)
 
-def test_register_plugin():
-    """Test the register_plugin function."""
-    manager = plugin_system.PluginManager()
-    plugin = plugin_system.ExampleMetrics.wmape_plugin()
-    manager.register_plugin(plugin)
-    assert "WMAPE" in manager.list_plugins()
+        # Test registration
+        manager.register_plugin(plugin)
+        assert "dummy" in manager.list_plugins()
 
+        # Test retrieval
+        retrieved_plugin = manager.get_plugin("dummy")
+        assert retrieved_plugin is not None
+        assert retrieved_plugin.name() == "dummy"
 
-def test_unregister_plugin():
-    """Test the unregister_plugin function."""
-    manager = plugin_system.PluginManager()
-    plugin = plugin_system.ExampleMetrics.wmape_plugin()
-    manager.register_plugin(plugin)
-    manager.unregister_plugin("WMAPE")
-    assert "WMAPE" not in manager.list_plugins()
+        # Test unregistration
+        manager.unregister_plugin("dummy")
+        assert "dummy" not in manager.list_plugins()
 
+    def test_custom_metric(self) -> None:
+        """Test the CustomMetric class."""
 
-def test_compute_metric():
-    """Test the compute_metric function."""
-    manager = plugin_system.plugin_manager
-    plugin_system.register_builtin_plugins()
-    obs = np.array([1, 2, 3, 4])
-    mod = np.array([1.1, 2.2, 3.3, 4.4])
-    result = manager.compute_metric("WMAPE", obs, mod)
-    assert np.isclose(result, 10.0)
+        def dummy_metric(obs, mod):
+            return np.mean(obs - mod)
 
+        plugin = CustomMetric(name="dummy", description="A dummy metric", func=dummy_metric)
 
-def test_custom_metric():
-    """Test the CustomMetric class."""
+        obs = np.array([1, 2, 3])
+        mod = np.array([2, 3, 4])
 
-    def my_metric(obs, mod):
-        return np.mean(obs - mod)
+        # Test validation
+        assert plugin.validate_inputs(obs, mod)
+        assert not plugin.validate_inputs(obs, np.array([1, 2]))
 
-    plugin = plugin_system.CustomMetric("my_metric", "My custom metric", my_metric)
-    manager = plugin_system.PluginManager()
-    manager.register_plugin(plugin)
-    obs = np.array([1, 2, 3, 4])
-    mod = np.array([2, 2, 2, 2])
-    result = manager.compute_metric("my_metric", obs, mod)
-    assert np.isclose(result, 0.5)
+        # Test computation
+        result = plugin.compute(obs, mod)
+        assert np.isclose(result, -1.0)

@@ -165,15 +165,11 @@ def pytest_configure(config: Any) -> None:
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
     config.addinivalue_line("markers", "unit: marks tests as unit tests")
     config.addinivalue_line("markers", "edge_case: marks tests as edge case tests")
-    config.addinivalue_line(
-        "markers", "performance: marks tests as performance benchmarks"
-    )
+    config.addinivalue_line("markers", "performance: marks tests as performance benchmarks")
     config.addinivalue_line(
         "markers", "mathematical: marks tests as mathematical correctness tests"
     )
-    config.addinivalue_line(
-        "markers", "xarray: marks tests that require xarray functionality"
-    )
+    config.addinivalue_line("markers", "xarray: marks tests that require xarray functionality")
 
 
 # Custom exception for test validation

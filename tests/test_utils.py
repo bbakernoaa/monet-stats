@@ -270,9 +270,7 @@ def validate_metric_output(
 
     # Check return type
     if expected_type is not None and not isinstance(result, expected_type):
-        raise AssertionError(
-            f"Expected return type {expected_type}, got {type(result)}"
-        )
+        raise AssertionError(f"Expected return type {expected_type}, got {type(result)}")
 
     # Check for NaN/inf values
     if np.any(np.isnan(result)) or np.any(np.isinf(result)):

@@ -5,6 +5,7 @@ Tests for data_processing.py module.
 import numpy as np
 import pandas as pd
 import xarray as xr
+
 from monet_stats.data_processing import (
     align_arrays,
     compute_anomalies,

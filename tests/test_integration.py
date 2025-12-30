@@ -6,6 +6,7 @@ and produce consistent results in realistic scenarios.
 """
 
 import numpy as np
+
 from monet_stats.contingency_metrics import CSI, ETS, FAR, HSS, POD
 from monet_stats.correlation_metrics import IOA, KGE, R2, RMSE, pearsonr
 from monet_stats.efficiency_metrics import MAPE, MSE, NSE
@@ -25,15 +26,11 @@ class TestIntegration:
         # Simulate observed data (e.g., temperature measurements)
         n_points = 100
         time = np.linspace(0, 100, n_points)
-        true_signal = 20 + 5 * np.sin(
-            2 * np.pi * time / 10
-        )  # Base signal with seasonal variation
+        true_signal = 20 + 5 * np.sin(2 * np.pi * time / 10)  # Base signal with seasonal variation
         obs = true_signal + np.random.normal(0, 1, n_points)  # Add noise
 
         # Simulate model data with some bias and error
-        mod = (
-            true_signal + 0.5 + np.random.normal(0, 1.5, n_points)
-        )  # Add bias and different noise
+        mod = true_signal + 0.5 + np.random.normal(0, 1.5, n_points)  # Add bias and different noise
 
         self.obs = obs
         self.mod = mod
@@ -84,9 +81,7 @@ class TestIntegration:
 
         # Mean bias should detect the bias
         mb_val = MB(self.obs, mod_biased)
-        assert (
-            abs(mb_val - (-bias)) < 1e-10
-        ), f"MB should detect bias of {bias}, got {mb_val}"
+        assert abs(mb_val - (-bias)) < 1e-10, f"MB should detect bias of {bias}, got {mb_val}"
 
         # NMB should also reflect the bias
         nmb_val = NMB(self.obs, mod_biased)
@@ -112,9 +107,7 @@ class TestIntegration:
 
         # For good models, NSE should be positive and related to correlation
         if pearson_corr > 0.7:  # High correlation
-            assert (
-                nse_val > 0.5
-            ), f"High correlation should correspond to good NSE, got {nse_val}"
+            assert nse_val > 0.5, f"High correlation should correspond to good NSE, got {nse_val}"
 
     def test_contingency_metrics_consistency(self) -> None:
         """Test consistency among contingency metrics."""
@@ -153,9 +146,7 @@ class TestIntegration:
 
         # NME should generally be >= absolute value of NMB (since NME uses absolute errors)
         if np.isfinite(nme_val) and np.isfinite(nmb_val):
-            assert nme_val >= abs(
-                nmb_val
-            ), f"NME ({nme_val}) should be >= |NMB| ({abs(nmb_val)})"
+            assert nme_val >= abs(nmb_val), f"NME ({nme_val}) should be >= |NMB| ({abs(nmb_val)})"
 
     def test_efficiency_metrics_hierarchy(self) -> None:
         """Test expected hierarchy among efficiency metrics."""
@@ -168,9 +159,7 @@ class TestIntegration:
 
         # For good models, both should be positive
         if nse_val > 0.5:
-            assert (
-                kge_val > 0.3
-            ), f"Good NSE should correspond to decent KGE, got {kge_val}"
+            assert kge_val > 0.3, f"Good NSE should correspond to decent KGE, got {kge_val}"
 
     def test_realistic_scenario_metrics(self) -> None:
         """Test metrics on a more realistic scenario."""
@@ -180,9 +169,7 @@ class TestIntegration:
 
         # True values with some trend and seasonality
         time = np.linspace(0, 10, n)
-        true_values = (
-            25 + 3 * np.sin(2 * np.pi * time) + 0.1 * time
-        )  # Trend + seasonality
+        true_values = 25 + 3 * np.sin(2 * np.pi * time) + 0.1 * time  # Trend + seasonality
         obs = true_values + np.random.normal(0, 0.5, n)  # Add measurement noise
 
         # Model with systematic bias and additional model error
@@ -221,9 +208,7 @@ class TestIntegration:
         mod_mean = np.full_like(obs_mean, np.mean(obs_mean))
 
         nse_mean = NSE(obs_mean, mod_mean)
-        assert (
-            abs(nse_mean - 0.0) < 1e-10
-        ), f"NSE for mean model should be ~0, got {nse_mean}"
+        assert abs(nse_mean - 0.0) < 1e-10, f"NSE for mean model should be ~0, got {nse_mean}"
 
     def test_metrics_scaling_invariance(self) -> None:
         """Test which metrics are affected by scaling."""
@@ -285,9 +270,7 @@ class TestIntegration:
         assert rmse_val >= mae_val, f"RMSE ({rmse_val}) should be >= MAE ({mae_val})"
 
         # |MB| <= MAE (bias is a type of error)
-        assert (
-            abs(mb_val) <= mae_val
-        ), f"|MB| ({abs(mb_val)}) should be <= MAE ({mae_val})"
+        assert abs(mb_val) <= mae_val, f"|MB| ({abs(mb_val)}) should be <= MAE ({mae_val})"
 
     def test_comprehensive_workflow(self) -> None:
         """Test a comprehensive workflow with multiple metrics."""
@@ -337,9 +320,7 @@ class TestIntegration:
 
         for noise in noise_levels:
             obs = base_signal + np.random.normal(0, noise, 100)
-            mod = base_signal + np.random.normal(
-                0, noise / 2, 100
-            )  # Model has less noise
+            mod = base_signal + np.random.normal(0, noise / 2, 100)  # Model has less noise
 
             rmse = RMSE(obs, mod)
             nse = NSE(obs, mod)

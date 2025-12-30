@@ -10,6 +10,7 @@ import pytest
 import xarray as xr
 from hypothesis import given
 from hypothesis import strategies as st
+
 from monet_stats.correlation_metrics import (
     AC,
     CCC,
@@ -33,7 +34,6 @@ from monet_stats.correlation_metrics import (
     spearmanr,
     taylor_skill,
 )
-
 from tests.test_utils import TestDataGenerator
 
 
@@ -63,9 +63,7 @@ class TestCorrelationMetrics:
         # pearsonr returns correlation coefficient and p-value, we want the coefficient
         if isinstance(result, tuple):
             result = result[0]
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect correlation should be 1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect correlation should be 1.0, got {result}"
 
     def test_pearsonr_no_correlation(self) -> None:
         """Test Pearson correlation with no relationship."""
@@ -80,25 +78,19 @@ class TestCorrelationMetrics:
         result = spearmanr(self.obs_perfect, self.mod_perfect)
         if isinstance(result, tuple):
             result = result[0]
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect correlation should be 1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect correlation should be 1.0, got {result}"
 
     def test_kendalltau_perfect_correlation(self) -> None:
         """Test Kendall tau with perfect relationship."""
         result = kendalltau(self.obs_perfect, self.mod_perfect)
         if isinstance(result, tuple):
             result = result[0]
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect correlation should be 1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect correlation should be 1.0, got {result}"
 
     def test_r2_perfect_agreement(self) -> None:
         """Test R2 with perfect agreement."""
         result = R2(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give R2=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give R2=1.0, got {result}"
 
     def test_r2_worst_case(self) -> None:
         """Test R2 with worst case (no correlation)."""
@@ -113,9 +105,7 @@ class TestCorrelationMetrics:
     def test_rmse_perfect_agreement(self) -> None:
         """Test RMSE with perfect agreement."""
         result = RMSE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give RMSE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give RMSE=0.0, got {result}"
 
     def test_rmse_positive_values(self) -> None:
         """Test that RMSE is always positive."""
@@ -125,9 +115,7 @@ class TestCorrelationMetrics:
     def test_ioa_perfect_agreement(self) -> None:
         """Test Index of Agreement with perfect agreement."""
         result = IOA(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give IOA=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give IOA=1.0, got {result}"
 
     def test_ioa_range_bounds(self) -> None:
         """Test that IOA is in valid range [0, 1]."""
@@ -137,16 +125,12 @@ class TestCorrelationMetrics:
     def test_e1_perfect_agreement(self) -> None:
         """Test E1 with perfect agreement."""
         result = E1(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give E1=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give E1=1.0, got {result}"
 
     def test_kge_perfect_agreement(self) -> None:
         """Test Kling-Gupta Efficiency with perfect agreement."""
         result = KGE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give KGE=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give KGE=1.0, got {result}"
 
     def test_kge_range_bounds(self) -> None:
         """Test that KGE is in valid range [-∞, 1]."""
@@ -184,9 +168,7 @@ class TestCorrelationMetrics:
         # result = R2(obs_zeros, mod_zeros)
         # With identical arrays, RMSE should be 0
         result = RMSE(obs_zeros, mod_zeros)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Identical arrays should give RMSE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Identical arrays should give RMSE=0.0, got {result}"
 
     def test_edge_case_all_ones(self) -> None:
         """Test behavior with all one arrays."""
@@ -197,9 +179,7 @@ class TestCorrelationMetrics:
         # result = R2(obs_ones, mod_ones)
         # With identical arrays, RMSE should be 0
         result = RMSE(obs_ones, mod_ones)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Identical arrays should give RMSE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Identical arrays should give RMSE=0.0, got {result}"
 
     @pytest.mark.unit
     def test_correlation_metrics_mathematical_correctness(self) -> None:
@@ -244,23 +224,17 @@ class TestCorrelationMetrics:
         """Test wind-direction specific metrics."""
         # Test WDRMSE with perfect agreement
         result = WDRMSE(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 0.0) < 1e-10
-        ), f"Perfect agreement should give WDRMSE=0.0, got {result}"
+        assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give WDRMSE=0.0, got {result}"
 
         # Test WDIOA with perfect agreement
         result = WDIOA(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give WDIOA=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give WDIOA=1.0, got {result}"
 
     def test_ac_autocorrelation(self) -> None:
         """Test autocorrelation function."""
         # Autocorrelation of perfect data with itself should be 1
         result = AC(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect autocorrelation should be 1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect autocorrelation should be 1.0, got {result}"
 
     def test_wdac_wind_direction_ac(self) -> None:
         """Test wind-direction autocorrelation."""
@@ -282,23 +256,17 @@ class TestCorrelationMetrics:
     def test_ioa_m_modified(self) -> None:
         """Test modified Index of Agreement."""
         result = IOA_m(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give IOA_m=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give IOA_m=1.0, got {result}"
 
     def test_d1_index(self) -> None:
         """Test d1 index."""
         result = d1(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give d1=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give d1=1.0, got {result}"
 
     def test_concordance_correlation_coefficient(self) -> None:
         """Test Concordance Correlation Coefficient."""
         result = CCC(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give CCC=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give CCC=1.0, got {result}"
 
     def test_e1_prime_perfect_agreement(self) -> None:
         """Test E1_prime with perfect agreement."""
@@ -328,23 +296,17 @@ class TestCorrelationMetrics:
     def test_wdioa_m_perfect_agreement(self) -> None:
         """Test WDIOA_m with perfect agreement."""
         result = WDIOA_m(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give WDIOA_m=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give WDIOA_m=1.0, got {result}"
 
     def test_wdioa_perfect_agreement(self) -> None:
         """Test WDIOA with perfect agreement."""
         result = WDIOA(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give WDIOA=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give WDIOA=1.0, got {result}"
 
     def test_wdac_perfect_agreement(self) -> None:
         """Test WDAC with perfect agreement."""
         result = WDAC(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - 1.0) < 1e-10
-        ), f"Perfect agreement should give WDAC=1.0, got {result}"
+        assert abs(result - 1.0) < 1e-10, f"Perfect agreement should give WDAC=1.0, got {result}"
 
     def test_taylor_skill_perfect_agreement(self) -> None:
         """Test Taylor Skill Score with perfect agreement."""
@@ -364,9 +326,7 @@ class TestCorrelationMetrics:
             (taylor_skill, 1.0),  # Taylor skill should return 1.0 for perfect agreement
         ],
     )
-    def test_missing_functions_perfect_agreement(
-        self, metric_func, expected_value
-    ) -> None:
+    def test_missing_functions_perfect_agreement(self, metric_func, expected_value) -> None:
         """Test perfect agreement for all missing correlation metric functions."""
         result = metric_func(self.obs_perfect, self.mod_perfect)
         if result is not None:  # Some functions might return None for edge cases
@@ -416,9 +376,7 @@ class TestCorrelationMetrics:
         # Test with constants
         constants = np.ones(5) * 3
         result_ioa = IOA_prime(constants, constants)
-        assert (
-            abs(result_ioa - 1.0) < 1e-10
-        ), "IOA_prime should handle constants correctly"
+        assert abs(result_ioa - 1.0) < 1e-10, "IOA_prime should handle constants correctly"
 
         # Test with single element
         single_obs = np.array([5.0])
@@ -592,23 +550,17 @@ class TestCorrelationMetrics:
 
         # Test E1_prime with xarray
         result_e1 = E1_prime(obs_xr, mod_xr)
-        assert isinstance(
-            result_e1, xr.DataArray
-        ), "E1_prime should return xarray.DataArray"
+        assert isinstance(result_e1, xr.DataArray), "E1_prime should return xarray.DataArray"
         assert np.isfinite(result_e1), "E1_prime should return finite value"
 
         # Test IOA_prime with xarray
         result_ioa = IOA_prime(obs_xr, mod_xr)
-        assert isinstance(
-            result_ioa, xr.DataArray
-        ), "IOA_prime should return xarray.DataArray"
+        assert isinstance(result_ioa, xr.DataArray), "IOA_prime should return xarray.DataArray"
         assert np.isfinite(result_ioa), "IOA_prime should return finite value"
 
         # Test WDIOA_m with xarray
         result_wd = WDIOA_m(obs_xr, mod_xr)
-        assert isinstance(
-            result_wd, xr.DataArray
-        ), "WDIOA_m should return xarray.DataArray"
+        assert isinstance(result_wd, xr.DataArray), "WDIOA_m should return xarray.DataArray"
         assert np.isfinite(result_wd), "WDIOA_m should return finite value"
 
 
