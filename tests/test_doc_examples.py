@@ -29,7 +29,7 @@ def test_doctests(module):
     """Test all doctests in the given module."""
     # The `stats` module in the doctests is an alias for the module being tested.
     # We need to inject this alias into the global namespace for the doctests.
-    globs = {"np": __import__("numpy")}
+    globs = {"np": __import__("numpy"), "stats": module}
 
     # Run the doctests
     result = doctest.testmod(module, globs=globs, raise_on_error=True, verbose=True)

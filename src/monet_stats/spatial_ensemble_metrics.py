@@ -8,7 +8,9 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 
-def FSS(obs: ArrayLike, mod: ArrayLike, window: int = 3, threshold: Optional[float] = None) -> Any:
+def FSS(
+    obs: ArrayLike, mod: ArrayLike, window: int = 3, threshold: Optional[float] = None
+) -> Any:
     """
     Fractions Skill Score (FSS) for spatial fields.
 
@@ -49,7 +51,11 @@ def FSS(obs: ArrayLike, mod: ArrayLike, window: int = 3, threshold: Optional[flo
 
     if threshold is None:
         threshold = np.nanmean(obs)
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if (
+        xr is not None
+        and isinstance(obs, xr.DataArray)
+        and isinstance(mod, xr.DataArray)
+    ):
         obs_bin = (obs >= threshold).astype(float)
         mod_bin = (mod >= threshold).astype(float)
         obs_frac = xr.DataArray(
@@ -364,7 +370,9 @@ def SAL(obs: ArrayLike, mod: ArrayLike, threshold: Optional[float] = None) -> An
     max_mod, sum_mod = _sal_structure(mod, threshold)
     max_obs, sum_obs = _sal_structure(obs, threshold)
     S = (
-        2 * (max_mod / sum_mod - max_obs / sum_obs) / (max_mod / sum_mod + max_obs / sum_obs)
+        2
+        * (max_mod / sum_mod - max_obs / sum_obs)
+        / (max_mod / sum_mod + max_obs / sum_obs)
         if sum_mod > 0 and sum_obs > 0
         else np.nan
     )
