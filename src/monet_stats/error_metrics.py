@@ -2,9 +2,10 @@
 Error Metrics for Model Evaluation
 """
 
-from typing import Any, Optional
+from typing import Any, Iterable, Optional, Union
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 from numpy.typing import ArrayLike
 
@@ -15,53 +16,107 @@ from .utils_stats import circlebias, circlebias_m, matchmasks
 ############################################################
 
 
-def STDO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def STDO(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Standard deviation of Observation Errors
+    Standard deviation of Observation Errors (obs - mod).
 
     Parameters
     ----------
-    obs : array-like
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int, optional
-        Axis along which to compute the standard deviation.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the standard deviation.
+        If None, computes over all axes.
 
     Returns
     -------
-    float or ndarray
-        Standard deviation of observation minus model errors.
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Standard deviation of (observation - model) errors.
         Returns 0.0 for perfect agreement.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import STDO
+    >>> obs = np.array([1.0, 2.0, 3.0])
+    >>> mod = np.array([1.1, 1.9, 3.2])
+    >>> STDO(obs, mod)
+    0.1247219128924647
     """
-    obs = np.asarray(obs)
-    mod = np.asarray(mod)
-    errors = obs - mod
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        errors = obs - mod
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+        result = errors.std(dim=dim, keep_attrs=True)
+        # Update history
+        history = f"STDO computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
+
+    # Fallback to numpy-compatible logic
+    errors = np.subtract(obs, mod)
     return np.std(errors, axis=axis)
 
 
-def STDP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def STDP(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Standard deviation of Prediction Errors
+    Standard deviation of Prediction Errors (mod - obs).
 
     Parameters
     ----------
-    obs : array-like
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int, optional
-        Axis along which to compute the standard deviation.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the standard deviation.
+        If None, computes over all axes.
 
     Returns
     -------
-    float or ndarray
-        Standard deviation of model minus observation errors.
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Standard deviation of (model - observation) errors.
         Returns 0.0 for perfect agreement.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import STDP
+    >>> obs = np.array([1.0, 2.0, 3.0])
+    >>> mod = np.array([1.1, 1.9, 3.2])
+    >>> STDP(obs, mod)
+    0.1247219128924647
     """
-    obs = np.asarray(obs)
-    mod = np.asarray(mod)
-    errors = mod - obs
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        errors = mod - obs
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+        result = errors.std(dim=dim, keep_attrs=True)
+        # Update history
+        history = f"STDP computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
+
+    # Fallback to numpy-compatible logic
+    errors = np.subtract(mod, obs)
     return np.std(errors, axis=axis)
 
 
