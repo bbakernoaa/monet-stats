@@ -58,7 +58,8 @@ docs = [
     "mkdocs>=1.4.0",
     "mkdocstrings[python]>=0.20.0",
     "mknotebooks>=0.7.0",
-    "mkdocs-material>=9.0.0"
+    "mkdocs-material>=9.0.0",
+    "pymdown-extensions"
 ]
 
 [project.urls]
