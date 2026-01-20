@@ -1,8 +1,8 @@
 # MONET Stats
 
-A comprehensive statistics and utility library for atmospheric sciences.
+A comprehensive statistics and utility library for atmospheric sciences, optimized for the Pangeo ecosystem.
 
-This is the statistics and utility functionality spun off from the main MONET repository.
+This is the statistics and utility functionality spun off from the main MONET repository. It is fully **Aero Protocol** compliant, featuring aggressive vectorization, lazy evaluation via Dask, and automatic data provenance.
 
 ## CI/CD and Code Quality
 

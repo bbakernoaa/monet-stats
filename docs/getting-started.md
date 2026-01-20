@@ -162,9 +162,30 @@ mod_da = xr.DataArray(
     attrs={'units': '°C', 'long_name': 'Modeled Temperature'}
 )
 
-# Metrics return DataArray with coordinates
+# Metrics return DataArray with coordinates and history metadata
 r2_da = ms.R2(obs_da, mod_da)
 print(f"XArray result with coordinates:\n{r2_da}")
+print(f"Operation history:\n{r2_da.attrs['history']}")
+```
+
+### Lazy Evaluation with Dask
+
+For datasets larger than RAM, `monet-stats` leverages Dask for lazy evaluation and parallel processing.
+
+```python
+import xarray as xr
+import monet_stats as ms
+
+# Open large dataset with chunks
+ds = xr.open_dataset("large_model_output.nc", chunks={"time": 100, "lat": 100, "lon": 100})
+obs = xr.open_dataset("large_observations.nc", chunks={"time": 100, "lat": 100, "lon": 100})
+
+# Compute metric lazily (returns a Dask-backed DataArray)
+rmse_lazy = ms.RMSE(obs.temperature, ds.temperature, axis="time")
+
+# The computation only happens when you explicitly call .compute() or .plot()
+rmse_map = rmse_lazy.compute()
+rmse_map.plot()
 ```
 
 ## Categorical Event Analysis

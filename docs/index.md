@@ -20,7 +20,7 @@ Monet Stats is a Python library focused on statistical evaluation methods common
 - 🌪️ **Specialized Metrics**: Wind direction handling, circular statistics, and spatial verification
 - 📈 **Skill Score Framework**: Built-in support for Brier, Heidke, and other skill scores
 - 🧮 **Mathematical Rigor**: Well-documented mathematical formulations and use cases
-- ⚡ **Performance Optimized**: Vectorized operations and efficient algorithms
+- 🍃⚡ **Aero Protocol Compliant**: Optimized for the Pangeo ecosystem with full Dask/Xarray support, lazy evaluation, and strict data provenance.
 
 ## Quick Start
 
