@@ -95,9 +95,9 @@ pip install monet-stats
 - [User Guides](workflows/climate-data-analysis.md) - Domain-specific workflows
 - [API Reference](api/overview.md) - Complete function documentation
 - [Mathematical Formulations](math/overview.md) - Theory and equations
-- [Examples](examples/basic-usage.md) - Practical use cases
-- [Performance Guide](performance.md) - Optimization tips
-- [Integration Guide](integration/xarray.md) - Framework integration
+- [Examples](notebooks/01_basic_statistical_analysis.ipynb) - Practical use cases
+- [Performance Guide](api/performance.md) - Optimization tips
+- [Integration Guide](system-integration.md) - Framework integration
 
 ## Use Cases
 
@@ -135,7 +135,7 @@ We welcome contributions! Please see our [Contributing Guide](contributing.md) f
 
 ## License
 
-Monet Stats is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+Monet Stats is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details.
 
 ## Support
 
