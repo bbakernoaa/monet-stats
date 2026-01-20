@@ -178,22 +178,28 @@ def test_corr_index():
         assert isinstance(result_dask.data, da.Array)
         xr.testing.assert_allclose(result_dask.compute(), xr.DataArray(np.ones(10), dims=("y",)))
 
+
 def test_NMdnGE_aero():
     from monet_stats.error_metrics import NMdnGE
+
     obs = np.array([1, 2, 3, 4, 100])
     mod = np.array([1.1, 2.1, 3.1, 4.1, 105])
     val = NMdnGE(obs, mod)
     assert np.isclose(val, (0.1 / 22.0) * 100.0)
 
+
 def test_rNSE_aero():
     from monet_stats.efficiency_metrics import rNSE
+
     obs = np.array([1, 2, 3, 4])
     mod = np.array([1.1, 2.1, 2.9, 4.1])
     val = rNSE(obs, mod)
     assert np.isclose(val, 0.992)
 
+
 def test_PC_aero():
     from monet_stats.efficiency_metrics import PC
+
     obs = np.array([1, 2, 3, 4])
     mod = np.array([1.05, 2.5, 2.95, 4.05])
     val = PC(obs, mod)

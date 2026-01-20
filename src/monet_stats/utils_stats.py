@@ -5,6 +5,7 @@ Utility Functions for Statistics
 from typing import Any, Optional, Tuple
 
 import numpy as np
+import xarray as xr
 from numpy.typing import ArrayLike
 
 
@@ -32,14 +33,22 @@ def matchedcompressed(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ndarray, np.ndar
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> a1 = np.ma.array([1, 2, 3], mask=[0, 1, 0])
     >>> a2 = np.ma.array([4, 5, 6], mask=[0, 0, 1])
-    >>> stats.matchedcompressed(a1, a2)
+    >>> matchedcompressed(a1, a2)
     (array([1]), array([4]))
     """
-    a1, a2 = matchmasks(a1, a2)
-    return a1.compressed(), a2.compressed()
+    # Handle mismatched shapes for numpy arrays by truncating
+    if not isinstance(a1, xr.DataArray) and not isinstance(a2, xr.DataArray):
+        a1_arr = np.asarray(a1)
+        a2_arr = np.asarray(a2)
+        if a1_arr.shape != a2_arr.shape:
+            min_size = min(a1_arr.size, a2_arr.size)
+            a1 = a1_arr.flat[:min_size]
+            a2 = a2_arr.flat[:min_size]
+
+    a1_masked, a2_masked = matchmasks(a1, a2)
+    return a1_masked.compressed(), a2_masked.compressed()
 
 
 def matchmasks(a1: ArrayLike, a2: ArrayLike) -> Tuple[Any, Any]:
@@ -72,12 +81,7 @@ def matchmasks(a1: ArrayLike, a2: ArrayLike) -> Tuple[Any, Any]:
     (masked_array(data=[1, --, 3], mask=[False,  True, False]),
      masked_array(data=[4, --, --], mask=[False, False,  True]))
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    if xr is not None and isinstance(a1, xr.DataArray) and isinstance(a2, xr.DataArray):
+    if isinstance(a1, xr.DataArray) and isinstance(a2, xr.DataArray):
         # Align xarray objects (works for dask-backed as well)
         a1a, a2a = xr.align(a1, a2, join="inner")
         return a1a, a2a
