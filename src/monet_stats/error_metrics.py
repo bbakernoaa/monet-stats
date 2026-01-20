@@ -313,6 +313,15 @@ def NMdnGE(
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
         Normalized median gross error (percent).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import NMdnGE
+    >>> obs = np.array([1, 2, 3, 4, 100])
+    >>> mod = np.array([1.1, 2.1, 3.1, 4.1, 105])
+    >>> NMdnGE(obs, mod)
+    0.45454545454545453
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
@@ -321,13 +330,13 @@ def NMdnGE(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (abs(mod - obs).mean(dim=dim) / obs.mean(dim=dim)) * 100.0
+        result = (abs(mod - obs).median(dim=dim) / obs.mean(dim=dim)) * 100.0
         # Update history
         history = f"NMdnGE computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.masked_invalid(np.ma.abs(mod - obs).mean(axis=axis) / obs.mean(axis=axis)) * 100.0
+        return np.ma.masked_invalid(np.ma.median(np.ma.abs(mod - obs), axis=axis) / np.ma.mean(obs, axis=axis)) * 100.0
 
 
 def NO(
