@@ -330,4 +330,4 @@ If you find issues with the API documentation or would like to suggest improveme
 2. Submit new issues with clear descriptions
 3. Consider contributing improvements via pull requests
 
-For development documentation, see the [Contributing Guide](../../contributing.md).
+For development documentation, see the [Contributing Guide](../contributing.md).

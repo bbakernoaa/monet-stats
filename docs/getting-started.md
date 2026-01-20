@@ -335,9 +335,9 @@ Now that you've learned the basics:
 
 1. **Explore Advanced Features**: Check out the [Climate Data Analysis Workflows](workflows/climate-data-analysis.md)
 2. **Dive into API**: Browse the complete [API Reference](api/overview.md)
-3. **Learn Spatial Methods**: Discover [Spatial Verification](workflows/spatial-verification.md)
-4. **Ensemble Analysis**: Understand [Ensemble Verification](workflows/ensemble-verification.md)
-5. **View Examples**: See practical [Examples](examples/basic-usage.md)
+3. **Learn Spatial Methods**: Discover [Spatial & Ensemble Metrics](api/spatial-ensemble-metrics.md)
+4. **Ensemble Analysis**: Understand [Ensemble Analysis](api/spatial-ensemble-metrics.md)
+5. **View Examples**: See practical [Examples](notebooks/01_basic_statistical_analysis.ipynb)
 
 ## Tips for Best Practices
 

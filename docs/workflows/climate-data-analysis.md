@@ -625,7 +625,6 @@ Each workflow can be adapted to specific climate data types and research questio
 
 For more specialized workflows, see:
 
-- [Spatial Verification](workflows/spatial-verification.md)
-- [Ensemble Verification](workflows/ensemble-verification.md)
-- [Wind Direction Metrics](workflows/wind-direction-metrics.md)
-- [Air Quality Model Evaluation](workflows/air-quality-evaluation.md)
+- [Spatial & Ensemble Metrics](../api/spatial-ensemble-metrics.md)
+- Wind Direction Metrics
+- Air Quality Model Evaluation
