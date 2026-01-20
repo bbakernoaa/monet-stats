@@ -1,6 +1,13 @@
-import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
+
+try:
+    import dask.array as da
+
+    HAS_DASK = True
+except ImportError:
+    HAS_DASK = False
 
 from monet_stats.error_metrics import (
     CORR_INDEX,
@@ -32,6 +39,7 @@ def test_stdo_numpy():
     assert np.isclose(result, expected)
 
 
+@pytest.mark.skipif(not HAS_DASK, reason="Dask not installed")
 def test_stdo_xarray_dask():
     obs_data = np.random.rand(10, 10)
     mod_data = np.random.rand(10, 10)
@@ -41,6 +49,19 @@ def test_stdo_xarray_dask():
     assert isinstance(result.data, da.Array)
     expected = np.std(obs_data - mod_data)
     xr.testing.assert_allclose(result.compute(), xr.DataArray(expected))
+    assert "history" in result.attrs
+    assert "STDO computed at" in result.attrs["history"]
+
+
+def test_stdo_xarray_eager():
+    obs_data = np.random.rand(10, 10)
+    mod_data = np.random.rand(10, 10)
+    obs = xr.DataArray(obs_data, dims=("x", "y"), name="obs")
+    mod = xr.DataArray(mod_data, dims=("x", "y"), name="mod")
+    result = STDO(obs, mod)
+    assert not hasattr(result.data, "dask")
+    expected = np.std(obs_data - mod_data)
+    xr.testing.assert_allclose(result, xr.DataArray(expected))
     assert "history" in result.attrs
     assert "STDO computed at" in result.attrs["history"]
 
@@ -61,6 +82,7 @@ def test_stdp_xarray_dims():
     xr.testing.assert_allclose(result_dim, xr.DataArray(expected_dim, dims=("x",), coords={"x": obs.x}))
 
 
+@pytest.mark.skipif(not HAS_DASK, reason="Dask not installed")
 def test_generic_metrics_xarray_dask():
     obs_data = np.random.rand(10, 10) + 1.0
     mod_data = np.random.rand(10, 10) + 1.0
@@ -83,6 +105,34 @@ def test_generic_metrics_xarray_dask():
     for metric_func, name in metrics:
         result = metric_func(obs, mod, axis="x")
         assert isinstance(result.data, da.Array), f"{name} failed dask check"
+        assert "history" in result.attrs, f"{name} missing history"
+        assert f"{name} computed at" in result.attrs["history"]
+        assert "y" in result.coords
+        assert result.dims == ("y",)
+
+
+def test_generic_metrics_xarray_eager():
+    obs_data = np.random.rand(10, 10) + 1.0
+    mod_data = np.random.rand(10, 10) + 1.0
+    coords = {"x": np.arange(10), "y": np.arange(10)}
+    obs = xr.DataArray(obs_data, dims=("x", "y"), coords=coords, name="obs")
+    mod = xr.DataArray(mod_data, dims=("x", "y"), coords=coords, name="mod")
+    metrics = [
+        (MNB, "MNB"),
+        (MNE, "MNE"),
+        (MO, "MO"),
+        (MP, "MP"),
+        (RM, "RM"),
+        (MB, "MB"),
+        (MAE, "MAE"),
+        (sMAPE, "sMAPE"),
+        (RMSE, "RMSE"),
+        (NRMSE, "NRMSE"),
+        (bias_fraction, "bias_fraction"),
+    ]
+    for metric_func, name in metrics:
+        result = metric_func(obs, mod, axis="x")
+        assert not hasattr(result.data, "dask")
         assert "history" in result.attrs, f"{name} missing history"
         assert f"{name} computed at" in result.attrs["history"]
         assert "y" in result.coords
@@ -114,9 +164,16 @@ def test_corr_index():
     mod = np.array([2, 4, 6])
     assert np.isclose(CORR_INDEX(obs, mod), 1.0)
 
-    # Xarray Dask test
-    obs_da = xr.DataArray(da.from_array(np.random.rand(10, 10), chunks=(5, 5)), dims=("x", "y"))
+    # Xarray Eager test
+    obs_da = xr.DataArray(np.random.rand(10, 10), dims=("x", "y"))
     mod_da = obs_da * 2.0
     result = CORR_INDEX(obs_da, mod_da, axis="x")
-    assert isinstance(result.data, da.Array)
-    xr.testing.assert_allclose(result.compute(), xr.DataArray(np.ones(10), dims=("y",)))
+    xr.testing.assert_allclose(result, xr.DataArray(np.ones(10), dims=("y",)))
+
+    # Xarray Dask test
+    if HAS_DASK:
+        obs_da_dask = xr.DataArray(da.from_array(np.random.rand(10, 10), chunks=(5, 5)), dims=("x", "y"))
+        mod_da_dask = obs_da_dask * 2.0
+        result_dask = CORR_INDEX(obs_da_dask, mod_da_dask, axis="x")
+        assert isinstance(result_dask.data, da.Array)
+        xr.testing.assert_allclose(result_dask.compute(), xr.DataArray(np.ones(10), dims=("y",)))

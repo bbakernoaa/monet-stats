@@ -46,13 +46,15 @@ test = [
     "hypothesis>=6.0.0",
     "pytest-benchmark>=4.0.0",
     "coverage>=6.0.0",
-    "psutil"
+    "psutil",
+    "dask"
 ]
 dev = [
     "pre-commit>=2.20.0",
     "pytest>=7.0.0",
     "pytest-cov>=3.0.0",
     "pytest-benchmark>=4.0.0",
+    "dask"
 ]
 docs = [
     "mkdocs>=1.4.0",
