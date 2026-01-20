@@ -27,16 +27,22 @@ jobs:
     strategy:
       matrix:
         python-version: [3.8, 3.9, "3.10", "3.11", "3.12"]
+        dask-enabled: [true, false]
+    name: test (py${{ matrix.python-version }}, dask=${{ matrix.dask-enabled }})
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install all dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .[test,dev,docs]
+          if [ "${{ matrix.dask-enabled }}" = "true" ]; then
+            pip install -e .[test,dev,docs,dask]
+          else
+            pip install -e .[test,dev,docs]
+          fi
       - name: Test with pytest
         run: |
           pytest --cov=src/monet_stats --cov-report=xml --cov-report=term-missing --cov-fail-under=60
@@ -58,10 +64,10 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Install all dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .[test,dev,docs]
+          pip install -e .[test,dev,docs,dask]
       - name: Install build dependencies
         run: |
           pip install build twine
@@ -85,10 +91,10 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Install all dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .[test,dev,docs]
+          pip install -e .[test,dev,docs,dask]
       - name: Build documentation
         run: mkdocs build
       - name: Upload documentation

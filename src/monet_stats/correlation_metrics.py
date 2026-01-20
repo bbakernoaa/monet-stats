@@ -2,63 +2,66 @@
 Correlation and Agreement Metrics for Model Evaluation
 """
 
-from typing import Any, Optional, Tuple
+from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 from numpy.typing import ArrayLike
 
 from .utils_stats import circlebias, circlebias_m, matchedcompressed
 
 
-def R2(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def R2(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Coefficient of Determination (R^2, unitless)
+    Coefficient of Determination (R^2, unitless).
 
     Typical Use Cases
     -----------------
     - Quantifying how well model predictions explain the variance in observations.
-    - Used in regression analysis, model skill assessment, and forecast verification.
+    - Used in regression analysis, model skill assessment, and forecast
+      verification.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic. Only None is supported.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Coefficient of determination (R^2).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import R2
     >>> obs = np.array([1, 2, 3, 4])
-    >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.R2(obs, mod)
-    0.0
+    >>> mod = np.array([1.1, 1.9, 3.2, 3.8])
+    >>> R2(obs, mod)
+    0.9846153846153847
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
     from scipy.stats import pearsonr
 
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         if axis is None:
-            axis = -1
-        if isinstance(axis, int):
+            # Default to all dimensions if None
+            dim = obs.dims
+        elif isinstance(axis, int):
             dim = obs.dims[axis]
         else:
             dim = axis
 
-        def _pearsonr2(a: ArrayLike, b: ArrayLike) -> float:
+        def _pearsonr2(a, b):
             if np.var(a) == 0 or np.var(b) == 0:
                 return 0.0
             r_val, _ = pearsonr(a, b)
@@ -66,32 +69,49 @@ def R2(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
                 return 0.0
             return r_val**2
 
-        r2 = xr.apply_ufunc(
+        result = xr.apply_ufunc(
             _pearsonr2,
             obs,
             mod,
-            input_core_dims=[[dim], [dim]],
+            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
             output_dtypes=[float],
         )
-        return r2
-    elif axis is None:
-        obsc, modc = matchedcompressed(obs, mod)
-        if np.var(obsc) == 0 or np.var(modc) == 0:
-            return 0.0
-        r_val, _ = pearsonr(obsc, modc)
-        if np.isnan(r_val):
-            return 0.0
-        return r_val**2
+        # Update history
+        history = f"R2 computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        raise ValueError("Not ready yet")
+        if axis is None:
+            obsc, modc = matchedcompressed(obs, mod)
+            if np.var(obsc) == 0 or np.var(modc) == 0:
+                return 0.0
+            r_val, _ = pearsonr(obsc, modc)
+            if np.isnan(r_val):
+                return 0.0
+            return r_val**2
+        else:
+            # Manual vectorized R2
+            obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
+            mod_mean = np.nanmean(mod, axis=axis, keepdims=True)
+            obs_std = obs - obs_mean
+            mod_std = mod - mod_mean
+            num = np.nansum(obs_std * mod_std, axis=axis)
+            den = np.sqrt(np.nansum(obs_std**2, axis=axis) * np.nansum(mod_std**2, axis=axis))
+            with np.errstate(divide="ignore", invalid="ignore"):
+                r = num / den
+                return np.where(np.isnan(r), 0.0, r**2)
 
 
-def RMSE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def RMSE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Root Mean Square Error (RMSE, model unit)
+    Root Mean Square Error (RMSE, model unit).
 
     Typical Use Cases
     -----------------
@@ -100,213 +120,267 @@ def RMSE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Root mean square error value(s).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import RMSE
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.RMSE(obs, mod)
-    0.7071067811865476
+    >>> RMSE(obs, mod)
+    1.118033988749895
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return ((mod - obs) ** 2).mean(dim=axis) ** 0.5
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        return np.sqrt(np.mean((mod - obs) ** 2, axis=axis))
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
+        # Update history
+        history = f"RMSE computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
-        return np.ma.sqrt(np.ma.mean((mod - obs) ** 2, axis=axis))
+        return np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
 
 
-def WDRMSE_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDRMSE_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Wind Direction Root Mean Square Error (WDRMSE, model unit)
+    Wind Direction Root Mean Square Error (WDRMSE, model unit).
+
+    Robust to masked arrays.
 
     Typical Use Cases
     -----------------
-    - Quantifying the average magnitude of wind direction errors, accounting for circularity, robust to masked arrays.
-    - Used in wind energy, meteorology, and air quality studies to assess wind direction model performance.
+    - Quantifying the average magnitude of wind direction errors, accounting for
+      circularity, robust to masked arrays.
+    - Used in wind energy, meteorology, and air quality studies to assess wind
+      direction model performance.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted wind direction values (degrees).
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Wind direction root mean square error (degrees).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import WDRMSE_m
     >>> obs = np.array([350, 10, 20])
     >>> mod = np.array([10, 20, 30])
-    >>> stats.WDRMSE_m(obs, mod)
+    >>> WDRMSE_m(obs, mod)
     20.0
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        arr = (circlebias_m(mod - obs)) ** 2
-        if axis is None:
-            return arr.mean() ** 0.5
-        if isinstance(arr, xr.DataArray):
-            if isinstance(axis, int):
-                dim = arr.dims[axis]
-            elif isinstance(axis, str):
-                dim = axis
-            else:
-                raise ValueError("axis must be int or str for xarray.DataArray")
-            if not isinstance(dim, (str, list, tuple)):
-                raise TypeError("dim must be a string, list, or tuple for xarray.DataArray.mean")
-            return arr.mean(dim=dim) ** 0.5
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
         else:
-            return arr.mean(axis=axis) ** 0.5
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        return np.sqrt(np.mean((circlebias_m(mod - obs)) ** 2, axis=axis))
+            dim = axis
+
+        result = (circlebias_m(mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
+        # Update history
+        history = f"WDRMSE_m computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        return np.ma.sqrt(np.ma.mean((circlebias_m(mod - obs)) ** 2, axis=axis))
+        return np.ma.sqrt(np.ma.mean((circlebias_m(np.subtract(mod, obs))) ** 2, axis=axis))
 
 
-def WDRMSE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDRMSE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Wind Direction Root Mean Square Error (WDRMSE, model unit)
+    Wind Direction Root Mean Square Error (WDRMSE, model unit).
+
+    Standard version.
 
     Typical Use Cases
     -----------------
-    - Quantifying the average magnitude of wind direction errors, accounting for circularity.
-    - Used in wind energy, meteorology, and air quality studies to assess wind direction model performance.
+    - Quantifying the average magnitude of wind direction errors, accounting for
+      circularity.
+    - Used in wind energy, meteorology, and air quality studies to assess wind
+      direction model performance.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted wind direction values (degrees).
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Wind direction root mean square error (degrees).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import WDRMSE
     >>> obs = np.array([350, 10, 20])
     >>> mod = np.array([10, 20, 30])
-    >>> stats.WDRMSE(obs, mod)
+    >>> WDRMSE(obs, mod)
     20.0
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        arr = (circlebias(mod - obs)) ** 2
-        if axis is None:
-            return arr.mean() ** 0.5
-        if isinstance(arr, xr.DataArray):
-            if isinstance(axis, int):
-                dim = arr.dims[axis]
-            elif isinstance(axis, str):
-                dim = axis
-            else:
-                raise ValueError("axis must be int or str for xarray.DataArray")
-            # Only allow str or list of str for dim
-            if isinstance(dim, str):
-                pass
-            elif isinstance(dim, (tuple, list)):
-                dim = [str(d) for d in dim]
-                if not all(isinstance(d, str) for d in dim):
-                    raise TypeError("All elements of dim must be str for xarray.DataArray.mean")
-            else:
-                raise TypeError("dim must be a string or list of strings for xarray.DataArray.mean")
-            if not (isinstance(dim, str) or (isinstance(dim, list) and all(isinstance(d, str) for d in dim))):
-                raise TypeError("dim must be a string or list of strings for xarray.DataArray.mean (final check)")
-            return arr.mean(dim=dim) ** 0.5  # type: ignore
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
         else:
-            return arr.mean(axis=axis) ** 0.5
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        return np.sqrt(np.mean((circlebias(mod - obs)) ** 2, axis=axis))
+            dim = axis
+
+        result = (circlebias(mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
+        # Update history
+        history = f"WDRMSE computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        return np.ma.sqrt(np.ma.mean((circlebias(mod - obs)) ** 2, axis=axis))
+        return np.ma.sqrt(np.ma.mean((circlebias(np.subtract(mod, obs))) ** 2, axis=axis))
 
 
-def RMSEs(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def RMSEs(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray, None]:
     """
-    Root Mean Squared Error between observations and regression fit (RMSEs, model unit)
+    Root Mean Squared Error between observations and regression fit.
+
+    (RMSEs, model unit)
 
     Typical Use Cases
     -----------------
-    - Quantifying the error between observations and a regression fit to the model predictions.
-    - Used in model evaluation to assess how well a regression fit to the model matches the observations.
+    - Quantifying the error between observations and a regression fit to the
+      model predictions.
+    - Used in model evaluation to assess how well a regression fit to the model
+      matches the observations.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic. Only None is supported.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the statistic.
 
     Returns
     -------
-    float or None
+    numpy.number, numpy.ndarray, or xarray.DataArray, optional
         Root mean squared error value(s), or None if regression fails.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import RMSEs
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.RMSEs(obs, mod)
+    >>> RMSEs(obs, mod)
     0.7071067811865476
     """
-    if axis is None:
-        try:
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        if axis is None:
+            dim = obs.dims
+        elif isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        def _rmses(a, b):
             from scipy.stats import linregress
 
-            obsc, modc = matchedcompressed(obs, mod)
-            m, b, rval, pval, stderr = linregress(obsc, modc)
-            mod_hat = b + m * obs
-            return RMSE(obs, mod_hat)
-        except ValueError:
-            return None
+            mask = ~np.isnan(a) & ~np.isnan(b)
+            if not np.any(mask):
+                return np.nan
+            m, c, _, _, _ = linregress(a[mask], b[mask])
+            mod_hat = c + m * a
+            return np.sqrt(np.mean((mod_hat - a) ** 2))
+
+        result = xr.apply_ufunc(
+            _rmses,
+            obs,
+            mod,
+            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
+            output_core_dims=[[]],
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[float],
+        )
+        # Update history
+        history = f"RMSEs computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        raise ValueError("Not ready yet")
+        if axis is None:
+            try:
+                from scipy.stats import linregress
+
+                obsc, modc = matchedcompressed(obs, mod)
+                m, b, _, _, _ = linregress(obsc, modc)
+                mod_hat = b + m * obs
+                return RMSE(obs, mod_hat, axis=axis)
+            except (ValueError, ZeroDivisionError):
+                return None
+        else:
+            # Manual vectorized regression for numpy with axis
+            obs = np.asarray(obs)
+            mod = np.asarray(mod)
+            if axis < 0:
+                axis = obs.ndim + axis
+
+            obs_moved = np.moveaxis(obs, axis, -1)
+            mod_moved = np.moveaxis(mod, axis, -1)
+            other_shape = obs_moved.shape[:-1]
+            obs_flat = obs_moved.reshape(-1, obs_moved.shape[-1])
+            mod_flat = mod_moved.reshape(-1, mod_moved.shape[-1])
+
+            results = []
+            from scipy.stats import linregress
+
+            for i in range(len(obs_flat)):
+                mask = ~np.isnan(obs_flat[i]) & ~np.isnan(mod_flat[i])
+                if np.sum(mask) < 2:
+                    results.append(np.nan)
+                else:
+                    m, b, _, _, _ = linregress(obs_flat[i][mask], mod_flat[i][mask])
+                    mod_hat = b + m * obs_flat[i]
+                    results.append(np.sqrt(np.nanmean((mod_hat - obs_flat[i]) ** 2)))
+            return np.array(results).reshape(other_shape)
 
 
 def matchmasks(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ma.MaskedArray, np.ma.MaskedArray]:
@@ -344,345 +418,371 @@ def matchmasks(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ma.MaskedArray, np.ma.M
     return np.ma.masked_where(mask, a1), np.ma.masked_where(mask, a2)
 
 
-def RMSEu(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def RMSEu(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray, None]:
     """
-    Root Mean Squared Error between regression fit (mod_hat) and model (mod).
+    Root Mean Squared Error between regression fit and model predictions.
+
+    (RMSEu, model unit)
 
     Typical Use Cases
     -----------------
-    - Quantifying the error between a linear regression fit to observations and the model predictions.
-    - Used in model evaluation to assess how well a regression fit to obs matches the model output.
+    - Quantifying the error between a linear regression fit to observations and
+      the model predictions.
+    - Used in model evaluation to assess how well a regression fit to obs
+      matches the model output.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray or None
+    numpy.number, numpy.ndarray, or xarray.DataArray, optional
         Root mean squared error value(s), or None if regression fails.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import RMSEu
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.RMSEu(obs, mod)
+    >>> RMSEu(obs, mod)
     0.7071067811865476
     """
-    if axis is None:
-        try:
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        if axis is None:
+            dim = obs.dims
+        elif isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        def _rmseu(a, b):
             from scipy.stats import linregress
 
-            obsc, modc = matchedcompressed(obs, mod)
-            m, b, rval, pval, stderr = linregress(obsc, modc)
-            mod_hat = b + m * obs
-            return RMSE(mod_hat, mod)
-        except ValueError:
-            return None
+            mask = ~np.isnan(a) & ~np.isnan(b)
+            if not np.any(mask):
+                return np.nan
+            m, c, _, _, _ = linregress(a[mask], b[mask])
+            mod_hat = c + m * a
+            return np.sqrt(np.mean((mod_hat - b) ** 2))
+
+        result = xr.apply_ufunc(
+            _rmseu,
+            obs,
+            mod,
+            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
+            output_core_dims=[[]],
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[float],
+        )
+        # Update history
+        history = f"RMSEu computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        raise ValueError("Not ready yet")
+        if axis is None:
+            try:
+                from scipy.stats import linregress
+
+                obsc, modc = matchedcompressed(obs, mod)
+                m, b, _, _, _ = linregress(obsc, modc)
+                mod_hat = b + m * obs
+                return RMSE(mod_hat, mod, axis=axis)
+            except (ValueError, ZeroDivisionError):
+                return None
+        else:
+            obs = np.asarray(obs)
+            mod = np.asarray(mod)
+            if axis < 0:
+                axis = obs.ndim + axis
+
+            obs_moved = np.moveaxis(obs, axis, -1)
+            mod_moved = np.moveaxis(mod, axis, -1)
+            other_shape = obs_moved.shape[:-1]
+            obs_flat = obs_moved.reshape(-1, obs_moved.shape[-1])
+            mod_flat = mod_moved.reshape(-1, mod_moved.shape[-1])
+
+            results = []
+            from scipy.stats import linregress
+
+            for i in range(len(obs_flat)):
+                mask = ~np.isnan(obs_flat[i]) & ~np.isnan(mod_flat[i])
+                if np.sum(mask) < 2:
+                    results.append(np.nan)
+                else:
+                    m, b, _, _, _ = linregress(obs_flat[i][mask], mod_flat[i][mask])
+                    mod_hat = b + m * obs_flat[i]
+                    results.append(np.sqrt(np.nanmean((mod_hat - mod_flat[i]) ** 2)))
+            return np.array(results).reshape(other_shape)
 
 
-def d1(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def d1(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Modified Index of Agreement (d1).
 
     Typical Use Cases
     -----------------
-    - Quantifying the agreement between model and observations, less sensitive to outliers than IOA.
+    - Quantifying the agreement between model and observations, less sensitive
+      to outliers than IOA.
     - Used in model evaluation for robust skill assessment.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Modified index of agreement (unitless, 0-1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import d1
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.d1(obs, mod)
+    >>> d1(obs, mod)
     0.5
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        num = abs(obs - mod).sum(dim=axis)
-        mean_obs = obs.mean(dim=axis)
-        denom = (abs(mod - mean_obs) + abs(obs - mean_obs)).sum(dim=axis)
-        return 1.0 - (num / denom)
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        num = np.abs(obs - mod).sum(axis=axis)
-        mean_obs = obs.mean(axis=axis)
-        denom = (np.abs(mod - mean_obs) + np.abs(obs - mean_obs)).sum(axis=axis)
-        return 1.0 - (num / denom)
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        num = abs(obs - mod).sum(dim=dim)
+        mean_obs = obs.mean(dim=dim)
+        denom = (abs(mod - mean_obs) + abs(obs - mean_obs)).sum(dim=dim)
+        result = 1.0 - (num / denom)
+        # Update history
+        history = f"d1 computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        num = np.ma.abs(obs - mod).sum(axis=axis)
-        mean_obs = obs.mean(axis=axis)
-        denom = (np.ma.abs(mod - mean_obs) + np.ma.abs(obs - mean_obs)).sum(axis=axis)
+        num = np.ma.abs(np.subtract(obs, mod)).sum(axis=axis)
+        mean_obs = np.ma.mean(obs, axis=axis)
+        denom = (np.ma.abs(np.subtract(mod, mean_obs)) + np.ma.abs(np.subtract(obs, mean_obs))).sum(axis=axis)
         return 1.0 - (num / denom)
 
 
-def E1(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def E1(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Modified Coefficient of Efficiency (E1).
 
     Typical Use Cases
     -----------------
-    - Quantifying the efficiency of model predictions relative to observed mean, robust to outliers.
+    - Quantifying the efficiency of model predictions relative to observed mean,
+      robust to outliers.
     - Used in hydrology, meteorology, and model skill assessment.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Modified coefficient of efficiency (unitless, -inf to 1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import E1
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.E1(obs, mod)
+    >>> E1(obs, mod)
     0.0
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        num = abs(obs - mod).sum(dim=axis)
-        denom = abs(obs - obs.mean(dim=axis)).sum(dim=axis)
-        return 1.0 - (num / denom)
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        num = np.abs(obs - mod).sum(axis=axis)
-        mean_obs = obs.mean(axis=axis)
-        denom = np.abs(obs - mean_obs).sum(axis=axis)
-        return 1.0 - (num / denom)
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        num = abs(obs - mod).sum(dim=dim)
+        denom = abs(obs - obs.mean(dim=dim)).sum(dim=dim)
+        result = 1.0 - (num / denom)
+        # Update history
+        history = f"E1 computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        num = np.ma.abs(obs - mod).sum(axis=axis)
-        mean_obs = obs.mean(axis=axis)
-        denom = np.ma.abs(obs - mean_obs).sum(axis=axis)
+        num = np.ma.abs(np.subtract(obs, mod)).sum(axis=axis)
+        mean_obs = np.ma.mean(obs, axis=axis)
+        denom = np.ma.abs(np.subtract(obs, mean_obs)).sum(axis=axis)
         return 1.0 - (num / denom)
 
 
-def IOA_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def IOA_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Index of Agreement (IOA), avoid single block error in np.ma.
+    Index of Agreement (IOA), robust to masked arrays.
 
     Typical Use Cases
     -----------------
-    - Quantifying the agreement between model and observations, normalized by total deviation.
+    - Quantifying the agreement between model and observations, normalized by
+      total deviation.
     - Used in model evaluation for skill assessment, robust to masked arrays.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Index of agreement (unitless, 0-1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import IOA_m
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.IOA_m(obs, mod)
+    >>> IOA_m(obs, mod)
     0.8
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        obsmean = obs.mean(dim=axis)
-        num = ((obs - mod) ** 2).sum(dim=axis)
-        denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=axis)
-        return 1.0 - (num / denom)
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        if np.array_equal(obs, mod):
-            return 1.0
-        obsmean = obs.mean(axis=axis)
-        num = (np.abs(obs - mod) ** 2).sum(axis=axis)
-        denom = ((np.abs(mod - obsmean) + np.abs(obs - obsmean)) ** 2).sum(axis=axis)
-        if denom == 0:
-            return 1.0
-        return 1.0 - (num / denom)
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        obsmean = obs.mean(dim=dim)
+        num = ((obs - mod) ** 2).sum(dim=dim)
+        denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=dim)
+        result = 1.0 - (num / denom)
+        # Update history
+        history = f"IOA_m computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        obsmean = obs.mean(axis=axis)
-        num = (np.ma.abs(obs - mod) ** 2).sum(axis=axis)
-        denom = ((np.ma.abs(mod - obsmean) + np.ma.abs(obs - obsmean)) ** 2).sum(axis=axis)
+        obsmean = np.ma.mean(obs, axis=axis)
+        num = (np.ma.abs(np.subtract(obs, mod)) ** 2).sum(axis=axis)
+        denom = ((np.ma.abs(np.subtract(mod, obsmean)) + np.ma.abs(np.subtract(obs, obsmean))) ** 2).sum(axis=axis)
         return 1.0 - (num / denom)
 
 
-def IOA(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def IOA(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Index of Agreement (IOA).
 
     Typical Use Cases
     -----------------
-    - Quantifying the agreement between model and observations, normalized by total deviation.
+    - Quantifying the agreement between model and observations, normalized by
+      total deviation.
     - Used in model evaluation for skill assessment.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Index of agreement (unitless, 0-1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import IOA
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.IOA(obs, mod)
+    >>> IOA(obs, mod)
     0.8
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        obsmean = obs.mean(dim=axis)
-        num = ((obs - mod) ** 2).sum(dim=axis)
-        denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=axis)
-        return 1.0 - (num / denom)
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        obsmean = obs.mean(axis=axis)
-        num = (np.abs(obs - mod) ** 2).sum(axis=axis)
-        denom = ((np.abs(mod - obsmean) + np.abs(obs - obsmean)) ** 2).sum(axis=axis)
-        return 1.0 - (num / denom)
-    else:
-        obsmean = obs.mean(axis=axis)
-        num = (np.ma.abs(obs - mod) ** 2).sum(axis=axis)
-        denom = ((np.ma.abs(mod - obsmean) + np.ma.abs(obs - obsmean)) ** 2).sum(axis=axis)
-        return 1.0 - (num / denom)
-
-
-def WDIOA_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
-    """
-    Wind Direction Index of Agreement (WDIOA_m)
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the agreement between observed and modeled wind directions, accounting for circularity.
-    - Used in wind energy, meteorology, and air quality studies to assess wind direction model performance.
-
-    Typical Values and Range
-    ------------------------
-    - Range: 0 to 1
-    - 1: Perfect agreement between observed and modeled wind directions
-    - 0: No agreement (as bad as using the mean of observations)
-
-    Parameters
-    ----------
-    obs : array-like or xarray.DataArray
-        Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
-        Modeled wind direction values (degrees).
-    axis : int or None, optional
-        Axis along which to compute the metric.
-
-    Returns
-    -------
-    float or xarray.DataArray
-        Wind direction index of agreement (unitless, 0-1).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet.util import stats
-    >>> obs = np.array([350, 10, 20])
-    >>> mod = np.array([345, 15, 25])
-    >>> stats.WDIOA_m(obs, mod)
-    0.8
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        obsmean = obs.mean(dim=axis)
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            else:
-                dim = axis
-            num = (abs(circlebias_m(obs - mod))).sum(dim=dim)
-            denom = (abs(circlebias_m(mod - obsmean)) + abs(circlebias_m(obs - obsmean))).sum(dim=dim)
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
         else:
-            num = (abs(circlebias_m(obs - mod))).sum()
-            denom = (abs(circlebias_m(mod - obsmean)) + abs(circlebias_m(obs - obsmean))).sum()
-        # When xarray operations result in scalar values, they might become numpy arrays
-        # So we need to ensure the result is always an xarray DataArray when inputs are xarray
-        result = 1.0 - (num / denom)
-        final_result = xr.where(denom == 0, 1.0, result)
+            dim = axis
 
-        # Ensure we return an xarray DataArray if inputs were xarray
-        # The xr.where function should preserve the xarray type, but sometimes it returns numpy scalar
-        # Let's ensure it's always an xarray DataArray by wrapping in DataArray if needed
-        if not isinstance(final_result, xr.DataArray):
-            final_result = xr.DataArray(final_result)
-        return final_result
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        obsmean = obs.mean(axis=axis)
-        num = np.sum(np.abs(circlebias_m(obs - mod)), axis=axis)
-        denom = np.sum(
-            np.abs(circlebias_m(mod - obsmean)) + np.abs(circlebias_m(obs - obsmean)),
-            axis=axis,
-        )
-        # Handle case where denominator is 0 (perfect agreement)
-        return np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        obsmean = obs.mean(dim=dim)
+        num = ((obs - mod) ** 2).sum(dim=dim)
+        denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=dim)
+        result = 1.0 - (num / denom)
+        # Update history
+        history = f"IOA computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
         obsmean = np.ma.mean(obs, axis=axis)
-        num = np.ma.sum(np.ma.abs(circlebias_m(obs - mod)), axis=axis)
-        denom = np.ma.sum(
-            np.ma.abs(circlebias_m(mod - obsmean)) + np.ma.abs(circlebias_m(obs - obsmean)),
-            axis=axis,
-        )
-        # Handle case where denominator is 0 (perfect agreement)
-        return np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        num = (np.ma.abs(np.subtract(obs, mod)) ** 2).sum(axis=axis)
+        denom = ((np.ma.abs(np.subtract(mod, obsmean)) + np.ma.abs(np.subtract(obs, obsmean))) ** 2).sum(axis=axis)
+        return 1.0 - (num / denom)
 
 
-def WDIOA(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDIOA_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Wind Direction Index of Agreement (WDIOA)
+    Wind Direction Index of Agreement (WDIOA_m).
+
+    Robust to masked arrays.
 
     Typical Use Cases
     -----------------
-    - Quantifying the agreement between observed and modeled wind directions, accounting for circularity.
-    - Used in wind energy, meteorology, and air quality studies to assess wind direction model performance.
+    - Quantifying the agreement between observed and modeled wind directions,
+      accounting for circularity.
+    - Used in wind energy, meteorology, and air quality studies to assess wind
+      direction model performance.
 
     Typical Values and Range
     ------------------------
@@ -692,163 +792,279 @@ def WDIOA(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Modeled wind direction values (degrees).
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the metric.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Wind direction index of agreement (unitless, 0-1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import WDIOA_m
     >>> obs = np.array([350, 10, 20])
     >>> mod = np.array([345, 15, 25])
-    >>> stats.WDIOA(obs, mod)
+    >>> WDIOA_m(obs, mod)
     0.8
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        num = abs(circlebias(obs - mod)).sum(dim=axis)
-        mean_obs = obs.mean(dim=axis)
-        denom = (abs(circlebias(mod - mean_obs)) + abs(circlebias(obs - mean_obs))).sum(dim=axis)
-        # Handle case where denominator is 0 (perfect agreement)
-        return xr.where(denom == 0, 1.0, 1.0 - (num / denom))
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        num = np.abs(circlebias(obs - mod)).sum(axis=axis)
-        mean_obs = np.mean(obs, axis=axis)
-        denom = (np.abs(circlebias(mod - mean_obs)) + np.abs(circlebias(obs - mean_obs))).sum(axis=axis)
-        # Handle case where denominator is 0 (perfect agreement)
-        return np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        obsmean = obs.mean(dim=dim)
+        num = (abs(circlebias_m(obs - mod))).sum(dim=dim)
+        denom = (abs(circlebias_m(mod - obsmean)) + abs(circlebias_m(obs - obsmean))).sum(dim=dim)
+
+        result = 1.0 - (num / denom)
+        result = xr.where(denom == 0, 1.0, result)
+
+        # Update history
+        history = f"WDIOA_m computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        num = np.ma.sum(np.ma.abs(circlebias(obs - mod)), axis=axis)
-        mean_obs = np.ma.mean(obs, axis=axis)
+        obsmean = np.ma.mean(obs, axis=axis)
+        num = np.ma.sum(np.ma.abs(circlebias_m(np.subtract(obs, mod))), axis=axis)
         denom = np.ma.sum(
-            np.ma.abs(circlebias(mod - mean_obs)) + np.ma.abs(circlebias(obs - mean_obs)),
+            np.ma.abs(circlebias_m(np.subtract(mod, obsmean))) + np.ma.abs(circlebias_m(np.subtract(obs, obsmean))),
             axis=axis,
         )
-        # Handle case where denominator is 0 (perfect agreement)
         return np.where(denom == 0, 1.0, 1.0 - (num / denom))
 
 
-def AC(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDIOA(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Anomaly Correlation (AC)
+    Wind Direction Index of Agreement (WDIOA).
+
+    Standard version.
+
+    Typical Use Cases
+    -----------------
+    - Quantifying the agreement between observed and modeled wind directions,
+      accounting for circularity.
+    - Used in wind energy, meteorology, and air quality studies to assess wind
+      direction model performance.
+
+    Typical Values and Range
+    ------------------------
+    - Range: 0 to 1
+    - 1: Perfect agreement between observed and modeled wind directions
+    - 0: No agreement (as bad as using the mean of observations)
 
     Parameters
     ----------
-    obs : array-like
+    obs : numpy.ndarray or xarray.DataArray
+        Observed wind direction values (degrees).
+    mod : numpy.ndarray or xarray.DataArray
+        Modeled wind direction values (degrees).
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the metric.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Wind direction index of agreement (unitless, 0-1).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.correlation_metrics import WDIOA
+    >>> obs = np.array([350, 10, 20])
+    >>> mod = np.array([345, 15, 25])
+    >>> WDIOA(obs, mod)
+    0.8
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        num = abs(circlebias(obs - mod)).sum(dim=dim)
+        mean_obs = obs.mean(dim=dim)
+        denom = (abs(circlebias(mod - mean_obs)) + abs(circlebias(obs - mean_obs))).sum(dim=dim)
+
+        result = 1.0 - (num / denom)
+        result = xr.where(denom == 0, 1.0, result)
+
+        # Update history
+        history = f"WDIOA computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
+    else:
+        num = np.ma.sum(np.ma.abs(circlebias(np.subtract(obs, mod))), axis=axis)
+        mean_obs = np.ma.mean(obs, axis=axis)
+        denom = np.ma.sum(
+            np.ma.abs(circlebias(np.subtract(mod, mean_obs))) + np.ma.abs(circlebias(np.subtract(obs, mean_obs))),
+            axis=axis,
+        )
+        return np.where(denom == 0, 1.0, 1.0 - (num / denom))
+
+
+def AC(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Anomaly Correlation (AC).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the statistic.
 
     Returns
     -------
-    float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Anomaly correlation coefficient (unitless, -1 to 1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import AC
     >>> obs = np.array([1, 2, 3, 4])
-    >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.AC(obs, mod)
-    0.0
+    >>> mod = np.array([1.1, 2.1, 2.9, 4.1])
+    >>> AC(obs, mod)
+    0.9922778767136677
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        obs_bar = obs.mean(dim=axis)
-        mod_bar = mod.mean(dim=axis)
-        p1 = ((mod - mod_bar) * (obs - obs_bar)).sum(dim=axis)
-        p2 = (((mod - mod_bar) ** 2).sum(dim=axis) * ((obs - obs_bar) ** 2).sum(dim=axis)) ** 0.5
-        return p1 / p2
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        obs_bar = np.mean(obs, axis=axis)
-        mod_bar = np.mean(mod, axis=axis)
-        if axis is not None:
-            obs_bar = np.expand_dims(obs_bar, axis=axis)
-            mod_bar = np.expand_dims(mod_bar, axis=axis)
-        p1 = ((mod - mod_bar) * (obs - obs_bar)).sum(axis=axis)
-        p2 = (((mod - mod_bar) ** 2).sum(axis=axis) * ((obs - obs_bar) ** 2).sum(axis=axis)) ** 0.5
-        return p1 / p2
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        obs_bar = obs.mean(dim=dim)
+        mod_bar = mod.mean(dim=dim)
+        obs_anom = obs - obs_bar
+        mod_anom = mod - mod_bar
+        p1 = (mod_anom * obs_anom).sum(dim=dim)
+        p2 = ((mod_anom**2).sum(dim=dim) * (obs_anom**2).sum(dim=dim)) ** 0.5
+        result = p1 / p2
+        # Update history
+        history = f"AC computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
         obs_bar = np.ma.mean(obs, axis=axis)
         mod_bar = np.ma.mean(mod, axis=axis)
         if axis is not None:
-            obs_bar = np.ma.expand_dims(obs_bar, axis=axis)
-            mod_bar = np.ma.expand_dims(mod_bar, axis=axis)
-        p1 = ((mod - mod_bar) * (obs - obs_bar)).sum(axis=axis)
-        p2 = (((mod - mod_bar) ** 2).sum(axis=axis) * ((obs - obs_bar) ** 2).sum(axis=axis)) ** 0.5
+            # Need to keep dims for subtraction if axis is not None
+            obs_bar_kd = np.ma.mean(obs, axis=axis, keepdims=True)
+            mod_bar_kd = np.ma.mean(mod, axis=axis, keepdims=True)
+        else:
+            obs_bar_kd = obs_bar
+            mod_bar_kd = mod_bar
+        obs_anom = np.subtract(obs, obs_bar_kd)
+        mod_anom = np.subtract(mod, mod_bar_kd)
+        p1 = np.ma.sum(np.ma.multiply(mod_anom, obs_anom), axis=axis)
+        p2 = np.ma.sqrt(np.ma.multiply(np.ma.sum(obs_anom**2, axis=axis), np.ma.sum(mod_anom**2, axis=axis)))
         return p1 / p2
 
 
-def WDAC(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDAC(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Wind Direction Anomaly Correlation (WDAC)
+    Wind Direction Anomaly Correlation (WDAC).
 
     Parameters
     ----------
-    obs : array-like
+    obs : numpy.ndarray or xarray.DataArray
         Observed wind direction values (degrees).
-    mod : array-like
+    mod : numpy.ndarray or xarray.DataArray
         Modeled wind direction values (degrees).
-    axis : int, optional
-        Axis along which to compute the metric. Default is 0.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the metric.
 
     Returns
     -------
-    float or ndarray
-        WDAC value(s)
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        WDAC value(s).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import WDAC
     >>> obs = np.array([350, 10, 20])
-    >>> mod = np.array([10, 20, 30])
-    >>> stats.WDAC(obs, mod)
-    0.0
+    >>> mod = np.array([345, 15, 25])
+    >>> WDAC(obs, mod)
+    0.9992386127814763
     """
-    # Robust type-detection for xarray, numpy, masked arrays
-    if hasattr(obs, "dims") and hasattr(mod, "dims"):
-        # xarray DataArray
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
         obs_rad = obs * np.pi / 180.0
         mod_rad = mod * np.pi / 180.0
-        obs_anom = obs_rad - obs_rad.mean(dim=obs.dims[axis])
-        mod_anom = mod_rad - mod_rad.mean(dim=mod.dims[axis])
-        numerator = (np.sin(obs_anom) * np.sin(mod_anom)).mean(dim=obs.dims[axis])
-        denominator = np.sqrt(
-            (np.sin(obs_anom) ** 2).mean(dim=obs.dims[axis]) * (np.sin(mod_anom) ** 2).mean(dim=mod.dims[axis])
-        )
-        return numerator / denominator
+        obs_anom = obs_rad - obs_rad.mean(dim=dim)
+        mod_anom = mod_rad - mod_rad.mean(dim=dim)
+        numerator = (np.sin(obs_anom) * np.sin(mod_anom)).sum(dim=dim)
+        denominator = np.sqrt((np.sin(obs_anom) ** 2).sum(dim=dim) * (np.sin(mod_anom) ** 2).sum(dim=dim))
+        result = numerator / denominator
+        # Update history
+        history = f"WDAC computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
         obs_rad = np.deg2rad(obs)
         mod_rad = np.deg2rad(mod)
-        obs_anom = obs_rad - np.mean(obs_rad, axis=axis)
-        mod_anom = mod_rad - np.mean(mod_rad, axis=axis)
-        numerator = np.mean(np.sin(obs_anom) * np.sin(mod_anom), axis=axis)
-        denominator = np.sqrt(np.mean(np.sin(obs_anom) ** 2, axis=axis) * np.mean(np.sin(mod_anom) ** 2, axis=axis))
+        if axis is not None:
+            obs_bar_rad = np.ma.mean(obs_rad, axis=axis, keepdims=True)
+            mod_bar_rad = np.ma.mean(mod_rad, axis=axis, keepdims=True)
+        else:
+            obs_bar_rad = np.ma.mean(obs_rad)
+            mod_bar_rad = np.ma.mean(mod_rad)
+
+        obs_anom = obs_rad - obs_bar_rad
+        mod_anom = mod_rad - mod_bar_rad
+        numerator = np.ma.sum(np.sin(obs_anom) * np.sin(mod_anom), axis=axis)
+        denominator = np.ma.sqrt(
+            np.ma.sum(np.sin(obs_anom) ** 2, axis=axis) * np.ma.sum(np.sin(mod_anom) ** 2, axis=axis)
+        )
         return numerator / denominator
 
 
-def taylor_skill(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> float:
+def taylor_skill(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Taylor Skill Score (TSS)
+    Taylor Skill Score (TSS).
 
     Typical Use Cases
     -----------------
-    - Summarizing model performance in a single skill score for use in Taylor diagrams.
+    - Summarizing model performance in a single skill score for use in Taylor
+      diagrams.
     - Used in climate, weather, and environmental model evaluation.
 
     Typical Values and Range
@@ -859,68 +1075,91 @@ def taylor_skill(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> 
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute the skill score. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the skill score.
 
     Returns
     -------
-    skill : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Taylor skill score (unitless, 0-1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import taylor_skill
     >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> stats.taylor_skill(obs, mod)
-    # Output: TSS value between 0 and 1
+    >>> mod = np.array([1.1, 1.9, 3.2])
+    >>> taylor_skill(obs, mod)
+    0.9995574044955781
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        std_obs = float(obs.std(dim=axis))
-        std_mod = float(mod.std(dim=axis))
-        corr = float(xr.corr(obs, mod, dim=axis))
-        # Handle case where std is 0 (perfect agreement) - return 1.0
-        if std_obs == 0 and std_mod == 0 and corr == 1.0:
-            return 1.0
-        # Calculate Taylor Skill Score using the proper formula
-        num = 4.0 * (corr + 1.0) ** 2 * std_mod * std_obs
-        denom = (std_mod + std_obs) ** 2 * (corr + 1.0) ** 2
-        if denom == 0:
-            return 1.0
-        return (num / denom) ** 0.5
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        std_obs = obs.std(dim=dim)
+        std_mod = mod.std(dim=dim)
+        corr = xr.corr(obs, mod, dim=dim)
+
+        # Calculate Taylor Skill Score using the common formula
+        # S = 4 * (1 + R) / ( (sigma_p/sigma_o + sigma_o/sigma_p)^2 * (1 + R_max) )
+        # Assuming R_max = 1.0
+        norm_std = std_mod / std_obs
+        result = (4.0 * (corr + 1.0)) / ((norm_std + 1.0 / norm_std) ** 2 * 2.0)
+        # Update history
+        history = f"taylor_skill computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        std_obs = float(np.std(obs, axis=axis))
-        std_mod = float(np.std(mod, axis=axis))
+        std_obs = np.ma.std(obs, axis=axis)
+        std_mod = np.ma.std(mod, axis=axis)
         from scipy.stats import pearsonr
 
-        if np.ma.is_masked(obs):
-            corr = float(pearsonr(obs.compressed(), mod.compressed())[0])
+        if axis is None:
+            if np.ma.is_masked(obs):
+                corr = pearsonr(obs.compressed(), mod.compressed())[0]
+            else:
+                corr = pearsonr(obs, mod)[0]
         else:
-            corr = float(pearsonr(obs, mod)[0])
-        # Handle case where std is 0 (perfect agreement)
-        if std_obs == 0 and std_mod == 0 and corr == 1.0:
-            return 1.0
-        # Calculate Taylor Skill Score using the proper formula
-        num = 4.0 * (corr + 1.0) ** 2 * std_mod * std_obs
-        denom = (std_mod + std_obs) ** 2 * (corr + 1.0) ** 2
-        if denom == 0:
-            return 1.0
-        return (num / denom) ** 0.5
+            # Vectorized correlation over axis for numpy
+            obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
+            mod_mean = np.nanmean(mod, axis=axis, keepdims=True)
+            obs_anom = obs - obs_mean
+            mod_anom = mod - mod_mean
+            num_corr = np.nansum(obs_anom * mod_anom, axis=axis)
+            den_corr = np.sqrt(np.nansum(obs_anom**2, axis=axis) * np.nansum(mod_anom**2, axis=axis))
+            with np.errstate(divide="ignore", invalid="ignore"):
+                corr = num_corr / den_corr
+
+        norm_std = std_mod / std_obs
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = (4.0 * (corr + 1.0)) / ((norm_std + 1.0 / norm_std) ** 2 * 2.0)
+            if np.ndim(result) == 0:
+                if np.isnan(result) or np.isinf(result):
+                    return 1.0
+                return result.item()
+            return np.where(np.isnan(result) | np.isinf(result), 1.0, result)
 
 
-def KGE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def KGE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Kling-Gupta Efficiency (KGE)
+    Kling-Gupta Efficiency (KGE).
 
     Typical Use Cases
     -----------------
-    - Quantifying the overall agreement between model and observations, combining correlation, bias, and variability.
+    - Quantifying the overall agreement between model and observations,
+      combining correlation, bias, and variability.
     - Used in hydrology, meteorology, and environmental model evaluation.
 
     Typical Values and Range
@@ -932,139 +1171,162 @@ def KGE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute KGE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute KGE.
 
     Returns
     -------
-    kge : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Kling-Gupta efficiency (unitless, -∞ to 1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import KGE
     >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> stats.KGE(obs, mod)
-    # Output: KGE value between -∞ and 1
+    >>> mod = np.array([1.1, 1.9, 3.2])
+    >>> KGE(obs, mod)
+    0.8988771192996924
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        r = xr.corr(obs, mod, dim=axis)
-        alpha = mod.std(dim=axis) / obs.std(dim=axis)
-        beta = mod.mean(dim=axis) / obs.mean(dim=axis)
-        return 1.0 - ((r - 1.0) ** 2 + (alpha - 1.0) ** 2 + (beta - 1.0) ** 2) ** 0.5
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        r = xr.corr(obs, mod, dim=dim)
+        alpha = mod.std(dim=dim) / obs.std(dim=dim)
+        beta = mod.mean(dim=dim) / obs.mean(dim=dim)
+        result = 1.0 - ((r - 1.0) ** 2 + (alpha - 1.0) ** 2 + (beta - 1.0) ** 2) ** 0.5
+        # Update history
+        history = f"KGE computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
         from scipy.stats import pearsonr
 
         if np.ma.is_masked(obs):
-            r = float(pearsonr(obs.compressed(), mod.compressed())[0])  # type: ignore
+            r = pearsonr(obs.compressed(), mod.compressed())[0]
         else:
-            r = float(pearsonr(obs, mod)[0])  # type: ignore
-        alpha = float(np.ma.std(mod, axis=axis) / np.ma.std(obs, axis=axis))
-        beta = float(np.ma.mean(mod, axis=axis) / np.ma.mean(obs, axis=axis))
+            r = pearsonr(obs, mod)[0]
+        alpha = np.ma.std(mod, axis=axis) / np.ma.std(obs, axis=axis)
+        beta = np.ma.mean(mod, axis=axis) / np.ma.mean(obs, axis=axis)
         return 1.0 - ((r - 1.0) ** 2 + (alpha - 1.0) ** 2 + (beta - 1.0) ** 2) ** 0.5
 
 
-def pearsonr(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def pearsonr(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Pearson correlation coefficient.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int or str, optional
-        Axis or dimension name along which to compute the coefficient. If None, uses the last dimension for xarray.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension name along which to compute the coefficient.
 
     Returns
     -------
-    r : float, ndarray, or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Pearson correlation coefficient.
 
     Examples
     --------
     >>> import numpy as np
+    >>> from monet_stats.correlation_metrics import pearsonr
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 4, 6])
     >>> pearsonr(obs, mod)
     1.0
-    >>> import xarray as xr
-    >>> obs = xr.DataArray([1, 2, 3])
-    >>> mod = xr.DataArray([2, 4, 6])
-    >>> pearsonr(obs, mod)
-    <xarray.DataArray ...>
     """
     from scipy.stats import pearsonr as _pearsonr
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Default to last dimension if axis is None
         if axis is None:
-            axis = -1
-        # Get dimension name if axis is int
-        if isinstance(axis, int):
+            dim = obs.dims
+        elif isinstance(axis, int):
             dim = obs.dims[axis]
         else:
             dim = axis
 
-        def _pearsonr_onlyr(a: ArrayLike, b: ArrayLike) -> float:
-            return _pearsonr(a, b)[0]
+        def _pearsonr_onlyr(a, b):
+            mask = ~np.isnan(a) & ~np.isnan(b)
+            if np.sum(mask) < 2 or np.var(a[mask]) == 0 or np.var(b[mask]) == 0:
+                return np.nan
+            return _pearsonr(a[mask], b[mask])[0]
 
-        r = xr.apply_ufunc(
+        result = xr.apply_ufunc(
             _pearsonr_onlyr,
             obs,
             mod,
-            input_core_dims=[[dim], [dim]],
+            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
             output_dtypes=[float],
         )
-        return r
+        # Update history
+        history = f"pearsonr computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
         if axis is None:
-            obs = np.asarray(obs)
-            mod = np.asarray(mod)
-            if np.var(obs) == 0 or np.var(mod) == 0:
+            obsc, modc = matchedcompressed(obs, mod)
+            if len(obsc) < 2 or np.var(obsc) == 0 or np.var(modc) == 0:
                 return 0.0
-            r_val, _ = _pearsonr(obs, mod)
-            if np.isnan(r_val):
-                return 0.0
-            return r_val
+            r_val, _ = _pearsonr(obsc, modc)
+            return r_val if not np.isnan(r_val) else 0.0
         else:
-            # Not implemented for axis, fallback to nan
-            return np.nan
+            # For numpy with axis, use manual vectorized correlation
+            obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
+            mod_mean = np.nanmean(mod, axis=axis, keepdims=True)
+            obs_std = obs - obs_mean
+            mod_std = mod - mod_mean
+            num = np.nansum(obs_std * mod_std, axis=axis)
+            den = np.sqrt(np.nansum(obs_std**2, axis=axis) * np.nansum(mod_std**2, axis=axis))
+            with np.errstate(divide="ignore", invalid="ignore"):
+                return num / den
 
 
-def spearmanr(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def spearmanr(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Spearman rank correlation coefficient.
 
     Parameters
     ----------
-    obs : array_like
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute the coefficient. Only None is supported.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the coefficient.
 
     Returns
     -------
-    rho : float
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Spearman rank correlation coefficient.
 
     Examples
     --------
     >>> import numpy as np
+    >>> from monet_stats.correlation_metrics import spearmanr
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
     >>> spearmanr(obs, mod)
@@ -1075,112 +1337,174 @@ def spearmanr(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         if axis is None:
-            axis = -1
-        if isinstance(axis, int):
+            dim = obs.dims
+        elif isinstance(axis, int):
             dim = obs.dims[axis]
         else:
             dim = axis
 
-        def _spearmanr_onlyrho(a: ArrayLike, b: ArrayLike) -> float:
-            return _spearmanr(a, b)[0]
+        def _spearmanr_onlyrho(a, b):
+            mask = ~np.isnan(a) & ~np.isnan(b)
+            if np.sum(mask) < 2:
+                return np.nan
+            return _spearmanr(a[mask], b[mask])[0]
 
-        rho = xr.apply_ufunc(
+        result = xr.apply_ufunc(
             _spearmanr_onlyrho,
             obs,
             mod,
-            input_core_dims=[[dim], [dim]],
+            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
             output_dtypes=[float],
         )
-        return rho
-    elif axis is None:
-        return _spearmanr(obs, mod)[0]
+        # Update history
+        history = f"spearmanr computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        # Not implemented for axis, fallback to nan
-        return np.nan
+        if axis is None:
+            obsc, modc = matchedcompressed(obs, mod)
+            if len(obsc) < 2:
+                return np.nan
+            return _spearmanr(obsc, modc)[0]
+        else:
+            # Fallback for numpy with axis: manual loop over other axes
+            obs = np.asarray(obs)
+            mod = np.asarray(mod)
+            if axis < 0:
+                axis = obs.ndim + axis
+
+            # Move axis to last position
+            obs_moved = np.moveaxis(obs, axis, -1)
+            mod_moved = np.moveaxis(mod, axis, -1)
+
+            # Reshape all other axes into one
+            other_shape = obs_moved.shape[:-1]
+            obs_flat = obs_moved.reshape(-1, obs_moved.shape[-1])
+            mod_flat = mod_moved.reshape(-1, mod_moved.shape[-1])
+
+            results = []
+            for i in range(len(obs_flat)):
+                mask = ~np.isnan(obs_flat[i]) & ~np.isnan(mod_flat[i])
+                if np.sum(mask) < 2:
+                    results.append(np.nan)
+                else:
+                    results.append(_spearmanr(obs_flat[i][mask], mod_flat[i][mask])[0])
+
+            return np.array(results).reshape(other_shape)
 
 
-def kendalltau(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def kendalltau(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Kendall rank correlation coefficient.
 
-    This implementation is xarray- and dask-friendly: for xarray.DataArray inputs, it uses
-    xarray.apply_ufunc to apply scipy.stats.kendalltau along the specified dimension, supporting dask-backed arrays.
-    For numpy arrays, it falls back to scipy.stats.kendalltau.
-
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int or str, optional
-        Axis or dimension name along which to compute the coefficient. If None, uses the last dimension for xarray.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension name along which to compute the coefficient.
 
     Returns
     -------
-    tau : float, ndarray, or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Kendall rank correlation coefficient.
 
     Examples
     --------
     >>> import numpy as np
+    >>> from monet_stats.correlation_metrics import kendalltau
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
     >>> kendalltau(obs, mod)
     1.0
-    >>> import xarray as xr
-    >>> obs = xr.DataArray([1, 2, 3])
-    >>> mod = xr.DataArray([2, 2, 4])
-    >>> kendalltau(obs, mod)
-    <xarray.DataArray ...>
     """
     from scipy.stats import kendalltau as _kendalltau
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Default to last dimension if axis is None
         if axis is None:
-            axis = -1
-        # Get dimension name if axis is int
-        if isinstance(axis, int):
+            dim = obs.dims
+        elif isinstance(axis, int):
             dim = obs.dims[axis]
         else:
             dim = axis
 
-        def _kendalltau_onlytau(a: ArrayLike, b: ArrayLike) -> float:
-            return _kendalltau(a, b)[0]
+        def _kendalltau_onlytau(a, b):
+            mask = ~np.isnan(a) & ~np.isnan(b)
+            if np.sum(mask) < 2:
+                return np.nan
+            return _kendalltau(a[mask], b[mask])[0]
 
-        tau = xr.apply_ufunc(
+        result = xr.apply_ufunc(
             _kendalltau_onlytau,
             obs,
             mod,
-            input_core_dims=[[dim], [dim]],
+            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
             output_dtypes=[float],
         )
-        return tau
+        # Update history
+        history = f"kendalltau computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
         if axis is None:
-            return _kendalltau(obs, mod)[0]
+            obsc, modc = matchedcompressed(obs, mod)
+            if len(obsc) < 2:
+                return np.nan
+            return _kendalltau(obsc, modc)[0]
         else:
-            # Not implemented for axis, fallback to nan
-            return np.nan
+            # Fallback for numpy with axis: manual loop over other axes
+            obs = np.asarray(obs)
+            mod = np.asarray(mod)
+            if axis < 0:
+                axis = obs.ndim + axis
+
+            obs_moved = np.moveaxis(obs, axis, -1)
+            mod_moved = np.moveaxis(mod, axis, -1)
+
+            other_shape = obs_moved.shape[:-1]
+            obs_flat = obs_moved.reshape(-1, obs_moved.shape[-1])
+            mod_flat = mod_moved.reshape(-1, mod_moved.shape[-1])
+
+            results = []
+            for i in range(len(obs_flat)):
+                mask = ~np.isnan(obs_flat[i]) & ~np.isnan(mod_flat[i])
+                if np.sum(mask) < 2:
+                    results.append(np.nan)
+                else:
+                    results.append(_kendalltau(obs_flat[i][mask], mod_flat[i][mask])[0])
+
+            return np.array(results).reshape(other_shape)
 
 
-def CCC(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def CCC(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Concordance Correlation Coefficient (CCC).
 
     Typical Use Cases
     -----------------
-    - Quantifying the agreement between model and observations, accounting for precision and accuracy.
-    - Used in model evaluation to assess how well model predictions agree with observations.
-    - Measures how far the values deviate from the line of perfect concordance (slope=1, intercept=0).
+    - Quantifying the agreement between model and observations, accounting for
+      precision and accuracy.
+    - Used in model evaluation to assess how well model predictions agree with
+      observations.
+    - Measures how far the values deviate from the line of perfect concordance
+      (slope=1, intercept=0).
 
     Typical Values and Range
     ------------------------
@@ -1191,51 +1515,67 @@ def CCC(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the coefficient.
 
     Returns
     -------
-    ccc : float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Concordance correlation coefficient (unitless, -1 to 1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import CCC
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([1.1, 2.1, 2.9, 4.1])
-    >>> stats.CCC(obs, mod)
-    0.9998476951563913
+    >>> CCC(obs, mod)
+    0.9984779299847792
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
         # Calculate means
-        obs_mean = obs.mean(dim=axis)
-        mod_mean = mod.mean(dim=axis)
+        obs_mean = obs.mean(dim=dim)
+        mod_mean = mod.mean(dim=dim)
 
         # Calculate variances and covariance
-        obs_var = obs.var(dim=axis)
-        mod_var = mod.var(dim=axis)
-        covar = ((obs - obs_mean) * (mod - mod_mean)).mean(dim=axis)
+        obs_var = obs.var(dim=dim)
+        mod_var = mod.var(dim=dim)
+        covar = ((obs - obs_mean) * (mod - mod_mean)).mean(dim=dim)
 
         # Calculate CCC
         numerator = 2 * covar
         denominator = obs_var + mod_var + (obs_mean - mod_mean) ** 2
-        return numerator / denominator
+        result = numerator / denominator
+        # Update history
+        history = f"CCC computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
         # Calculate means
-        obs_mean = np.mean(obs, axis=axis)
-        mod_mean = np.mean(mod, axis=axis)
+        obs_mean = np.nanmean(obs, axis=axis)
+        mod_mean = np.nanmean(mod, axis=axis)
 
         # Calculate variances and covariance
-        obs_var = np.var(obs, axis=axis)
-        mod_var = np.var(mod, axis=axis)
-        covar = np.mean((obs - obs_mean) * (mod - mod_mean), axis=axis)
+        obs_var = np.nanvar(obs, axis=axis)
+        mod_var = np.nanvar(mod, axis=axis)
+        if axis is not None:
+            obs_mean_kd = np.nanmean(obs, axis=axis, keepdims=True)
+            mod_mean_kd = np.nanmean(mod, axis=axis, keepdims=True)
+        else:
+            obs_mean_kd = obs_mean
+            mod_mean_kd = mod_mean
+        covar = np.nanmean((obs - obs_mean_kd) * (mod - mod_mean_kd), axis=axis)
 
         # Calculate CCC
         numerator = 2 * covar
@@ -1243,151 +1583,136 @@ def CCC(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
         return numerator / denominator
 
 
-def E1_prime(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def E1_prime(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Modified Coefficient of Efficiency (E1') - Alternative formulation.
 
     Typical Use Cases
     -----------------
-    - Quantifying the efficiency of model predictions relative to observed mean, robust to outliers.
-    - Used in hydrology, meteorology, and model skill assessment as an alternative to E1.
+    - Quantifying the efficiency of model predictions relative to observed mean,
+      robust to outliers.
+    - Used in hydrology, meteorology, and model skill assessment as an
+      alternative to E1.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Modified coefficient of efficiency (unitless, -inf to 1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import E1_prime
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.E1_prime(obs, mod)
+    >>> E1_prime(obs, mod)
     0.0
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        obs_mean = obs.mean(dim=axis)
-        num = abs(obs - mod).sum(dim=axis)
-        denom = abs(obs - obs_mean).sum(dim=axis)
-        # Handle case where denominator is 0 (perfect agreement)
-        return xr.where(denom == 0, 1.0, 1.0 - (num / denom))
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        # Convert to numpy arrays and handle mismatched shapes by taking common elements
-        obs_arr = np.asarray(obs)
-        mod_arr = np.asarray(mod)
-
-        # Handle mismatched shapes by taking intersection
-        if obs_arr.shape != mod_arr.shape:
-            min_len = min(obs_arr.size, mod_arr.size)
-            obs_c = obs_arr.flat[:min_len]
-            mod_c = mod_arr.flat[:min_len]
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
         else:
-            obs_c = obs_arr
-            mod_c = mod_arr
+            dim = axis
 
-        num = np.abs(obs_c - mod_c).sum(axis=axis)
-        mean_obs = obs_c.mean(axis=axis)
-        denom = np.abs(obs_c - mean_obs).sum(axis=axis)
+        obs_mean = obs.mean(dim=dim)
+        num = abs(obs - mod).sum(dim=dim)
+        denom = abs(obs - obs_mean).sum(dim=dim)
         # Handle case where denominator is 0 (perfect agreement)
-        result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
-        # Ensure we return a scalar float for consistency
-        return float(result.item() if hasattr(result, "item") else result)
-    else:
-        # Use matchedcompressed to handle mismatched arrays
-        from .utils_stats import matchedcompressed
-
-        obs_c, mod_c = matchedcompressed(obs, mod)
-        num = np.ma.abs(obs_c - mod_c).sum(axis=axis)
-        mean_obs = obs_c.mean(axis=axis)
-        denom = np.ma.abs(obs_c - mean_obs).sum(axis=axis)
-        # Handle case where denominator is 0 (perfect agreement)
-        result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
-        # Convert numpy scalar to float for consistency
-        if np.isscalar(result):
-            result = float(result)
+        result = xr.where(denom == 0, 1.0, 1.0 - (num / denom))
+        # Update history
+        history = f"E1_prime computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
+    else:
+        obs_c, mod_c = matchedcompressed(obs, mod)
+        obs_mean = np.nanmean(obs_c, axis=axis)
+        if axis is not None:
+            obs_mean_kd = np.nanmean(obs_c, axis=axis, keepdims=True)
+        else:
+            obs_mean_kd = obs_mean
+        num = np.nansum(np.abs(obs_c - mod_c), axis=axis)
+        denom = np.nansum(np.abs(obs_c - obs_mean_kd), axis=axis)
+        result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        return result.item() if result.ndim == 0 else result
 
 
-def IOA_prime(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def IOA_prime(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Index of Agreement (IOA') - Alternative formulation.
 
     Typical Use Cases
     -----------------
-    - Quantifying the agreement between model and observations, normalized by total deviation.
+    - Quantifying the agreement between model and observations, normalized by
+      total deviation.
     - Used in model evaluation for skill assessment as an alternative to IOA.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
+    axis : int, str, or iterable of such, optional
         Axis along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Index of agreement (unitless, 0-1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
+    >>> from monet_stats.correlation_metrics import IOA_prime
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.IOA_prime(obs, mod)
+    >>> IOA_prime(obs, mod)
     0.8
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        obsmean = obs.mean(dim=axis)
-        num = ((obs - mod) ** 2).sum(dim=axis)
-        denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=axis)
-        # Handle case where denominator is 0 (perfect agreement)
-        return xr.where(denom == 0, 1.0, 1.0 - (num / denom))
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        # Convert to numpy arrays and handle mismatched shapes by taking common elements
-        obs_arr = np.asarray(obs)
-        mod_arr = np.asarray(mod)
-
-        # Handle mismatched shapes by taking intersection
-        if obs_arr.shape != mod_arr.shape:
-            min_len = min(obs_arr.size, mod_arr.size)
-            obs_c = obs_arr.flat[:min_len]
-            mod_c = mod_arr.flat[:min_len]
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
         else:
-            obs_c = obs_arr
-            mod_c = mod_arr
+            dim = axis
 
-        obsmean = obs_c.mean(axis=axis)
-        num = (np.abs(obs_c - mod_c) ** 2).sum(axis=axis)
-        denom = ((np.abs(mod_c - obsmean) + np.abs(obs_c - obsmean)) ** 2).sum(axis=axis)
+        obsmean = obs.mean(dim=dim)
+        num = ((obs - mod) ** 2).sum(dim=dim)
+        denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=dim)
         # Handle case where denominator is 0 (perfect agreement)
-        result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
-        # Ensure we return a scalar float for consistency
-        return float(result.item() if hasattr(result, "item") else result)
+        result = xr.where(denom == 0, 1.0, 1.0 - (num / denom))
+        # Update history
+        history = f"IOA_prime computed at {pd.Timestamp.now().isoformat()}"
+        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
+        return result
     else:
-        # Use matchedcompressed to handle mismatched arrays
-        from .utils_stats import matchedcompressed
-
         obs_c, mod_c = matchedcompressed(obs, mod)
-        obsmean = obs_c.mean(axis=axis)
-        num = (np.ma.abs(obs_c - mod_c) ** 2).sum(axis=axis)
-        denom = ((np.ma.abs(mod_c - obsmean) + np.ma.abs(obs_c - obsmean)) ** 2).sum(axis=axis)
-        # Handle case where denominator is 0 (perfect agreement)
+        obsmean = np.nanmean(obs_c, axis=axis)
+        if axis is not None:
+            obsmean_kd = np.nanmean(obs_c, axis=axis, keepdims=True)
+        else:
+            obsmean_kd = obsmean
+        num = np.nansum((obs_c - mod_c) ** 2, axis=axis)
+        denom = np.nansum((np.abs(mod_c - obsmean_kd) + np.abs(obs_c - obsmean_kd)) ** 2, axis=axis)
         result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
-        # Ensure we return a scalar float for consistency
-        return float(result.item() if hasattr(result, "item") else result)
+        return result.item() if result.ndim == 0 else result

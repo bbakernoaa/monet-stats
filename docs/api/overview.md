@@ -197,34 +197,27 @@ except TypeError as e:
 
 ### Vectorized Operations
 
-All metrics use NumPy vectorized operations for optimal performance:
+All metrics use NumPy and Xarray vectorized operations for optimal performance. Loop-free implementations ensure maximum speed on modern hardware.
+
+### Out-of-Core Processing with Dask
+
+For datasets larger than RAM, `monet-stats` is fully compatible with Dask. Most metrics are "lazy-aware" and will preserve the Dask computation graph.
 
 ```python
-# Fast processing of large arrays
-large_obs = np.random.normal(20, 2, 1_000_000)
-large_mod = large_obs + np.random.normal(0, 1, 1_000_000)
+# Open large dataset with chunks (Aero Protocol recommended)
+ds = xr.open_dataset("large_data.nc", chunks={"time": "auto", "lat": 100, "lon": 100})
+obs = xr.open_dataset("obs_data.nc", chunks={"time": "auto", "lat": 100, "lon": 100})
 
-# Vectorized computation
-rmse = ms.RMSE(large_obs, large_mod)  # Efficient processing
+# Metrics stay lazy and don't trigger loading
+skill = ms.RMSE(obs.var, ds.var, axis="time")
+
+# Execution only happens on compute() or plotting
+result = skill.compute()
 ```
 
-### Memory Efficiency
+### Scientific Provenance
 
-Metrics are designed to work efficiently with large datasets:
-
-```python
-# Process in chunks for memory efficiency
-def process_large_data(obs, mod, chunk_size=100_000):
-    results = []
-    for i in range(0, len(obs), chunk_size):
-        chunk_obs = obs[i:i+chunk_size]
-        chunk_mod = mod[i:i+chunk_size]
-
-        result = ms.R2(chunk_obs, chunk_mod)
-        results.append(result)
-
-    return np.mean(results)
-```
+When using Xarray DataArrays, `monet-stats` automatically updates the `attrs['history']` to track which statistical operations were applied to the data, ensuring scientific reproducibility.
 
 ## Example Usage Patterns
 
