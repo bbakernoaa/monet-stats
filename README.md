@@ -62,7 +62,8 @@ Full API documentation and tutorials are available at:
 
 This project uses a comprehensive CI/CD pipeline with the following quality checks:
 
-- **Testing**: Multi-Python version testing (3.8-3.12)
-- **Formatting & Linting**: Black and Ruff enforcement
+- **Testing**: Multi-Python version testing (3.8-3.12) with 60%+ coverage
+- **Code Formatting**: Black and Ruff formatting enforcement
+- **Linting**: Ruff and Pycodestyle linting
 - **Type Checking**: MyPy static type analysis
 - **Provenance**: Mandatory `history` attribute updates on all transformations
