@@ -92,8 +92,8 @@ def circlebias_m(b: ArrayLike) -> Any:
 
     Typical Use Cases
     -----------------
-    - Calculating the signed difference between two wind directions, accounting for circularity,
-      robust to masked arrays.
+    - Calculating the signed difference between two wind directions, accounting
+      for circularity, robust to masked arrays.
     - Used in wind direction bias and error metrics for masked or missing data.
 
     Parameters
@@ -109,10 +109,21 @@ def circlebias_m(b: ArrayLike) -> Any:
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
-    >>> stats.circlebias_m(np.array([190, -190, 10, -10]))
-    array([-170, 170,  10, -10])
+    >>> from monet_stats.utils_stats import circlebias_m
+    >>> circlebias_m(np.array([190, -190, 10, -10]))
+    masked_array(data=[-170.0, 170.0, 10.0, -10.0],
+                 mask=[False, False, False, False],
+           fill_value=1e+20)
     """
+    try:
+        import xarray as xr
+    except ImportError:
+        xr = None
+
+    if xr is not None and isinstance(b, xr.DataArray):
+        # Preservation of xarray/dask
+        return (b + 180) % 360 - 180
+
     b = np.ma.masked_invalid(b)
     out = (b + 180) % 360 - 180
     return out
@@ -124,8 +135,10 @@ def circlebias(b: ArrayLike) -> Any:
 
     Typical Use Cases
     -----------------
-    - Calculating the signed difference between two wind directions, accounting for circularity.
-    - Used in wind direction bias and error metrics to avoid artificial large errors across 0/360 boundaries.
+    - Calculating the signed difference between two wind directions, accounting
+      for circularity.
+    - Used in wind direction bias and error metrics to avoid artificial large
+      errors across 0/360 boundaries.
 
     Parameters
     ----------
@@ -140,10 +153,19 @@ def circlebias(b: ArrayLike) -> Any:
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
-    >>> stats.circlebias(np.array([190, -190, 10, -10]))
+    >>> from monet_stats.utils_stats import circlebias
+    >>> circlebias(np.array([190, -190, 10, -10]))
     array([-170, 170,  10, -10])
     """
+    try:
+        import xarray as xr
+    except ImportError:
+        xr = None
+
+    if xr is not None and isinstance(b, xr.DataArray):
+        # Preservation of xarray/dask
+        return (b + 180) % 360 - 180
+
     b = np.asarray(b)
     return (b + 180) % 360 - 180
 
