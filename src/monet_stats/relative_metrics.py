@@ -2,21 +2,12 @@
 Relative/Percentage Metrics for Model Evaluation (Aero Protocol Compliant)
 """
 
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import xarray as xr
 
-from .utils_stats import circlebias, circlebias_m
-
-
-def _update_history(obj: Any, metric_name: str) -> Any:
-    """Update the history attribute of an xarray object."""
-    if isinstance(obj, (xr.DataArray, xr.Dataset)):
-        history = obj.attrs.get("history", "")
-        new_entry = f"Calculated {metric_name} using monet-stats."
-        obj.attrs["history"] = f"{history}\n{new_entry}".strip()
-    return obj
+from .utils_stats import _update_history, circlebias, circlebias_m
 
 
 def NMB(
