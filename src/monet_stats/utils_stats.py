@@ -51,6 +51,30 @@ def matchedcompressed(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ndarray, np.ndar
     return a1_masked.compressed(), a2_masked.compressed()
 
 
+def _update_history(obj: Any, metric_name: str) -> Any:
+    """
+    Update the scientific history attribute of an xarray object.
+
+    Parameters
+    ----------
+    obj : Any
+        The object to update. If it's an xarray.DataArray or xarray.Dataset,
+        its 'history' attribute will be updated.
+    metric_name : str
+        The name of the metric or operation performed.
+
+    Returns
+    -------
+    Any
+        The original object with an updated history attribute if applicable.
+    """
+    if isinstance(obj, (xr.DataArray, xr.Dataset)):
+        history = obj.attrs.get("history", "")
+        new_entry = f"Calculated {metric_name} using monet-stats."
+        obj.attrs["history"] = f"{history}\n{new_entry}".strip()
+    return obj
+
+
 def matchmasks(a1: ArrayLike, a2: ArrayLike) -> Tuple[Any, Any]:
     """
     Match and combine masks from two masked arrays.
