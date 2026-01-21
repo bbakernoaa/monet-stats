@@ -2,10 +2,12 @@
 Performance optimization utilities for statistical computations.
 """
 
-from typing import Any, Callable, Union
+from typing import Any, Callable, Iterable, Optional, Union
 
 import numpy as np
 import xarray as xr
+
+from .utils_stats import _update_history
 
 
 def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
@@ -59,10 +61,13 @@ def parallel_compute(
     func: Callable,
     data: Union[np.ndarray, xr.DataArray],
     chunk_size: int = 1000000,
-    axis=None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Any:
     """
     Compute function in parallel using chunking strategy.
+
+    For Xarray DataArrays, this relies on the underlying Dask support.
+    For NumPy arrays, it uses manual chunking.
 
     Parameters
     ----------
@@ -71,8 +76,8 @@ def parallel_compute(
     data : numpy.ndarray or xarray.DataArray
         Input data to process.
     chunk_size : int, optional
-        Size of data chunks for processing.
-    axis : int, optional
+        Size of data chunks for processing (NumPy only).
+    axis : int, str, or iterable, optional
         Axis along which to compute.
 
     Returns
@@ -80,14 +85,15 @@ def parallel_compute(
     result
         Result of parallel computation.
     """
-    if isinstance(data, xr.DataArray):
-        # Handle xarray DataArray
-        result = func(data, axis=axis)
-        return result
+    if hasattr(data, "attrs") and hasattr(data, "coords"):
+        # Handle xarray DataArray natively
+        res = func(data, axis=axis)
+        return _update_history(res, "parallel_compute")
     else:
         # For numpy arrays, chunk if large
-        if data.size > chunk_size:
-            chunks = chunk_array(data, chunk_size)
+        data_arr = np.asanyarray(data)
+        if data_arr.size > chunk_size:
+            chunks = chunk_array(data_arr, chunk_size)
             results = [func(chunk, axis=axis) for chunk in chunks]
             # Combine results based on function type
             if isinstance(results[0], np.ndarray):
@@ -97,14 +103,14 @@ def parallel_compute(
                 weights = [len(chunk) for chunk in chunks]
                 return np.average(results, weights=weights)
         else:
-            return func(data, axis=axis)
+            return func(data_arr, axis=axis)
 
 
 def optimize_for_size(
     func: Callable,
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
-    axis=None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Any:
     """
     Optimize function computation based on data size.
@@ -117,7 +123,7 @@ def optimize_for_size(
         Observed values.
     mod : numpy.ndarray or xarray.DataArray
         Model values.
-    axis : int, optional
+    axis : int, str, or iterable, optional
         Axis along which to compute.
 
     Returns
@@ -125,118 +131,100 @@ def optimize_for_size(
     result
         Optimized computation result.
     """
-    # Check if data is large enough to warrant optimization
-    if hasattr(obs, "size") and hasattr(mod, "size"):
-        max_size = max(obs.size, mod.size)
-        if max_size > 100000:  # 100K elements
-            # Use chunked processing for large arrays
-            # Instead of calling parallel_compute with multiple arguments, just use the function directly
-            pass  # Skip optimization for now to avoid complexity
-
-    # Use standard computation for smaller arrays
     return func(obs, mod, axis=axis)
 
 
-def memory_efficient_correlation(x: np.ndarray, y: np.ndarray, axis=None) -> float:
+def memory_efficient_correlation(
+    x: Union[np.ndarray, xr.DataArray],
+    y: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Any:
     """
     Memory-efficient computation of Pearson correlation coefficient.
 
+    Alias for correlation_metrics.pearsonr.
+
     Parameters
     ----------
-    x : numpy.ndarray
+    x : numpy.ndarray or xarray.DataArray
         First variable.
-    y : numpy.ndarray
+    y : numpy.ndarray or xarray.DataArray
         Second variable.
-    axis : int, optional
+    axis : int, str, or iterable, optional
         Axis along which to compute correlation.
 
     Returns
     -------
-    float
+    Any
         Pearson correlation coefficient.
     """
-    if axis is None:
-        x = x.flatten()
-        y = y.flatten()
+    from .correlation_metrics import pearsonr
 
-    # Calculate means
-    mean_x = np.mean(x, axis=axis, keepdims=True)
-    mean_y = np.mean(y, axis=axis, keepdims=True)
-
-    # Calculate numerator and denominators
-    numerator = np.mean((x - mean_x) * (y - mean_y), axis=axis)
-    var_x = np.mean((x - mean_x) ** 2, axis=axis)
-    var_y = np.mean((y - mean_y) ** 2, axis=axis)
-
-    # Calculate correlation
-    correlation = numerator / np.sqrt(var_x * var_y)
-
-    return correlation
+    res = pearsonr(x, y, axis=axis)
+    if hasattr(res, "attrs") and hasattr(res, "coords"):
+        return _update_history(res, "memory_efficient_correlation")
+    return res
 
 
 def fast_rmse(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
-    axis=None,
-) -> Union[float, np.ndarray, xr.DataArray]:
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Any:
     """
     Fast computation of Root Mean Square Error.
 
+    Alias for error_metrics.RMSE.
+
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
+    axis : int, str, or iterable, optional
         Axis along which to compute RMSE.
 
     Returns
     -------
-    rmse : float or ndarray or DataArray
+    Any
         Root mean square error.
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
+    from .error_metrics import RMSE
 
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return ((mod - obs) ** 2).mean(dim=axis) ** 0.5
-    else:
-        return np.sqrt(np.mean((mod - obs) ** 2, axis=axis))
+    res = RMSE(obs, mod, axis=axis)
+    if hasattr(res, "attrs") and hasattr(res, "coords"):
+        return _update_history(res, "fast_rmse")
+    return res
 
 
 def fast_mae(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
-    axis=None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Any:
     """
     Fast computation of Mean Absolute Error.
 
+    Alias for error_metrics.MAE.
+
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
+    axis : int, str, or iterable, optional
         Axis along which to compute MAE.
 
     Returns
     -------
-    mae : float or ndarray or DataArray
+    Any
         Mean absolute error.
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
+    from .error_metrics import MAE
 
-    if xr is not None and isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return abs(mod - obs).mean(dim=axis)
-    else:
-        return np.mean(np.abs(mod - obs), axis=axis)
+    res = MAE(obs, mod, axis=axis)
+    if hasattr(res, "attrs") and hasattr(res, "coords"):
+        return _update_history(res, "fast_mae")
+    return res
