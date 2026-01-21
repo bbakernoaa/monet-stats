@@ -36,18 +36,20 @@ def matchedcompressed(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ndarray, np.ndar
     if hasattr(a2, "values") and hasattr(a2, "coords"):
         a2 = a2.values
 
-    # Handle mismatched shapes for numpy arrays by truncating
-    a1_arr = np.asarray(a1)
-    a2_arr = np.asarray(a2)
-    if a1_arr.shape != a2_arr.shape:
-        min_size = min(a1_arr.size, a2_arr.size)
-        a1_arr = a1_arr.flat[:min_size]
-        a2_arr = a2_arr.flat[:min_size]
+    # Convert to masked arrays to handle existing masks and NaNs
+    a1_m = np.ma.masked_invalid(a1)
+    a2_m = np.ma.masked_invalid(a2)
 
-    mask = np.ma.getmaskarray(a1_arr) | np.ma.getmaskarray(a2_arr)
-    a1_m = np.ma.masked_where(mask, a1_arr)
-    a2_m = np.ma.masked_where(mask, a2_arr)
-    return a1_m.compressed(), a2_m.compressed()
+    # Handle mismatched shapes for numpy arrays by truncating
+    if a1_m.shape != a2_m.shape:
+        min_size = min(a1_m.size, a2_m.size)
+        a1_m = a1_m.flat[:min_size]
+        a2_m = a2_m.flat[:min_size]
+
+    mask = np.ma.getmaskarray(a1_m) | np.ma.getmaskarray(a2_m)
+    a1_matched = np.ma.masked_where(mask, a1_m)
+    a2_matched = np.ma.masked_where(mask, a2_m)
+    return a1_matched.compressed(), a2_matched.compressed()
 
 
 def _update_history(obj: Any, metric_name: str) -> Any:
@@ -272,7 +274,17 @@ def correlation(
     -------
     Union[np.number, np.ndarray, xr.DataArray]
         Pearson correlation coefficient.
+
+    Raises
+    ------
+    ValueError
+        If input arrays are empty.
     """
+    if hasattr(x, "size") and x.size == 0:
+        raise ValueError("Input arrays cannot be empty")
+    if hasattr(y, "size") and y.size == 0:
+        raise ValueError("Input arrays cannot be empty")
+
     from .correlation_metrics import pearsonr
 
     res = pearsonr(x, y, axis=axis)
