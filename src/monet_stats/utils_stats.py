@@ -5,8 +5,30 @@ Utility Functions for Statistics
 from typing import Any, Optional, Tuple
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 from numpy.typing import ArrayLike
+
+
+def _update_history(obj: Any, metric_name: str) -> Any:
+    """Update the history attribute of an xarray object.
+
+    Parameters
+    ----------
+    obj : Any
+        The object to update (typically xarray.DataArray or xarray.Dataset).
+    metric_name : str
+        The name of the metric that was computed.
+
+    Returns
+    -------
+    Any
+        The updated object.
+    """
+    if isinstance(obj, (xr.DataArray, xr.Dataset)):
+        history = f"{metric_name} computed at {pd.Timestamp.now().isoformat()}"
+        obj.attrs["history"] = f"{obj.attrs.get('history', '')}\n{history}".strip()
+    return obj
 
 
 def matchedcompressed(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ndarray, np.ndarray]:

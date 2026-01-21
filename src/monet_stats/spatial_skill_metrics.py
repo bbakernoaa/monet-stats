@@ -1,13 +1,14 @@
 """
-Spatial Skill Metrics for Model Evaluation
+Spatial Skill Metrics for Model Evaluation following the Aero Protocol.
 """
 
-from typing import Any, Optional
+from typing import Optional, Union
 
 import numpy as np
 import xarray as xr
-from numpy.typing import ArrayLike
 from scipy.ndimage import uniform_filter
+
+from .utils_stats import _update_history
 
 
 def _uniform_filter(data: np.ndarray, window_size: int) -> np.ndarray:
@@ -29,11 +30,11 @@ def _uniform_filter(data: np.ndarray, window_size: int) -> np.ndarray:
 
 
 def FSS(
-    obs: ArrayLike,
-    mod: ArrayLike,
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
     threshold: float,
     window_size: int,
-) -> Any:
+) -> Union[float, np.ndarray, xr.DataArray]:
     """
     Fractions Skill Score (FSS).
 
@@ -45,9 +46,9 @@ def FSS(
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
     threshold : float
         The threshold to define an event.
@@ -56,7 +57,7 @@ def FSS(
 
     Returns
     -------
-    fss : float or ndarray
+    fss : float, numpy.ndarray, or xarray.DataArray
         The Fractions Skill Score, ranging from 0 (no skill) to 1 (perfect skill).
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
@@ -64,16 +65,15 @@ def FSS(
         obs_binary = (obs >= threshold).astype(float)
         mod_binary = (mod >= threshold).astype(float)
 
+        # rolling handles Dask arrays
         obs_frac = obs_binary.rolling(dim={d: window_size for d in obs.dims}, center=True).mean()
         mod_frac = mod_binary.rolling(dim={d: window_size for d in mod.dims}, center=True).mean()
 
         mse = ((obs_frac - mod_frac) ** 2).mean()
         mse_ref = (obs_frac**2).mean() + (mod_frac**2).mean()
 
-        if mse_ref == 0:
-            return 1.0  # Perfect score if both fields are zero
-        else:
-            return 1 - (mse / mse_ref)
+        result = xr.where(mse_ref == 0, 1.0, 1 - (mse / mse_ref))
+        return _update_history(result, "FSS")
     else:
         obs_binary = (np.asarray(obs) >= threshold).astype(float)
         mod_binary = (np.asarray(mod) >= threshold).astype(float)
@@ -90,7 +90,11 @@ def FSS(
             return 1 - (mse / mse_ref)
 
 
-def VETS(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def VETS(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[float, np.ndarray, xr.DataArray]:
     """
     Volumetric Equitable Threat Score (VETS).
 
@@ -101,40 +105,45 @@ def VETS(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
+    axis : int or str, optional
         Axis along which to compute the score.
 
     Returns
     -------
-    vets : float or ndarray
+    vets : float, numpy.ndarray, or xarray.DataArray
         The Volumetric Equitable Threat Score.
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        hits = np.minimum(obs, mod).sum(dim=axis)
-        sum_obs = obs.sum(dim=axis)
-        sum_mod = mod.sum(dim=axis)
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        hits = xr.where(obs < mod, obs, mod).sum(dim=dim)
+        sum_obs = obs.sum(dim=dim)
+        sum_mod = mod.sum(dim=dim)
         misses = sum_obs - hits
         false_alarms = sum_mod - hits
-        total_union = np.maximum(obs, mod).sum(dim=axis)
+        total_union = xr.where(obs > mod, obs, mod).sum(dim=dim)
         hits_random = (sum_obs * sum_mod) / total_union
         denominator = hits + misses + false_alarms - hits_random
-        if denominator == 0:
-            return 1.0
-        return (hits - hits_random) / denominator
+
+        result = xr.where(denominator == 0, 1.0, (hits - hits_random) / denominator)
+        return _update_history(result, "VETS")
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
-        hits = np.sum(np.minimum(obs, mod), axis=axis)
-        sum_obs = np.sum(obs, axis=axis)
-        sum_mod = np.sum(mod, axis=axis)
+        obs_arr = np.asarray(obs)
+        mod_arr = np.asarray(mod)
+        hits = np.sum(np.minimum(obs_arr, mod_arr), axis=axis)
+        sum_obs = np.sum(obs_arr, axis=axis)
+        sum_mod = np.sum(mod_arr, axis=axis)
         misses = sum_obs - hits
         false_alarms = sum_mod - hits
-        total_union = np.sum(np.maximum(obs, mod), axis=axis)
+        total_union = np.sum(np.maximum(obs_arr, mod_arr), axis=axis)
         hits_random = (sum_obs * sum_mod) / total_union
         denominator = hits + misses + false_alarms - hits_random
         if denominator == 0:
