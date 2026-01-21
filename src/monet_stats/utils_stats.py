@@ -110,6 +110,12 @@ def circlebias_m(b: ArrayLike) -> Any:
     """
     Circular bias for wind direction (robust to masked arrays).
 
+    Typical Use Cases
+    -----------------
+    - Calculating the signed difference between two wind directions, accounting
+      for circularity, robust to masked arrays.
+    - Used in wind direction bias and error metrics for masked or missing data.
+
     Parameters
     ----------
     b : array-like
@@ -131,6 +137,13 @@ def circlebias_m(b: ArrayLike) -> Any:
 def circlebias(b: ArrayLike) -> Any:
     """
     Circular bias (wind direction difference, wrapped to [-180, 180] degrees).
+
+    Typical Use Cases
+    -----------------
+    - Calculating the signed difference between two wind directions, accounting
+      for circularity.
+    - Used in wind direction bias and error metrics to avoid artificial large
+      errors across 0/360 boundaries.
 
     Parameters
     ----------
