@@ -1,17 +1,20 @@
 """
-Relative/Percentage Metrics for Model Evaluation
+Relative/Percentage Metrics for Model Evaluation (Aero Protocol Compliant)
 """
 
-from typing import Any, Optional
+from typing import Optional, Union
 
 import numpy as np
 import xarray as xr
-from numpy.typing import ArrayLike
 
-from .utils_stats import circlebias, circlebias_m
+from .utils_stats import _update_history, circlebias, circlebias_m
 
 
-def NMB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NMB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Bias (%)
 
@@ -22,26 +25,45 @@ def NMB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    mod : xarray.DataArray or numpy.ndarray
+        Model predicted values.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
+    xarray.DataArray or numpy.ndarray or float
+        Normalized mean bias (percent).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([1.1, 2.2, 3.3])
+    >>> NMB(obs, mod)
+    10.0
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (mod - obs).sum(dim=axis) / obs.sum(dim=axis) * 100.0
-    elif hasattr(mod, "sum") and hasattr(obs, "sum"):
-        return (mod - obs).sum(axis=axis) / obs.sum(axis=axis) * 100.0
+        # Ensure we use dimension name if axis is int
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (mod - obs).sum(dim=dim) / obs.sum(dim=dim) * 100.0
+        return _update_history(res, "Normalized Mean Bias (NMB)")
     else:
-        return np.sum(mod - obs, axis=axis) / np.sum(obs, axis=axis) * 100.0
+        obs_arr = np.asanyarray(obs)
+        mod_arr = np.asanyarray(mod)
+        return (mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis) * 100.0
 
 
-def WDNMB_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDNMB_m(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Wind Direction Normalized Mean Bias (%) (avoid single block error in np.ma)
 
@@ -52,38 +74,48 @@ def WDNMB_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted wind direction values (degrees).
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Wind direction normalized mean bias (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([350, 10, 20])
     >>> mod = np.array([345, 15, 25])
-    >>> stats.WDNMB_m(obs, mod)
+    >>> WDNMB_m(obs, mod)
     -5.0
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return circlebias_m(mod - obs).sum(dim=axis) / obs.sum(dim=axis) * 100.0  # type: ignore
-    elif hasattr(mod, "sum") and hasattr(obs, "sum"):
-        return circlebias_m(mod - obs).sum(axis=axis) / obs.sum(axis=axis) * 100.0
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        diff = mod - obs
+        cb = circlebias_m(diff)
+        res = cb.sum(dim=dim) / obs.sum(dim=dim) * 100.0
+        return _update_history(res, "Wind Direction Normalized Mean Bias (WDNMB_m)")
     else:
-        return np.sum(circlebias_m(mod - obs), axis=axis) / np.sum(obs, axis=axis) * 100.0
+        obs_arr = np.asanyarray(obs)
+        mod_arr = np.asanyarray(mod)
+        diff = mod_arr - obs_arr
+        return circlebias_m(diff).sum(axis=axis) / obs_arr.sum(axis=axis) * 100.0
 
 
-def NMB_ABS(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NMB_ABS(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Bias - Absolute of the denominator (%)
 
@@ -94,29 +126,36 @@ def NMB_ABS(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    mod : xarray.DataArray or numpy.ndarray
+        Model predicted values.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    xarray.DataArray or numpy.ndarray or float
+        Normalized mean bias with absolute denominator (percent).
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (mod - obs).sum(dim=axis) / abs(obs.sum(dim=axis)) * 100.0
-    elif hasattr(mod, "sum") and hasattr(obs, "sum"):
-        return (mod - obs).sum(axis=axis) / np.abs(obs.sum(axis=axis)) * 100.0
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (mod - obs).sum(dim=dim) / abs(obs.sum(dim=dim)) * 100.0
+        return _update_history(res, "Normalized Mean Bias Absolute (NMB_ABS)")
     else:
-        return np.sum(mod - obs, axis=axis) / np.abs(np.sum(obs, axis=axis)) * 100.0
+        obs_arr = np.asanyarray(obs)
+        mod_arr = np.asanyarray(mod)
+        return (mod_arr - obs_arr).sum(axis=axis) / np.abs(obs_arr.sum(axis=axis)) * 100.0
 
 
-def NMdnB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NMdnB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Median Bias (%)
 
@@ -127,36 +166,45 @@ def NMdnB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Normalized median bias (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([1, 2, 3, 4, 100])  # 100 is an outlier
     >>> mod = np.array([1.1, 2.2, 3.3, 4.4, 105])
-    >>> stats.NMdnB(obs, mod)
+    >>> NMdnB(obs, mod)
     10.0
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (mod - obs).median(dim=axis) / obs.median(dim=axis) * 100.0
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (mod - obs).median(dim=dim) / obs.median(dim=dim) * 100.0
+        return _update_history(res, "Normalized Median Bias (NMdnB)")
     else:
-        return np.ma.median(mod - obs, axis=axis) / np.ma.median(obs, axis=axis) * 100.0
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return np.ma.median(mod_arr - obs_arr, axis=axis) / np.ma.median(obs_arr, axis=axis) * 100.0
 
 
-def FB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def FB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Fractional Bias (%)
 
@@ -167,29 +215,37 @@ def FB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    mod : xarray.DataArray or numpy.ndarray
+        Model predicted values.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    type
-        Description of returned object.
+    xarray.DataArray or numpy.ndarray or float
+        Fractional bias (percent).
 
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (((mod - obs) / (mod + obs)).mean(dim=axis) * 2.0) * 100.0
-    elif hasattr(mod, "mean") and hasattr(obs, "mean"):
-        return ((mod - obs) / (mod + obs)).mean(axis=axis) * 2.0 * 100.0
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (((mod - obs) / (mod + obs)).mean(dim=dim) * 2.0) * 100.0
+        return _update_history(res, "Fractional Bias (FB)")
     else:
-        return (np.ma.masked_invalid((mod - obs) / (mod + obs)).mean(axis=axis) * 2.0) * 100.0
+        obs_arr = np.asanyarray(obs)
+        mod_arr = np.asanyarray(mod)
+        return (np.ma.masked_invalid((mod_arr - obs_arr) / (mod_arr + obs_arr)).mean(axis=axis) * 2.0) * 100.0
 
 
-def ME(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def ME(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Mean Gross Error (model and obs unit)
 
@@ -200,37 +256,44 @@ def ME(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Mean gross error value(s).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.ME(obs, mod)
+    >>> ME(obs, mod)
     1.0
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return abs(mod - obs).mean(dim=axis)
-    elif hasattr(mod, "mean") and hasattr(obs, "mean"):
-        return np.abs(mod - obs).mean(axis=axis)
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = abs(mod - obs).mean(dim=dim)
+        return _update_history(res, "Mean Gross Error (ME)")
     else:
-        return np.mean(np.abs(mod - obs), axis=axis)
+        obs_arr = np.asanyarray(obs)
+        mod_arr = np.asanyarray(mod)
+        return np.mean(np.abs(mod_arr - obs_arr), axis=axis)
 
 
-def MdnE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Median Gross Error (model and obs unit)
 
@@ -241,36 +304,45 @@ def MdnE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Median gross error value(s).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.MdnE(obs, mod)
+    >>> MdnE(obs, mod)
     1.0
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return abs(mod - obs).median(dim=axis)
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = abs(mod - obs).median(dim=dim)
+        return _update_history(res, "Median Gross Error (MdnE)")
     else:
-        return np.ma.median(np.ma.abs(mod - obs), axis=axis)
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return np.ma.median(np.ma.abs(mod_arr - obs_arr), axis=axis)
 
 
-def WDME_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDME_m(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Wind Direction Mean Gross Error (model and obs unit)
     (avoid single block error in np.ma)
@@ -282,36 +354,45 @@ def WDME_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted wind direction values (degrees).
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Mean gross error in wind direction (degrees).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([350, 10, 20])
     >>> mod = np.array([10, 20, 30])
-    >>> stats.WDME_m(obs, mod)
+    >>> WDME_m(obs, mod)
     20.0
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return abs(circlebias_m(mod - obs)).mean(dim=axis)  # type: ignore
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = abs(circlebias_m(mod - obs)).mean(dim=dim)
+        return _update_history(res, "Wind Direction Mean Gross Error (WDME_m)")
     else:
-        return np.abs(circlebias_m(mod - obs)).mean(axis=axis)
+        obs_arr = np.asanyarray(obs)
+        mod_arr = np.asanyarray(mod)
+        return np.abs(circlebias_m(mod_arr - obs_arr)).mean(axis=axis)
 
 
-def WDME(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDME(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Wind Direction Mean Gross Error (model and obs unit)
 
@@ -322,37 +403,44 @@ def WDME(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted wind direction values (degrees).
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Mean gross error in wind direction (degrees).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([350, 10, 20])
     >>> mod = np.array([10, 20, 30])
-    >>> stats.WDME(obs, mod)
+    >>> WDME(obs, mod)
     20.0
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return abs(circlebias(mod - obs)).mean(dim=axis)
-    elif isinstance(mod, np.ndarray) and isinstance(obs, np.ndarray):
-        return abs(circlebias(mod - obs)).mean(axis=axis)
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = abs(circlebias(mod - obs)).mean(dim=dim)
+        return _update_history(res, "Wind Direction Mean Gross Error (WDME)")
     else:
-        return np.ma.mean(np.ma.abs(circlebias(mod - obs)), axis=axis)
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return np.ma.mean(np.ma.abs(circlebias(mod_arr - obs_arr)), axis=axis)
 
 
-def WDMdnE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDMdnE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Wind Direction Median Gross Error (model and obs unit)
 
@@ -363,40 +451,46 @@ def WDMdnE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted wind direction values (degrees).
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Median gross error in wind direction (degrees).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([350, 10, 20])
     >>> mod = np.array([10, 20, 30])
-    >>> stats.WDMdnE(obs, mod)
+    >>> WDMdnE(obs, mod)
     10.0
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
         cb = circlebias(mod - obs)
-        return abs(cb).median(dim=axis)
-    elif isinstance(mod, np.ndarray) and isinstance(obs, np.ndarray):
-        cb = circlebias(mod - obs)
-        return np.median(np.abs(cb), axis=axis)
+        res = abs(cb).median(dim=dim)
+        return _update_history(res, "Wind Direction Median Gross Error (WDMdnE)")
     else:
-        cb = circlebias(mod - obs)
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        cb = circlebias(mod_arr - obs_arr)
         return np.ma.median(np.ma.abs(cb), axis=axis)
 
 
-def NME_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NME_m(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Error (%) (avoid single block error in np.ma)
 
@@ -407,37 +501,45 @@ def NME_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Normalized mean error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.NME_m(obs, mod)
+    >>> NME_m(obs, mod)
     37.5
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod - obs).sum(dim=axis) / obs.sum(dim=axis)) * 100
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (abs(mod - obs).sum(dim=dim) / obs.sum(dim=dim)) * 100
+        return _update_history(res, "Normalized Mean Error (NME_m)")
     else:
-        out = (np.abs(mod - obs).sum(axis=axis) / obs.sum(axis=axis)) * 100
-        return out
+        obs_arr = np.asanyarray(obs)
+        mod_arr = np.asanyarray(mod)
+        return (np.abs(mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis)) * 100
 
 
-def NME_m_ABS(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NME_m_ABS(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Error (%) - Absolute of the denominator
     (avoid single block error in np.ma)
@@ -450,37 +552,45 @@ def NME_m_ABS(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
-        Normalized mean error (percent).
+    xarray.DataArray or numpy.ndarray or float
+        Normalized mean error with absolute denominator (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.NME_m_ABS(obs, mod)
+    >>> NME_m_ABS(obs, mod)
     37.5
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod - obs).sum(dim=axis) / abs(obs.sum(dim=axis))) * 100
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (abs(mod - obs).sum(dim=dim) / abs(obs.sum(dim=dim))) * 100
+        return _update_history(res, "Normalized Mean Error Absolute (NME_m_ABS)")
     else:
-        out = (np.abs(mod - obs).sum(axis=axis) / np.abs(obs.sum(axis=axis))) * 100
-        return out
+        obs_arr = np.asanyarray(obs)
+        mod_arr = np.asanyarray(mod)
+        return (np.abs(mod_arr - obs_arr).sum(axis=axis) / np.abs(obs_arr.sum(axis=axis))) * 100
 
 
-def NME(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NME(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Error (%)
 
@@ -491,37 +601,45 @@ def NME(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Normalized mean error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.NME(obs, mod)
+    >>> NME(obs, mod)
     37.5
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod - obs).sum(dim=axis) / obs.sum(dim=axis)) * 100
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (abs(mod - obs).sum(dim=dim) / obs.sum(dim=dim)) * 100
+        return _update_history(res, "Normalized Mean Error (NME)")
     else:
-        out = (np.ma.abs(mod - obs).sum(axis=axis) / obs.sum(axis=axis)) * 100
-        return out
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return (np.ma.abs(mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis)) * 100
 
 
-def NMdnE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NMdnE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Median Error (%)
 
@@ -532,37 +650,45 @@ def NMdnE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Normalized median error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.NMdnE(obs, mod)
+    >>> NMdnE(obs, mod)
     33.33333333333333
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return abs(mod - obs).median(dim=axis) / obs.median(dim=axis) * 100
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = abs(mod - obs).median(dim=dim) / obs.median(dim=dim) * 100
+        return _update_history(res, "Normalized Median Error (NMdnE)")
     else:
-        out = np.ma.median(np.ma.abs(mod - obs), axis=axis) / np.ma.median(obs, axis=axis) * 100
-        return out
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return np.ma.median(np.ma.abs(mod_arr - obs_arr), axis=axis) / np.ma.median(obs_arr, axis=axis) * 100
 
 
-def FE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def FE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Fractional Error (%)
 
@@ -573,29 +699,37 @@ def FE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    mod : xarray.DataArray or numpy.ndarray
+        Model predicted values.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    type
-        Description of returned object.
+    xarray.DataArray or numpy.ndarray or float
+        Fractional error (percent).
 
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod - obs) / (mod + obs)).mean(dim=axis) * 2.0 * 100.0
-    elif isinstance(mod, np.ndarray) and isinstance(obs, np.ndarray):
-        return (np.abs(mod - obs) / (mod + obs)).mean(axis=axis) * 2.0 * 100.0
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (abs(mod - obs) / (mod + obs)).mean(dim=dim) * 2.0 * 100.0
+        return _update_history(res, "Fractional Error (FE)")
     else:
-        return (np.ma.mean(np.ma.abs(mod - obs) / (mod + obs), axis=axis)) * 2.0 * 100.0
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return (np.ma.mean(np.ma.abs(mod_arr - obs_arr) / (mod_arr + obs_arr), axis=axis)) * 2.0 * 100.0
 
 
-def USUTPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def USUTPB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Unpaired Space/Unpaired Time Peak Bias (%)
 
@@ -606,38 +740,45 @@ def USUTPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Peak bias (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 5])
-    >>> stats.USUTPB(obs, mod)
+    >>> USUTPB(obs, mod)
     25.0
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return ((mod.max(dim=axis) - obs.max(dim=axis)) / obs.max(dim=axis)) * 100.0
-    elif isinstance(mod, np.ndarray) and isinstance(obs, np.ndarray):
-        return ((mod.max(axis=axis) - obs.max(axis=axis)) / obs.max(axis=axis)) * 100.0
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = ((mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)) * 100.0
+        return _update_history(res, "Unpaired Space/Unpaired Time Peak Bias (USUTPB)")
     else:
-        return ((np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis)) / np.ma.max(obs, axis=axis)) * 100.0
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return ((np.ma.max(mod_arr, axis=axis) - np.ma.max(obs_arr, axis=axis)) / np.ma.max(obs_arr, axis=axis)) * 100.0
 
 
-def USUTPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def USUTPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Unpaired Space/Unpaired Time Peak Error (%)
 
@@ -648,100 +789,138 @@ def USUTPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the statistic.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the statistic.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Peak error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 5])
-    >>> stats.USUTPE(obs, mod)
+    >>> USUTPE(obs, mod)
     25.0
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod.max(dim=axis) - obs.max(dim=axis)) / obs.max(dim=axis)) * 100.0
-    elif isinstance(mod, np.ndarray) and isinstance(obs, np.ndarray):
-        return (np.abs(mod.max(axis=axis) - obs.max(axis=axis)) / obs.max(axis=axis)) * 100.0
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)) * 100.0
+        return _update_history(res, "Unpaired Space/Unpaired Time Peak Error (USUTPE)")
     else:
-        return (np.ma.abs(np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis)) / np.ma.max(obs, axis=axis)) * 100.0
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return (
+            np.ma.abs(np.ma.max(mod_arr, axis=axis) - np.ma.max(obs_arr, axis=axis)) / np.ma.max(obs_arr, axis=axis)
+        ) * 100.0
 
 
-def MNPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
+def MNPB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    paxis: Union[int, str],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Mean Normalized Peak Bias (%)
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    paxis : int
-        Axis along which to compute the peak (e.g., time or space).
-    axis : int or None, optional
-        Axis along which to compute the mean of normalized peak bias.
+    paxis : int or str
+        Axis or dimension along which to compute the peak (e.g., time or space).
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the mean of normalized peak bias.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Mean normalized peak bias (percent).
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (((mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).mean(dim=axis)) * 100.0
+        pdim = paxis
+        if isinstance(paxis, int):
+            pdim = obs.dims[paxis]
+        mdim = axis
+        if isinstance(axis, int):
+            mdim = obs.dims[axis]
+        res = (((mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).mean(dim=mdim)) * 100.0
+        return _update_history(res, "Mean Normalized Peak Bias (MNPB)")
     else:
-        return ((np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)) / np.ma.max(obs, axis=paxis)).mean(
-            axis=axis
-        ) * 100.0
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return (
+            (np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)) / np.ma.max(obs_arr, axis=paxis)
+        ).mean(axis=axis) * 100.0
 
 
-def MdnNPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
+def MdnNPB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    paxis: Union[int, str],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Median Normalized Peak Bias (%)
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    paxis : int
-        Axis along which to compute the peak (e.g., time or space).
-    axis : int or None, optional
-        Axis along which to compute the median of normalized peak bias.
+    paxis : int or str
+        Axis or dimension along which to compute the peak (e.g., time or space).
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the median of normalized peak bias.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Median normalized peak bias (percent).
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return ((mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).median(dim=axis) * 100.0
+        pdim = paxis
+        if isinstance(paxis, int):
+            pdim = obs.dims[paxis]
+        mdim = axis
+        if isinstance(axis, int):
+            mdim = obs.dims[axis]
+        res = ((mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).median(dim=mdim) * 100.0
+        return _update_history(res, "Median Normalized Peak Bias (MdnNPB)")
     else:
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
         return (
             np.ma.median(
-                ((np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)) / np.ma.max(obs, axis=paxis)),
+                ((np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)) / np.ma.max(obs_arr, axis=paxis)),
                 axis=axis,
             )
             * 100.0
         )
 
 
-def MNPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
+def MNPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    paxis: Union[int, str],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Mean Normalized Peak Error (MNPE, %)
 
@@ -752,40 +931,53 @@ def MNPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None)
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    paxis : int
-        Axis along which to compute the peak (e.g., time or space).
-    axis : int or None, optional
-        Axis along which to compute the mean of normalized peak error.
+    paxis : int or str
+        Axis or dimension along which to compute the peak (e.g., time or space).
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the mean of normalized peak error.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Mean normalized peak error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([[1, 2, 3], [2, 3, 4]])
     >>> mod = np.array([[2, 2, 2], [2, 2, 5]])
-    >>> stats.MNPE(obs, mod, paxis=1)
+    >>> MNPE(obs, mod, paxis=1)
     33.33333333333333
     """
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).mean(dim=axis) * 100.0
+        pdim = paxis
+        if isinstance(paxis, int):
+            pdim = obs.dims[paxis]
+        mdim = axis
+        if isinstance(axis, int):
+            mdim = obs.dims[axis]
+        res = (abs(mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).mean(dim=mdim) * 100.0
+        return _update_history(res, "Mean Normalized Peak Error (MNPE)")
     else:
-        return (np.ma.abs(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)) / np.ma.max(obs, axis=paxis)).mean(
-            axis=axis
-        ) * 100.0
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return (
+            np.ma.abs(np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)) / np.ma.max(obs_arr, axis=paxis)
+        ).mean(axis=axis) * 100.0
 
 
-def MdnNPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
+def MdnNPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    paxis: Union[int, str],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Median Normalized Peak Error (MdnNPE, %)
 
@@ -798,43 +990,59 @@ def MdnNPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = Non
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    paxis : int
-        Axis along which to compute the peak (e.g., time or space).
-    axis : int or None, optional
-        Axis along which to compute the median of normalized peak error.
+    paxis : int or str
+        Axis or dimension along which to compute the peak (e.g., time or space).
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the median of normalized peak error.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Median normalized peak error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([[1, 2, 3], [2, 3, 4]])
     >>> mod = np.array([[2, 2, 2], [2, 2, 5]])
-    >>> stats.MdnNPE(obs, mod, paxis=1)
+    >>> MdnNPE(obs, mod, paxis=1)
     33.33333333333333
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod.max(dim=paxis) - obs.max(dim=paxis)) / obs.max(dim=paxis)).median(dim=axis) * 100.0
+        pdim = paxis
+        if isinstance(paxis, int):
+            pdim = obs.dims[paxis]
+        mdim = axis
+        if isinstance(axis, int):
+            mdim = obs.dims[axis]
+        res = (abs(mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).median(dim=mdim) * 100.0
+        return _update_history(res, "Median Normalized Peak Error (MdnNPE)")
     else:
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
         return (
             np.ma.median(
-                (np.ma.abs(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)) / np.ma.max(obs, axis=paxis)),
+                (
+                    np.ma.abs(np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis))
+                    / np.ma.max(obs_arr, axis=paxis)
+                ),
                 axis=axis,
             )
             * 100.0
         )
 
 
-def NMPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
+def NMPB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    paxis: Union[int, str],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Peak Bias (NMPB, %)
 
@@ -845,40 +1053,53 @@ def NMPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None)
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    paxis : int
-        Axis along which to compute the peak (e.g., time or space).
-    axis : int or None, optional
-        Axis along which to compute the mean of normalized peak bias.
+    paxis : int or str
+        Axis or dimension along which to compute the peak (e.g., time or space).
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the mean of normalized peak bias.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Normalized mean peak bias (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([[1, 2, 3], [2, 3, 4]])
     >>> mod = np.array([[2, 2, 2], [2, 2, 5]])
-    >>> stats.NMPB(obs, mod, paxis=1)
+    >>> NMPB(obs, mod, paxis=1)
     33.33333333333333
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return ((mod.max(dim=paxis) - obs.max(dim=paxis)).mean(dim=axis) / obs.max(dim=paxis).mean(dim=axis)) * 100.0
+        pdim = paxis
+        if isinstance(paxis, int):
+            pdim = obs.dims[paxis]
+        mdim = axis
+        if isinstance(axis, int):
+            mdim = obs.dims[axis]
+        res = ((mod.max(dim=pdim) - obs.max(dim=pdim)).mean(dim=mdim) / obs.max(dim=pdim).mean(dim=mdim)) * 100.0
+        return _update_history(res, "Normalized Mean Peak Bias (NMPB)")
     else:
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
         return (
-            (np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)).mean(axis=axis)
-            / np.ma.max(obs, axis=paxis).mean(axis=axis)
+            (np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)).mean(axis=axis)
+            / np.ma.max(obs_arr, axis=paxis).mean(axis=axis)
         ) * 100.0
 
 
-def NMdnPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
+def NMdnPB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    paxis: Union[int, str],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Median Peak Bias (NMdnPB, %)
 
@@ -889,40 +1110,53 @@ def NMdnPB(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = Non
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    paxis : int
-        Axis along which to compute the peak (e.g., time or space).
-    axis : int or None, optional
-        Axis along which to compute the median of normalized peak bias.
+    paxis : int or str
+        Axis or dimension along which to compute the peak (e.g., time or space).
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the median of normalized peak bias.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Normalized median peak bias (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([[1, 2, 3], [2, 3, 4]])
     >>> mod = np.array([[2, 2, 2], [2, 2, 5]])
-    >>> stats.NMdnPB(obs, mod, paxis=1)
+    >>> NMdnPB(obs, mod, paxis=1)
     33.33333333333333
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (mod.max(dim=paxis) - obs.max(dim=paxis)).median(dim=axis) / obs.max(dim=paxis).median(dim=axis) * 100.0
+        pdim = paxis
+        if isinstance(paxis, int):
+            pdim = obs.dims[paxis]
+        mdim = axis
+        if isinstance(axis, int):
+            mdim = obs.dims[axis]
+        res = (mod.max(dim=pdim) - obs.max(dim=pdim)).median(dim=mdim) / obs.max(dim=pdim).median(dim=mdim) * 100.0
+        return _update_history(res, "Normalized Median Peak Bias (NMdnPB)")
     else:
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
         return (
-            np.ma.median(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis), axis=axis)
-            / np.ma.median(np.ma.max(obs, axis=paxis), axis=axis)
+            np.ma.median(np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis), axis=axis)
+            / np.ma.median(np.ma.max(obs_arr, axis=paxis), axis=axis)
         ) * 100.0
 
 
-def NMPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
+def NMPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    paxis: Union[int, str],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Peak Error (NMPE, %)
 
@@ -933,40 +1167,53 @@ def NMPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None)
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    paxis : int
-        Axis along which to compute the peak (e.g., time or space).
-    axis : int or None, optional
-        Axis along which to compute the mean of normalized peak error.
+    paxis : int or str
+        Axis or dimension along which to compute the peak (e.g., time or space).
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the mean of normalized peak error.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Normalized mean peak error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([[1, 2, 3], [2, 3, 4]])
     >>> mod = np.array([[2, 2, 2], [2, 2, 5]])
-    >>> stats.NMPE(obs, mod, paxis=1)
+    >>> NMPE(obs, mod, paxis=1)
     33.33333333333333
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod.max(dim=paxis) - obs.max(dim=paxis)).mean(dim=axis) / obs.max(dim=paxis).mean(dim=axis)) * 100.0
+        pdim = paxis
+        if isinstance(paxis, int):
+            pdim = obs.dims[paxis]
+        mdim = axis
+        if isinstance(axis, int):
+            mdim = obs.dims[axis]
+        res = (abs(mod.max(dim=pdim) - obs.max(dim=pdim)).mean(dim=mdim) / obs.max(dim=pdim).mean(dim=mdim)) * 100.0
+        return _update_history(res, "Normalized Mean Peak Error (NMPE)")
     else:
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
         return (
-            np.ma.abs(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)).mean(axis=axis)
-            / np.ma.max(obs, axis=paxis).mean(axis=axis)
+            np.ma.abs(np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)).mean(axis=axis)
+            / np.ma.max(obs_arr, axis=paxis).mean(axis=axis)
         ) * 100.0
 
 
-def NMdnPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = None) -> Any:
+def NMdnPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    paxis: Union[int, str],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Median Peak Error (NMdnPE, %)
 
@@ -977,47 +1224,55 @@ def NMdnPE(obs: ArrayLike, mod: ArrayLike, paxis: int, axis: Optional[int] = Non
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    paxis : int
-        Axis along which to compute the peak (e.g., time or space).
-    axis : int or None, optional
-        Axis along which to compute the median of normalized peak error.
+    paxis : int or str
+        Axis or dimension along which to compute the peak (e.g., time or space).
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the median of normalized peak error.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Normalized median peak error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([[1, 2, 3], [2, 3, 4]])
     >>> mod = np.array([[2, 2, 2], [2, 2, 5]])
-    >>> stats.NMdnPE(obs, mod, paxis=1)
+    >>> NMdnPE(obs, mod, paxis=1)
     33.33333333333333
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (
-            (abs(mod.max(dim=paxis) - obs.max(dim=paxis))).median(dim=axis)
-            / obs.max(dim=paxis).median(dim=axis)
-            * 100.0
-        )
+        pdim = paxis
+        if isinstance(paxis, int):
+            pdim = obs.dims[paxis]
+        mdim = axis
+        if isinstance(axis, int):
+            mdim = obs.dims[axis]
+        res = (abs(mod.max(dim=pdim) - obs.max(dim=pdim))).median(dim=mdim) / obs.max(dim=pdim).median(dim=mdim) * 100.0
+        return _update_history(res, "Normalized Median Peak Error (NMdnPE)")
     else:
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
         return (
             np.ma.median(
-                np.ma.abs(np.ma.max(mod, axis=paxis) - np.ma.max(obs, axis=paxis)),
+                np.ma.abs(np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)),
                 axis=axis,
             )
-            / np.ma.median(np.ma.max(obs, axis=paxis), axis=axis)
+            / np.ma.median(np.ma.max(obs_arr, axis=paxis), axis=axis)
         ) * 100.0
 
 
-def PSUTMNPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def PSUTMNPB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Mean Normalized Peak Bias (PSUTMNPB, %)
 
@@ -1027,7 +1282,11 @@ def PSUTMNPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     return MNPB(obs, mod, paxis=0, axis=None)
 
 
-def PSUTMdnNPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def PSUTMdnNPB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Median Normalized Peak Bias (PSUTMdnNPB, %)
 
@@ -1037,7 +1296,11 @@ def PSUTMdnNPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> An
     return MdnNPB(obs, mod, paxis=0, axis=None)
 
 
-def PSUTMNPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def PSUTMNPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Mean Normalized Peak Error (PSUTMNPE, %)
 
@@ -1047,7 +1310,11 @@ def PSUTMNPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     return MNPE(obs, mod, paxis=0, axis=None)
 
 
-def PSUTMdnNPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def PSUTMdnNPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Median Normalized Peak Error (PSUTMdnNPE, %)
 
@@ -1057,7 +1324,11 @@ def PSUTMdnNPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> An
     return MdnNPE(obs, mod, paxis=0, axis=None)
 
 
-def PSUTNMPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def PSUTNMPB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Normalized Mean Peak Bias (PSUTNMPB, %)
 
@@ -1066,7 +1337,11 @@ def PSUTNMPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     return NMPB(obs, mod, paxis=0, axis=None)
 
 
-def PSUTNMPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def PSUTNMPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Normalized Mean Peak Error (PSUTNMPE, %)
 
@@ -1075,7 +1350,11 @@ def PSUTNMPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     return NMPE(obs, mod, paxis=0, axis=None)
 
 
-def PSUTNMdnPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def PSUTNMdnPB(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Normalized Median Peak Bias (PSUTNMdnPB, %)
 
@@ -1086,31 +1365,34 @@ def PSUTNMdnPB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> An
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the median of normalized peak bias.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the median of normalized peak bias.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Normalized median peak bias (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([[1, 2, 3], [2, 3, 4]])
     >>> mod = np.array([[2, 2, 2], [2, 2, 5]])
-    >>> stats.PSUTNMdnPB(obs, mod)
+    >>> PSUTNMdnPB(obs, mod)
     33.33333333333333
     """
     return NMdnPB(obs, mod, paxis=0, axis=None)
 
 
-def PSUTNMdnPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def PSUTNMdnPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Normalized Median Peak Error (PSUTNMdnPE, %)
 
@@ -1122,31 +1404,34 @@ def PSUTNMdnPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> An
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the median of normalized peak error.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the median of normalized peak error.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Normalized median peak error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([[1, 2, 3], [2, 3, 4]])
     >>> mod = np.array([[2, 2, 2], [2, 2, 5]])
-    >>> stats.PSUTNMdnPE(obs, mod)
+    >>> PSUTNMdnPE(obs, mod)
     33.33333333333333
     """
     return NMdnPE(obs, mod, paxis=0, axis=None)
 
 
-def MPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Mean Peak Error (%)
 
@@ -1158,37 +1443,46 @@ def MPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the mean of peak error.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the mean of peak error.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Mean peak error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([[1, 2, 3], [2, 3, 4]])
     >>> mod = np.array([[2, 2, 2], [2, 2, 5]])
-    >>> stats.MPE(obs, mod)
+    >>> MPE(obs, mod)
     33.33333333
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod.max(dim=axis) - obs.max(dim=axis)) / obs.max(dim=axis)).mean() * 100.0
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)).mean() * 100.0
+        return _update_history(res, "Mean Peak Error (MPE)")
     else:
-        return (np.ma.abs(np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis)) / np.ma.max(obs, axis=axis)).mean(
-            axis=axis
-        ) * 100.0
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
+        return (
+            np.ma.abs(np.ma.max(mod_arr, axis=axis) - np.ma.max(obs_arr, axis=axis)) / np.ma.max(obs_arr, axis=axis)
+        ).mean() * 100.0
 
 
-def MdnPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnPE(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Median Peak Error (%)
 
@@ -1201,34 +1495,42 @@ def MdnPE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : xarray.DataArray or numpy.ndarray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : xarray.DataArray or numpy.ndarray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the median of peak error.
+    axis : int or str or None, optional
+        Axis or dimension along which to compute the median of peak error.
 
     Returns
     -------
-    float or xarray.DataArray
+    xarray.DataArray or numpy.ndarray or float
         Median peak error (percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet.util import stats
     >>> obs = np.array([[1, 2, 3], [2, 3, 4]])
     >>> mod = np.array([[2, 2, 2], [2, 2, 5]])
-    >>> stats.MdnPE(obs, mod)
+    >>> MdnPE(obs, mod)
     33.333333333
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod.max(dim=axis) - obs.max(dim=axis)) / obs.max(dim=axis)).median() * 100.0
+        dim = axis
+        if isinstance(axis, int):
+            dim = obs.dims[axis]
+        res = (abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)).median() * 100.0
+        return _update_history(res, "Median Peak Error (MdnPE)")
     else:
+        obs_arr = np.ma.asanyarray(obs)
+        mod_arr = np.ma.asanyarray(mod)
         return (
             np.ma.median(
-                (np.ma.abs(np.ma.max(mod, axis=axis) - np.ma.max(obs, axis=axis)) / np.ma.max(obs, axis=axis)),
+                (
+                    np.ma.abs(np.ma.max(mod_arr, axis=axis) - np.ma.max(obs_arr, axis=axis))
+                    / np.ma.max(obs_arr, axis=axis)
+                ),
                 axis=axis,
             )
             * 100.0
