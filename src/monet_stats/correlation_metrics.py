@@ -102,7 +102,8 @@ def R2(
             den = np.sqrt(np.nansum(obs_std**2, axis=axis) * np.nansum(mod_std**2, axis=axis))
             with np.errstate(divide="ignore", invalid="ignore"):
                 r = num / den
-                return np.where(np.isnan(r), 0.0, r**2)
+                result = np.where(np.isnan(r), 0.0, r**2)
+                return result.item() if np.ndim(result) == 0 else result
 
 
 def RMSE(
@@ -577,6 +578,9 @@ def d1(
         mean_obs = obs.mean(dim=dim)
         denom = (abs(mod - mean_obs) + abs(obs - mean_obs)).sum(dim=dim)
         result = 1.0 - (num / denom)
+        result = xr.where((num == 0) & (denom == 0), 1.0, result)
+        result = xr.where((num != 0) & (denom == 0), -np.inf, result)
+
         # Update history
         history = f"d1 computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
@@ -585,7 +589,11 @@ def d1(
         num = np.ma.abs(np.subtract(obs, mod)).sum(axis=axis)
         mean_obs = np.ma.mean(obs, axis=axis)
         denom = (np.ma.abs(np.subtract(mod, mean_obs)) + np.ma.abs(np.subtract(obs, mean_obs))).sum(axis=axis)
-        return 1.0 - (num / denom)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+            result = np.where((num == 0) & (denom == 0), 1.0, result)
+            result = np.where((num != 0) & (denom == 0), -np.inf, result)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def E1(
@@ -636,6 +644,9 @@ def E1(
         num = abs(obs - mod).sum(dim=dim)
         denom = abs(obs - obs.mean(dim=dim)).sum(dim=dim)
         result = 1.0 - (num / denom)
+        result = xr.where((num == 0) & (denom == 0), 1.0, result)
+        result = xr.where((num != 0) & (denom == 0), -np.inf, result)
+
         # Update history
         history = f"E1 computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
@@ -644,7 +655,11 @@ def E1(
         num = np.ma.abs(np.subtract(obs, mod)).sum(axis=axis)
         mean_obs = np.ma.mean(obs, axis=axis)
         denom = np.ma.abs(np.subtract(obs, mean_obs)).sum(axis=axis)
-        return 1.0 - (num / denom)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+            result = np.where((num == 0) & (denom == 0), 1.0, result)
+            result = np.where((num != 0) & (denom == 0), -np.inf, result)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def IOA_m(
@@ -696,6 +711,9 @@ def IOA_m(
         num = ((obs - mod) ** 2).sum(dim=dim)
         denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=dim)
         result = 1.0 - (num / denom)
+        result = xr.where((num == 0) & (denom == 0), 1.0, result)
+        result = xr.where((num != 0) & (denom == 0), -np.inf, result)
+
         # Update history
         history = f"IOA_m computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
@@ -704,7 +722,11 @@ def IOA_m(
         obsmean = np.ma.mean(obs, axis=axis)
         num = (np.ma.abs(np.subtract(obs, mod)) ** 2).sum(axis=axis)
         denom = ((np.ma.abs(np.subtract(mod, obsmean)) + np.ma.abs(np.subtract(obs, obsmean))) ** 2).sum(axis=axis)
-        return 1.0 - (num / denom)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+            result = np.where((num == 0) & (denom == 0), 1.0, result)
+            result = np.where((num != 0) & (denom == 0), -np.inf, result)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def IOA(
@@ -756,6 +778,9 @@ def IOA(
         num = ((obs - mod) ** 2).sum(dim=dim)
         denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=dim)
         result = 1.0 - (num / denom)
+        result = xr.where((num == 0) & (denom == 0), 1.0, result)
+        result = xr.where((num != 0) & (denom == 0), -np.inf, result)
+
         # Update history
         history = f"IOA computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
@@ -764,7 +789,11 @@ def IOA(
         obsmean = np.ma.mean(obs, axis=axis)
         num = (np.ma.abs(np.subtract(obs, mod)) ** 2).sum(axis=axis)
         denom = ((np.ma.abs(np.subtract(mod, obsmean)) + np.ma.abs(np.subtract(obs, obsmean))) ** 2).sum(axis=axis)
-        return 1.0 - (num / denom)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+            result = np.where((num == 0) & (denom == 0), 1.0, result)
+            result = np.where((num != 0) & (denom == 0), -np.inf, result)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def WDIOA_m(
@@ -839,7 +868,8 @@ def WDIOA_m(
             np.ma.abs(circlebias_m(np.subtract(mod, obsmean))) + np.ma.abs(circlebias_m(np.subtract(obs, obsmean))),
             axis=axis,
         )
-        return np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def WDIOA(
@@ -914,7 +944,8 @@ def WDIOA(
             np.ma.abs(circlebias(np.subtract(mod, mean_obs))) + np.ma.abs(circlebias(np.subtract(obs, mean_obs))),
             axis=axis,
         )
-        return np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def AC(
@@ -1141,11 +1172,8 @@ def taylor_skill(
         norm_std = std_mod / std_obs
         with np.errstate(divide="ignore", invalid="ignore"):
             result = (4.0 * (corr + 1.0)) / ((norm_std + 1.0 / norm_std) ** 2 * 2.0)
-            if np.ndim(result) == 0:
-                if np.isnan(result) or np.isinf(result):
-                    return 1.0
-                return result.item()
-            return np.where(np.isnan(result) | np.isinf(result), 1.0, result)
+            result = np.where(np.isnan(result) | np.isinf(result), 1.0, result)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def KGE(
@@ -1298,7 +1326,8 @@ def pearsonr(
             num = np.nansum(obs_std * mod_std, axis=axis)
             den = np.sqrt(np.nansum(obs_std**2, axis=axis) * np.nansum(mod_std**2, axis=axis))
             with np.errstate(divide="ignore", invalid="ignore"):
-                return num / den
+                result = num / den
+                return result.item() if np.ndim(result) == 0 else result
 
 
 def spearmanr(
@@ -1632,8 +1661,11 @@ def E1_prime(
         obs_mean = obs.mean(dim=dim)
         num = abs(obs - mod).sum(dim=dim)
         denom = abs(obs - obs_mean).sum(dim=dim)
-        # Handle case where denominator is 0 (perfect agreement)
-        result = xr.where(denom == 0, 1.0, 1.0 - (num / denom))
+        # Handle case where denominator is 0
+        result = 1.0 - (num / denom)
+        result = xr.where((num == 0) & (denom == 0), 1.0, result)
+        result = xr.where((num != 0) & (denom == 0), -np.inf, result)
+
         # Update history
         history = f"E1_prime computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
@@ -1647,8 +1679,17 @@ def E1_prime(
             obs_mean_kd = obs_mean
         num = np.nansum(np.abs(obs_c - mod_c), axis=axis)
         denom = np.nansum(np.abs(obs_c - obs_mean_kd), axis=axis)
-        result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
-        return result.item() if result.ndim == 0 else result
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+            if np.ndim(result) == 0:
+                if num == 0 and denom == 0:
+                    result = np.array(1.0)
+                elif denom == 0:
+                    result = np.array(-np.inf)
+            else:
+                result = np.where((num == 0) & (denom == 0), 1.0, result)
+                result = np.where((num != 0) & (denom == 0), -np.inf, result)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def IOA_prime(
@@ -1699,8 +1740,11 @@ def IOA_prime(
         obsmean = obs.mean(dim=dim)
         num = ((obs - mod) ** 2).sum(dim=dim)
         denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=dim)
-        # Handle case where denominator is 0 (perfect agreement)
-        result = xr.where(denom == 0, 1.0, 1.0 - (num / denom))
+        # Handle case where denominator is 0
+        result = 1.0 - (num / denom)
+        result = xr.where((num == 0) & (denom == 0), 1.0, result)
+        result = xr.where((num != 0) & (denom == 0), -np.inf, result)
+
         # Update history
         history = f"IOA_prime computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
@@ -1714,5 +1758,14 @@ def IOA_prime(
             obsmean_kd = obsmean
         num = np.nansum((obs_c - mod_c) ** 2, axis=axis)
         denom = np.nansum((np.abs(mod_c - obsmean_kd) + np.abs(obs_c - obsmean_kd)) ** 2, axis=axis)
-        result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
-        return result.item() if result.ndim == 0 else result
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+            if np.ndim(result) == 0:
+                if num == 0 and denom == 0:
+                    result = np.array(1.0)
+                elif denom == 0:
+                    result = np.array(-np.inf)
+            else:
+                result = np.where((num == 0) & (denom == 0), 1.0, result)
+                result = np.where((num != 0) & (denom == 0), -np.inf, result)
+        return result.item() if np.ndim(result) == 0 else result

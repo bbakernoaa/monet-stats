@@ -149,3 +149,4 @@ htmlcov/
 data/local/
 data/private/
 data/secrets/
+outputs/
