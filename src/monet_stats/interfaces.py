@@ -173,6 +173,12 @@ class BaseStatisticalMetric(StatisticalMetric):
         else:
             res = func(obs, mod, **kwargs)
 
+        # Ensure attributes from obs are preserved in the result for provenance
+        if hasattr(res, "attrs"):
+            for k, v in obs.attrs.items():
+                if k not in res.attrs:
+                    res.attrs[k] = v
+
         return _update_history(res, self.name)
 
     def _handle_numpy(

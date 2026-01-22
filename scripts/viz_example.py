@@ -58,8 +58,11 @@ def track_a_publication(da: xr.DataArray) -> None:
     ax.coastlines()
     ax.gridlines(draw_labels=True)
     plt.title("Ozone Anomaly (Track A - Publication)")
-    plt.savefig("track_a_viz.png", dpi=300, bbox_inches="tight")
-    print("Track A plot saved to track_a_viz.png")
+    import os
+
+    os.makedirs("outputs", exist_ok=True)
+    plt.savefig("outputs/track_a_viz.png", dpi=300, bbox_inches="tight")
+    print("Track A plot saved to outputs/track_a_viz.png")
 
 
 def track_b_exploration(da: xr.DataArray) -> None:
@@ -82,10 +85,13 @@ def track_b_exploration(da: xr.DataArray) -> None:
         title="Ozone Anomaly (Track B - Interactive)",
         clabel=da.attrs.get("units", ""),
     )
+    import os
+
     import holoviews as hv
 
-    hv.save(plot, "track_b_viz.html")
-    print("Track B plot saved to track_b_viz.html")
+    os.makedirs("outputs", exist_ok=True)
+    hv.save(plot, "outputs/track_b_viz.html")
+    print("Track B plot saved to outputs/track_b_viz.html")
 
 
 if __name__ == "__main__":
