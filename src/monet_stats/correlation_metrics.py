@@ -102,7 +102,8 @@ def R2(
             den = np.sqrt(np.nansum(obs_std**2, axis=axis) * np.nansum(mod_std**2, axis=axis))
             with np.errstate(divide="ignore", invalid="ignore"):
                 r = num / den
-                return np.where(np.isnan(r), 0.0, r**2)
+                result = np.where(np.isnan(r), 0.0, r**2)
+                return result.item() if np.ndim(result) == 0 else result
 
 
 def RMSE(
@@ -592,7 +593,7 @@ def d1(
             result = 1.0 - (num / denom)
             result = np.where((num == 0) & (denom == 0), 1.0, result)
             result = np.where((num != 0) & (denom == 0), -np.inf, result)
-        return result
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def E1(
@@ -658,7 +659,7 @@ def E1(
             result = 1.0 - (num / denom)
             result = np.where((num == 0) & (denom == 0), 1.0, result)
             result = np.where((num != 0) & (denom == 0), -np.inf, result)
-        return result
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def IOA_m(
@@ -725,7 +726,7 @@ def IOA_m(
             result = 1.0 - (num / denom)
             result = np.where((num == 0) & (denom == 0), 1.0, result)
             result = np.where((num != 0) & (denom == 0), -np.inf, result)
-        return result
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def IOA(
@@ -792,7 +793,7 @@ def IOA(
             result = 1.0 - (num / denom)
             result = np.where((num == 0) & (denom == 0), 1.0, result)
             result = np.where((num != 0) & (denom == 0), -np.inf, result)
-        return result
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def WDIOA_m(
@@ -867,7 +868,8 @@ def WDIOA_m(
             np.ma.abs(circlebias_m(np.subtract(mod, obsmean))) + np.ma.abs(circlebias_m(np.subtract(obs, obsmean))),
             axis=axis,
         )
-        return np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def WDIOA(
@@ -942,7 +944,8 @@ def WDIOA(
             np.ma.abs(circlebias(np.subtract(mod, mean_obs))) + np.ma.abs(circlebias(np.subtract(obs, mean_obs))),
             axis=axis,
         )
-        return np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        result = np.where(denom == 0, 1.0, 1.0 - (num / denom))
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def AC(
@@ -1169,11 +1172,8 @@ def taylor_skill(
         norm_std = std_mod / std_obs
         with np.errstate(divide="ignore", invalid="ignore"):
             result = (4.0 * (corr + 1.0)) / ((norm_std + 1.0 / norm_std) ** 2 * 2.0)
-            if np.ndim(result) == 0:
-                if np.isnan(result) or np.isinf(result):
-                    return 1.0
-                return result.item()
-            return np.where(np.isnan(result) | np.isinf(result), 1.0, result)
+            result = np.where(np.isnan(result) | np.isinf(result), 1.0, result)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def KGE(
@@ -1326,7 +1326,8 @@ def pearsonr(
             num = np.nansum(obs_std * mod_std, axis=axis)
             den = np.sqrt(np.nansum(obs_std**2, axis=axis) * np.nansum(mod_std**2, axis=axis))
             with np.errstate(divide="ignore", invalid="ignore"):
-                return num / den
+                result = num / den
+                return result.item() if np.ndim(result) == 0 else result
 
 
 def spearmanr(
@@ -1688,7 +1689,7 @@ def E1_prime(
             else:
                 result = np.where((num == 0) & (denom == 0), 1.0, result)
                 result = np.where((num != 0) & (denom == 0), -np.inf, result)
-        return result.item() if result.ndim == 0 else result
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def IOA_prime(
@@ -1767,4 +1768,4 @@ def IOA_prime(
             else:
                 result = np.where((num == 0) & (denom == 0), 1.0, result)
                 result = np.where((num != 0) & (denom == 0), -np.inf, result)
-        return result.item() if result.ndim == 0 else result
+        return result.item() if np.ndim(result) == 0 else result
