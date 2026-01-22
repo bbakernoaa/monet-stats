@@ -76,15 +76,9 @@ def NSE(
 
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (numerator / denominator)
-            if np.ndim(result) == 0:
-                if numerator == 0 and denominator == 0:
-                    result = 1.0
-                elif denominator == 0:
-                    result = -np.inf
-            else:
-                result = np.where((numerator == 0) & (denominator == 0), 1.0, result)
-                result = np.where((numerator != 0) & (denominator == 0), -np.inf, result)
-        return result
+            result = np.where((numerator == 0) & (denominator == 0), 1.0, result)
+            result = np.where((numerator != 0) & (denominator == 0), -np.inf, result)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def NSEm(
@@ -225,15 +219,9 @@ def rNSE(
             numerator = np.nansum(((obs - mod) / obs_range_safe) ** 2, axis=axis)
             denominator = np.nansum(((obs - obs_mean) / obs_range_safe) ** 2, axis=axis)
             result = 1.0 - (numerator / denominator)
-            if np.ndim(result) == 0:
-                if numerator == 0 and denominator == 0:
-                    result = 1.0
-                elif denominator == 0:
-                    result = -np.inf
-            else:
-                result = np.where((numerator == 0) & (denominator == 0), 1.0, result)
-                result = np.where((numerator != 0) & (denominator == 0), -np.inf, result)
-        return result
+            result = np.where((numerator == 0) & (denominator == 0), 1.0, result)
+            result = np.where((numerator != 0) & (denominator == 0), -np.inf, result)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def mNSE(
@@ -296,15 +284,9 @@ def mNSE(
 
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (numerator / denominator)
-            if np.ndim(result) == 0:
-                if numerator == 0 and denominator == 0:
-                    result = 1.0
-                elif denominator == 0:
-                    result = -np.inf
-            else:
-                result = np.where((numerator == 0) & (denominator == 0), 1.0, result)
-                result = np.where((numerator != 0) & (denominator == 0), -np.inf, result)
-        return result
+            result = np.where((numerator == 0) & (denominator == 0), 1.0, result)
+            result = np.where((numerator != 0) & (denominator == 0), -np.inf, result)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def PC(

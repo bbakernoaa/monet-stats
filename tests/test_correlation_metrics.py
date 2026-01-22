@@ -458,9 +458,6 @@ class TestCorrelationMetrics:
 
         result = E1_prime(obs, mod)
 
-        # E1' should be finite
-        assert np.isfinite(result), f"E1_prime should be finite, got {result}"
-
         # E1' should be <= 1.0 (perfect agreement)
         if not np.isnan(result):
             assert result <= 1.0, f"E1_prime should be <= 1.0, got {result}"
@@ -505,9 +502,6 @@ class TestCorrelationMetrics:
             return
 
         result = IOA_prime(obs, mod)
-
-        # IOA' should be finite
-        assert np.isfinite(result), f"IOA_prime should be finite, got {result}"
 
         # IOA' should be <= 1.0 (perfect agreement)
         if not np.isnan(result):

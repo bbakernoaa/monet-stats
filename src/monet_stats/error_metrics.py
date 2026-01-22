@@ -2095,7 +2095,8 @@ def MASE_mod(
             naive_error = np.mean(np.abs(naive_diff))
         model_error = np.mean(np.abs(np.subtract(mod, obs)), axis=axis)
         # Avoid division by zero
-        return np.where(naive_error == 0, model_error, model_error / naive_error)
+        result = np.where(naive_error == 0, model_error, model_error / naive_error)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def RMSE_norm(
@@ -2145,7 +2146,8 @@ def RMSE_norm(
         obs_max = np.max(obs, axis=axis)
         obs_range = obs_max - obs_min
         # Avoid division by zero
-        return np.where(obs_range == 0, rmse, rmse / obs_range)
+        result = np.where(obs_range == 0, rmse, rmse / obs_range)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def MAE_norm(
@@ -2195,7 +2197,8 @@ def MAE_norm(
         obs_max = np.max(obs, axis=axis)
         obs_range = obs_max - obs_min
         # Avoid division by zero
-        return np.where(obs_range == 0, mae, mae / obs_range)
+        result = np.where(obs_range == 0, mae, mae / obs_range)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def bias_fraction(
@@ -2241,7 +2244,8 @@ def bias_fraction(
         bias = np.mean(np.subtract(mod, obs), axis=axis)
         total_error = np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
         # Avoid division by zero
-        return np.where(total_error == 0, 0, (bias**2) / (total_error**2))
+        result = np.where(total_error == 0, 0, (bias**2) / (total_error**2))
+        return result.item() if np.ndim(result) == 0 else result
 
 
 # Add missing functions from the specification
@@ -2304,7 +2308,8 @@ def NMSE(
         mse = np.mean((np.subtract(mod, obs)) ** 2, axis=axis)
         obs_var = np.var(obs, axis=axis)
         # Handle case where variance is 0 (perfect agreement)
-        return np.where(obs_var == 0, 0, mse / obs_var)
+        result = np.where(obs_var == 0, 0, mse / obs_var)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def LOG_ERROR(

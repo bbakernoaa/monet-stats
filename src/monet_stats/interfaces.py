@@ -1,15 +1,17 @@
 """
-Core interfaces and base classes for the Monet Stats package.
+Core interfaces and base classes for the Monet Stats package (Aero Protocol Compliant).
 
 This module defines the core interfaces, base classes, and validation framework
 for the statistical functions in the Monet Stats package.
 """
 
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Any, Callable, Iterable, Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
+
+from .utils_stats import _update_history
 
 
 class StatisticalMetric(ABC):
@@ -26,23 +28,23 @@ class StatisticalMetric(ABC):
         self,
         obs: Union[np.ndarray, xr.DataArray],
         mod: Union[np.ndarray, xr.DataArray],
-        **kwargs,
+        **kwargs: Any,
     ) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute the statistical metric.
 
         Parameters
         ----------
-        obs : array-like or xarray.DataArray
+        obs : numpy.ndarray or xarray.DataArray
             Observed values.
-        mod : array-like or xarray.DataArray
+        mod : numpy.ndarray or xarray.DataArray
             Model/predicted values.
-        **kwargs : dict
+        **kwargs : Any
             Additional parameters specific to the metric.
 
         Returns
         -------
-        float or array-like or xarray.DataArray
+        float or numpy.ndarray or xarray.DataArray
             The computed metric value(s).
         """
 
@@ -51,18 +53,18 @@ class StatisticalMetric(ABC):
         self,
         obs: Union[np.ndarray, xr.DataArray],
         mod: Union[np.ndarray, xr.DataArray],
-        **kwargs,
+        **kwargs: Any,
     ) -> bool:
         """
         Validate input parameters for the metric.
 
         Parameters
         ----------
-        obs : array-like or xarray.DataArray
+        obs : numpy.ndarray or xarray.DataArray
             Observed values.
-        mod : array-like or xarray.DataArray
+        mod : numpy.ndarray or xarray.DataArray
             Model/predicted values.
-        **kwargs : dict
+        **kwargs : Any
             Additional parameters specific to the metric.
 
         Returns
@@ -77,7 +79,7 @@ class BaseStatisticalMetric(StatisticalMetric):
     Base implementation for statistical metrics with common functionality.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = self.__class__.__name__
         self.description = self.__doc__ or "Statistical metric"
 
@@ -85,44 +87,57 @@ class BaseStatisticalMetric(StatisticalMetric):
         self,
         obs: Union[np.ndarray, xr.DataArray],
         mod: Union[np.ndarray, xr.DataArray],
-        **kwargs,
+        **kwargs: Any,
     ) -> bool:
         """
-        Validate input parameters for the metric.
+        Validate input parameters for the metric (Aero Protocol: Lazy-friendly).
 
         Parameters
         ----------
-        obs : array-like or xarray.DataArray
+        obs : numpy.ndarray or xarray.DataArray
             Observed values.
-        mod : array-like or xarray.DataArray
+        mod : numpy.ndarray or xarray.DataArray
             Model/predicted values.
-        **kwargs : dict
+        **kwargs : Any
             Additional parameters specific to the metric.
 
         Returns
         -------
         bool
-            True if inputs are valid, False otherwise.
+            True if inputs are valid.
+
+        Raises
+        ------
+        TypeError
+            If inputs are not numpy arrays or xarray DataArrays.
+        ValueError
+            If shapes mismatch or no finite values are present.
         """
         # Check if inputs are arrays or xarray DataArrays
         if not (isinstance(obs, (np.ndarray, xr.DataArray)) and isinstance(mod, (np.ndarray, xr.DataArray))):
             raise TypeError("obs and mod must be numpy arrays or xarray DataArrays")
 
-        # Check if shapes match
+        # Check if shapes match (lazy-safe as shape is metadata)
         if hasattr(obs, "shape") and hasattr(mod, "shape"):
             if obs.shape != mod.shape:
-                raise ValueError(f"obs and mod must have the same shape, got {obs.shape} and {mod.shape}")
+                try:
+                    np.broadcast_shapes(obs.shape, mod.shape)
+                except ValueError:
+                    raise ValueError(f"obs and mod must have compatible shapes, got {obs.shape} and {mod.shape}")
 
-        # Check for finite values
-        obs_finite = np.isfinite(obs) if isinstance(obs, np.ndarray) else np.isfinite(obs.values)
-        mod_finite = np.isfinite(mod) if isinstance(mod, np.ndarray) else np.isfinite(mod.values)
-
-        if not np.any(obs_finite) or not np.any(mod_finite):
-            raise ValueError("No finite values in obs or mod")
-
+        # Note: We avoid .values here to maintain laziness.
+        # Deep data validation (like checking for NaNs) is deferred to the computation phase
+        # to avoid premature Dask triggers.
         return True
 
-    def _handle_xarray(self, obs: xr.DataArray, mod: xr.DataArray, func, axis=None, **kwargs):
+    def _handle_xarray(
+        self,
+        obs: xr.DataArray,
+        mod: xr.DataArray,
+        func: Callable,
+        axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+        **kwargs: Any,
+    ) -> xr.DataArray:
         """
         Handle xarray DataArray inputs by aligning and applying function.
 
@@ -134,17 +149,19 @@ class BaseStatisticalMetric(StatisticalMetric):
             Model/predicted values.
         func : callable
             Function to apply to the data.
-        axis : int or str, optional
-            Axis along which to compute.
-        **kwargs : dict
+        axis : int, str, or iterable, optional
+            Axis or dimension along which to compute.
+        **kwargs : Any
             Additional parameters for the function.
 
         Returns
         -------
         xarray.DataArray
-            Result of applying the function.
+            Result of applying the function with history updated.
         """
-        obs, mod = xr.align(obs, mod, join="inner")
+        from .data_processing import align_arrays
+
+        obs, mod = align_arrays(obs, mod)
 
         if axis is not None:
             # Handle axis parameter for xarray
@@ -152,11 +169,26 @@ class BaseStatisticalMetric(StatisticalMetric):
                 dim = obs.dims[axis]
             else:
                 dim = axis
-            return func(obs, mod, dim=dim, **kwargs)
+            res = func(obs, mod, dim=dim, **kwargs)
         else:
-            return func(obs, mod, **kwargs)
+            res = func(obs, mod, **kwargs)
 
-    def _handle_numpy(self, obs: np.ndarray, mod: np.ndarray, func, axis=None, **kwargs):
+        # Ensure attributes from obs are preserved in the result for provenance
+        if hasattr(res, "attrs"):
+            for k, v in obs.attrs.items():
+                if k not in res.attrs:
+                    res.attrs[k] = v
+
+        return _update_history(res, self.name)
+
+    def _handle_numpy(
+        self,
+        obs: np.ndarray,
+        mod: np.ndarray,
+        func: Callable,
+        axis: Optional[Union[int, Iterable[int]]] = None,
+        **kwargs: Any,
+    ) -> Union[np.ndarray, float]:
         """
         Handle numpy array inputs by applying function.
 
@@ -168,9 +200,9 @@ class BaseStatisticalMetric(StatisticalMetric):
             Model/predicted values.
         func : callable
             Function to apply to the data.
-        axis : int, optional
+        axis : int or iterable of int, optional
             Axis along which to compute.
-        **kwargs : dict
+        **kwargs : Any
             Additional parameters for the function.
 
         Returns
@@ -180,7 +212,14 @@ class BaseStatisticalMetric(StatisticalMetric):
         """
         return func(obs, mod, axis=axis, **kwargs)
 
-    def _handle_masked_arrays(self, obs: np.ndarray, mod: np.ndarray, func, axis=None, **kwargs):
+    def _handle_masked_arrays(
+        self,
+        obs: np.ndarray,
+        mod: np.ndarray,
+        func: Callable,
+        axis: Optional[Union[int, Iterable[int]]] = None,
+        **kwargs: Any,
+    ) -> Union[np.ndarray, float]:
         """
         Handle masked array inputs by applying function.
 
@@ -192,9 +231,9 @@ class BaseStatisticalMetric(StatisticalMetric):
             Model/predicted values.
         func : callable
             Function to apply to the data.
-        axis : int, optional
+        axis : int or iterable of int, optional
             Axis along which to compute.
-        **kwargs : dict
+        **kwargs : Any
             Additional parameters for the function.
 
         Returns
@@ -202,7 +241,6 @@ class BaseStatisticalMetric(StatisticalMetric):
         numpy.ndarray or float
             Result of applying the function.
         """
-        # Use numpy masked array operations
         obs_ma = np.ma.masked_invalid(obs)
         mod_ma = np.ma.masked_invalid(mod)
         return func(obs_ma, mod_ma, axis=axis, **kwargs)
@@ -210,17 +248,17 @@ class BaseStatisticalMetric(StatisticalMetric):
 
 class DataProcessor:
     """
-    Data processing utilities for handling different data formats.
+    Data processing utilities (Legacy wrapper for data_processing module).
     """
 
     @staticmethod
-    def to_numpy(data: Union[np.ndarray, xr.DataArray, list]) -> np.ndarray:
+    def to_numpy(data: Any) -> np.ndarray:
         """
-        Convert data to numpy array.
+        Convert data to numpy array (Triggers compute).
 
         Parameters
         ----------
-        data : array-like or xarray.DataArray or list
+        data : Any
             Input data.
 
         Returns
@@ -228,23 +266,22 @@ class DataProcessor:
         numpy.ndarray
             Converted numpy array.
         """
-        if isinstance(data, xr.DataArray):
-            return data.values
-        elif isinstance(data, list):
-            return np.array(data)
-        else:
-            return np.asarray(data)
+        from .data_processing import to_numpy
+
+        return to_numpy(data)
 
     @staticmethod
-    def align_arrays(obs: Union[np.ndarray, xr.DataArray], mod: Union[np.ndarray, xr.DataArray]) -> tuple:
+    def align_arrays(
+        obs: Union[np.ndarray, xr.DataArray], mod: Union[np.ndarray, xr.DataArray]
+    ) -> Tuple[Union[np.ndarray, xr.DataArray], Union[np.ndarray, xr.DataArray]]:
         """
         Align two arrays for comparison.
 
         Parameters
         ----------
-        obs : array-like or xarray.DataArray
+        obs : numpy.ndarray or xarray.DataArray
             Observed values.
-        mod : array-like or xarray.DataArray
+        mod : numpy.ndarray or xarray.DataArray
             Model/predicted values.
 
         Returns
@@ -252,29 +289,22 @@ class DataProcessor:
         tuple
             Aligned obs and mod arrays.
         """
-        if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-            obs, mod = xr.align(obs, mod, join="inner")
-            return obs, mod
-        else:
-            # For numpy arrays, ensure they have the same shape
-            obs = DataProcessor.to_numpy(obs)
-            mod = DataProcessor.to_numpy(mod)
+        from .data_processing import align_arrays
 
-            if obs.shape != mod.shape:
-                raise ValueError(f"Arrays must have the same shape, got {obs.shape} and {mod.shape}")
-
-            return obs, mod
+        return align_arrays(obs, mod)
 
     @staticmethod
-    def handle_missing_values(obs: np.ndarray, mod: np.ndarray, strategy: str = "pairwise") -> tuple:
+    def handle_missing_values(
+        obs: Union[np.ndarray, xr.DataArray], mod: Union[np.ndarray, xr.DataArray], strategy: str = "pairwise"
+    ) -> Tuple[Union[np.ndarray, xr.DataArray], Union[np.ndarray, xr.DataArray]]:
         """
         Handle missing values in arrays.
 
         Parameters
         ----------
-        obs : numpy.ndarray
+        obs : numpy.ndarray or xarray.DataArray
             Observed values.
-        mod : numpy.ndarray
+        mod : numpy.ndarray or xarray.DataArray
             Model/predicted values.
         strategy : str, optional
             Strategy for handling missing values ('pairwise', 'listwise').
@@ -284,21 +314,14 @@ class DataProcessor:
         tuple
             Arrays with missing values handled according to strategy.
         """
-        if strategy == "pairwise":
-            # Remove pairs where either value is NaN
-            mask = ~(np.isnan(obs) | np.isnan(mod))
-            return obs[mask], mod[mask]
-        elif strategy == "listwise":
-            # Remove all pairs if any value is NaN
-            mask = ~(np.isnan(obs) | np.isnan(mod))
-            return obs[mask], mod[mask]
-        else:
-            raise ValueError(f"Unknown strategy: {strategy}")
+        from .data_processing import handle_missing_values
+
+        return handle_missing_values(obs, mod, strategy=strategy)
 
 
 class PerformanceOptimizer:
     """
-    Performance optimization utilities for statistical computations.
+    Performance optimization utilities (Legacy wrapper for performance module).
     """
 
     @staticmethod
@@ -318,15 +341,12 @@ class PerformanceOptimizer:
         list
             List of array chunks.
         """
-        if arr.size <= chunk_size:
-            return [arr]
+        from .performance import chunk_array
 
-        num_chunks = int(np.ceil(arr.size / chunk_size))
-        chunks = np.array_split(arr, num_chunks)
-        return chunks
+        return chunk_array(arr, chunk_size=chunk_size)
 
     @staticmethod
-    def vectorize_function(func, *args, **kwargs):
+    def vectorize_function(func: Callable, *args: Any, **kwargs: Any) -> Any:
         """
         Apply function in a vectorized manner.
 
@@ -334,17 +354,19 @@ class PerformanceOptimizer:
         ----------
         func : callable
             Function to vectorize.
-        *args : tuple
+        *args : Any
             Arguments to pass to function.
-        **kwargs : dict
+        **kwargs : Any
             Keyword arguments to pass to function.
 
         Returns
         -------
-        result
+        Any
             Result of vectorized function application.
         """
-        return np.vectorize(func)(*args, **kwargs)
+        from .performance import vectorize_function
+
+        return vectorize_function(func, *args, **kwargs)
 
 
 class PluginInterface(ABC):
@@ -354,54 +376,68 @@ class PluginInterface(ABC):
 
     @abstractmethod
     def name(self) -> str:
-        """Return the name of the metric."""
+        """
+        Return the name of the metric.
+
+        Returns
+        -------
+        str
+            Metric name.
+        """
 
     @abstractmethod
     def compute(
         self,
         obs: Union[np.ndarray, xr.DataArray],
         mod: Union[np.ndarray, xr.DataArray],
-        **kwargs,
+        **kwargs: Any,
     ) -> Union[float, np.ndarray, xr.DataArray]:
         """
         Compute the custom metric.
 
         Parameters
         ----------
-        obs : array-like or xarray.DataArray
+        obs : numpy.ndarray or xarray.DataArray
             Observed values.
-        mod : array-like or xarray.DataArray
+        mod : numpy.ndarray or xarray.DataArray
             Model/predicted values.
-        **kwargs : dict
+        **kwargs : Any
             Additional parameters.
 
         Returns
         -------
-        float or array-like or xarray.DataArray
+        float or numpy.ndarray or xarray.DataArray
             Computed metric value(s).
         """
 
     @abstractmethod
     def description(self) -> str:
-        """Return the description of the metric."""
+        """
+        Return the description of the metric.
+
+        Returns
+        -------
+        str
+            Metric description.
+        """
 
     @abstractmethod
     def validate_inputs(
         self,
         obs: Union[np.ndarray, xr.DataArray],
         mod: Union[np.ndarray, xr.DataArray],
-        **kwargs,
+        **kwargs: Any,
     ) -> bool:
         """
         Validate inputs for the metric.
 
         Parameters
         ----------
-        obs : array-like or xarray.DataArray
+        obs : numpy.ndarray or xarray.DataArray
             Observed values.
-        mod : array-like or xarray.DataArray
+        mod : numpy.ndarray or xarray.DataArray
             Model/predicted values.
-        **kwargs : dict
+        **kwargs : Any
             Additional parameters.
 
         Returns
