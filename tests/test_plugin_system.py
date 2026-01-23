@@ -77,7 +77,15 @@ def test_builtin_plugins():
     assert pytest.approx(mape_bias_res) == 1 / 30
 
 
-@pytest.mark.skipif(xr.DataArray([0]).chunk().compute is None, reason="Dask not available")
+try:
+    import dask.array as da  # noqa: F401
+
+    HAS_DASK = True
+except ImportError:
+    HAS_DASK = False
+
+
+@pytest.mark.skipif(not HAS_DASK, reason="Dask not available")
 def test_custom_metric_dask():
     """Test custom metric with Dask-backed Xarray DataArrays (Lazy by Default)."""
 
