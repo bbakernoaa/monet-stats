@@ -92,7 +92,7 @@ class TestErrorMetrics:
     def test_mb_systematic_bias(self):
         """Test Mean Bias with systematic bias."""
         result = MB(self.obs_biased, self.mod_biased)
-        expected = -0.1  # Mean bias should be -0.1 (obs - mod = -0.1 for each element)
+        expected = 0.1  # Mean bias should be 0.1 (mod - obs = 0.1 for each element)
         assert abs(result - expected) < 1e-10, f"Expected MB={expected}, got {result}"
 
     def test_rm_perfect_agreement(self):
@@ -222,7 +222,7 @@ class TestErrorMetrics:
         assert result == 0.0, "Single perfect match should give MAE=0.0"
 
         result = MB(np.array([1.0]), np.array([2.0]))
-        assert result == -1.0, "Single element difference should give MB=-1.0"
+        assert result == 1.0, "Single element difference should give MB=1.0"
 
     def test_edge_case_all_zeros(self):
         """Test behavior with all zero arrays."""
@@ -254,9 +254,9 @@ class TestErrorMetrics:
         mae_result = MAE(obs, mod)
         assert abs(mae_result - 0.1) < 1e-10, f"Expected MAE=0.1, got {mae_result}"
 
-        # MB should be -0.1 for this data (obs - mod = -0.1 for each element)
+        # MB should be 0.1 for this data (mod - obs = 0.1 for each element)
         mb_result = MB(obs, mod)
-        assert abs(mb_result - (-0.1)) < 1e-10, f"Expected MB=-0.1, got {mb_result}"
+        assert abs(mb_result - 0.1) < 1e-10, f"Expected MB=0.1, got {mb_result}"
 
     @pytest.mark.slow
     def test_error_metrics_performance(self):
@@ -578,7 +578,7 @@ class TestErrorMetricsXarray:
         """Test MB with xarray inputs."""
         result = MB(self.obs_xr, self.mod_xr)
         assert isinstance(result, xr.DataArray)
-        assert np.isclose(result, -0.1)
+        assert np.isclose(result, 0.1)
 
     def test_MNB_xarray(self):
         """Test MNB with xarray inputs."""

@@ -468,11 +468,11 @@ def MO(
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Mean Error (MO) - Mean of (observation - model).
+    Mean Error (MO) - Mean of (model - observation).
 
     Typical Use Cases
     -----------------
-    - Quantifying the average bias between observations and model predictions.
+    - Quantifying the average bias between model predictions and observations.
     - Used in model evaluation to assess systematic errors.
 
     Parameters
@@ -487,7 +487,7 @@ def MO(
     Returns
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
-        Mean error (observation - model) in observation units.
+        Mean error (model - observation) in observation units.
         Returns 0.0 for perfect agreement.
 
     Examples
@@ -497,7 +497,7 @@ def MO(
     >>> obs = np.array([1, 2, 3, 4, 5])
     >>> mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
     >>> MO(obs, mod)
-    -0.1
+    0.1
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
@@ -506,13 +506,13 @@ def MO(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (obs - mod).mean(dim=dim, keep_attrs=True)
+        result = (mod - obs).mean(dim=dim, keep_attrs=True)
         # Update history
         history = f"MO computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.mean(np.subtract(obs, mod), axis=axis)
+        return np.mean(np.subtract(mod, obs), axis=axis)
 
 
 def MP(
@@ -565,11 +565,11 @@ def MdnO(
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Median Error (MdnO) - Median of (observation - model).
+    Median Error (MdnO) - Median of (model - observation).
 
     Typical Use Cases
     -----------------
-    - Quantifying the typical bias between observations and model predictions,
+    - Quantifying the typical bias between model predictions and observations,
       robust to outliers.
     - Used in robust model evaluation for non-parametric error assessment.
 
@@ -585,7 +585,7 @@ def MdnO(
     Returns
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
-        Median error (observation - model) in observation units.
+        Median error (model - observation) in observation units.
         Returns 0.0 for perfect agreement.
 
     Examples
@@ -595,7 +595,7 @@ def MdnO(
     >>> obs = np.array([1, 2, 3, 4, 5])
     >>> mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
     >>> MdnO(obs, mod)
-    -0.1
+    0.1
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
@@ -604,13 +604,13 @@ def MdnO(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (obs - mod).median(dim=dim, keep_attrs=True)
+        result = (mod - obs).median(dim=dim, keep_attrs=True)
         # Update history
         history = f"MdnO computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.median(np.subtract(obs, mod), axis=axis)
+        return np.median(np.subtract(mod, obs), axis=axis)
 
 
 def MdnP(
@@ -751,8 +751,8 @@ def MB(
     Returns
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
-        Mean bias value(s) = mean(observation - model).
-        Negative values indicate model overestimation.
+        Mean bias value(s) = mean(model - observation).
+        Positive values indicate model overestimation.
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
@@ -761,13 +761,13 @@ def MB(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (obs - mod).mean(dim=dim, keep_attrs=True)
+        result = (mod - obs).mean(dim=dim, keep_attrs=True)
         # Update history
         history = f"MB computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.mean(np.subtract(obs, mod), axis=axis)
+        return np.ma.mean(np.subtract(mod, obs), axis=axis)
 
 
 def MdnB(
@@ -790,8 +790,8 @@ def MdnB(
     Returns
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
-        Median bias value(s) = median(observation - model).
-        Negative values indicate model overestimation.
+        Median bias value(s) = median(model - observation).
+        Positive values indicate model overestimation.
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
@@ -800,13 +800,13 @@ def MdnB(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (obs - mod).median(dim=dim, keep_attrs=True)
+        result = (mod - obs).median(dim=dim, keep_attrs=True)
         # Update history
         history = f"MdnB computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.median(np.subtract(obs, mod), axis=axis)
+        return np.ma.median(np.subtract(mod, obs), axis=axis)
 
 
 def WDMB_m(

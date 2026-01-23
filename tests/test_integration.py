@@ -79,7 +79,7 @@ class TestIntegration:
 
         # Mean bias should detect the bias
         mb_val = MB(self.obs, mod_biased)
-        assert abs(mb_val - (-bias)) < 1e-10, f"MB should detect bias of {bias}, got {mb_val}"
+        assert abs(mb_val - bias) < 1e-10, f"MB should detect bias of {bias}, got {mb_val}"
 
         # NMB should also reflect the bias
         nmb_val = NMB(self.obs, mod_biased)
@@ -180,7 +180,7 @@ class TestIntegration:
         # Check reasonable ranges
         assert rmse > 0, f"RMSE should be positive, got {rmse}"
         assert mae > 0, f"MAE should be positive, got {mae}"
-        assert abs(mb - (-0.8)) < 0.5, f"MB should be close to bias (0.8), got {mb}"  # Allow some variation
+        assert abs(mb - 0.8) < 0.5, f"MB should be close to bias (0.8), got {mb}"  # Allow some variation
         assert -1 <= nse <= 1, f"NSE should be in [-1,1], got {nse}"
         assert -1 <= r2 <= 1, f"R2 should be in [-1,1], got {r2}"
         assert 0 <= ioa <= 1, f"IOA should be in [0,1], got {ioa}"
