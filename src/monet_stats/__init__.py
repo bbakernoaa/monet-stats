@@ -2,8 +2,11 @@
 Statistics submodule for MONET utility functions.
 """
 
-# Expose all functions from all stats submodules
-# Dynamically build __all__ from all submodules
+from typing import Any, Dict, Optional, Union
+
+import numpy as np
+import pandas as pd
+import xarray as xr
 
 # Explicit imports for all public API symbols (for lint compliance)
 from .contingency_metrics import CSI, ETS, FAR, FBI, HSS, POD, TSS, scores
@@ -172,45 +175,112 @@ __all__ = [
 ]
 
 
-from typing import Any, Dict
+def stats(
+    data: Union[pd.DataFrame, xr.Dataset],
+    obs_name: str = "Obs",
+    mod_name: str = "Mod",
+    threshold: float = 0.0,
+    minval: Optional[float] = None,
+    maxval: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    Calculate summary statistics for observations and model results.
 
-import pandas as pd
-
-
-def stats(df: pd.DataFrame, minval: Any, maxval: Any) -> Dict[str, float]:
-    """Short summary.
+    Supports both pandas DataFrames and xarray Datasets.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        Description of parameter `df`.
-    minval : Any
-        Description of parameter `minval`.
-    maxval : Any
-        Description of parameter `maxval`.
+    data : pd.DataFrame or xr.Dataset
+        Input data containing observations and model results.
+    obs_name : str, optional
+        Name of the observation column/variable, by default "Obs".
+    mod_name : str, optional
+        Name of the model column/variable, by default "Mod".
+    threshold : float, optional
+        Threshold for contingency scores (POD, FAR), by default 0.0.
+    minval : float, optional
+        Minimum value for filtering observations, by default None.
+    maxval : float, optional
+        Maximum value for filtering observations, by default None.
 
     Returns
     -------
-    Dict[str, float]
-        Description of returned object.
-
+    Dict[str, Any]
+        Dictionary of calculated statistics.
     """
-    from numpy import sqrt
+    # Restore legacy parameters filtering logic
+    if minval is not None:
+        if isinstance(data, pd.DataFrame):
+            data = data[data[obs_name] >= minval]
+        else:
+            data = data.where(data[obs_name] >= minval, drop=True)
+    if maxval is not None:
+        if isinstance(data, pd.DataFrame):
+            data = data[data[obs_name] <= maxval]
+        else:
+            data = data.where(data[obs_name] <= maxval, drop=True)
 
-    dd: Dict[str, float] = {}
-    dd["N"] = df.Obs.dropna().count()
-    dd["Obs"] = df.Obs.mean()
-    dd["Mod"] = df.CMAQ.mean()
-    dd["MB"] = MB(df.Obs.values, df.CMAQ.values)  # mean bias
-    dd["R"] = sqrt(R2(df.Obs.values, df.CMAQ.values))  # pearsonr ** 2
-    dd["IOA"] = IOA(df.Obs.values, df.CMAQ.values)  # Index of Agreement
-    dd["RMSE"] = RMSE(df.Obs.values, df.CMAQ.values)
-    dd["NMB"] = NMB(df.Obs.values, df.CMAQ.values)
-    try:
-        a, b, c, d = scores(df.Obs.values, df.CMAQ.values, 70, 1000)
-        dd["POD"] = a / (a + b)
-        dd["FAR"] = c / (a + c)
-    except Exception:
-        dd["POD"] = 1.0
-        dd["FAR"] = 0.0
-    return dd
+    if isinstance(data, pd.DataFrame):
+        obs = data[obs_name]
+        mod = data[mod_name]
+        res: Dict[str, Any] = {}
+        res["N"] = obs.dropna().count()
+        res["Obs"] = obs.mean()
+        res["Mod"] = mod.mean()
+        res["MB"] = MB(obs.values, mod.values)
+        res["R"] = pearsonr(obs.values, mod.values)
+        res["IOA"] = IOA(obs.values, mod.values)
+        res["RMSE"] = RMSE(obs.values, mod.values)
+        res["NMB"] = NMB(obs.values, mod.values)
+
+        try:
+            a, b, c, d = scores(obs.values, mod.values, threshold)
+            res["POD"] = a / (a + b) if (a + b) > 0 else 0.0
+            res["FAR"] = c / (a + c) if (a + c) > 0 else 0.0
+        except Exception:
+            res["POD"] = np.nan
+            res["FAR"] = np.nan
+        return res
+
+    elif isinstance(data, xr.Dataset):
+        obs = data[obs_name]
+        mod = data[mod_name]
+
+        # Gather all metrics that can be computed together to optimize dask graph
+        metrics_lazy = {
+            "N": obs.count(),
+            "Obs": obs.mean(),
+            "Mod": mod.mean(),
+            "MB": MB(obs, mod),
+            "R": pearsonr(obs, mod),
+            "IOA": IOA(obs, mod),
+            "RMSE": RMSE(obs, mod),
+            "NMB": NMB(obs, mod),
+        }
+
+        # Contingency scores
+        try:
+            a_l, b_l, c_l, d_l = scores(obs, mod, threshold)
+            metrics_lazy["a"] = a_l
+            metrics_lazy["b"] = b_l
+            metrics_lazy["c"] = c_l
+        except Exception:
+            pass
+
+        # Single optimized compute call
+        computed = xr.compute(*metrics_lazy.values())
+        results = dict(zip(metrics_lazy.keys(), [v.item() if hasattr(v, "item") else v for v in computed]))
+
+        # Format final output
+        res = {k: results[k] for k in ["N", "Obs", "Mod", "MB", "R", "IOA", "RMSE", "NMB"]}
+        if "a" in results:
+            a, b, c = results["a"], results["b"], results["c"]
+            res["POD"] = a / (a + b) if (a + b) > 0 else 0.0
+            res["FAR"] = c / (a + c) if (a + c) > 0 else 0.0
+        else:
+            res["POD"] = np.nan
+            res["FAR"] = np.nan
+        return res
+
+    else:
+        raise TypeError("data must be a pandas DataFrame or xarray Dataset")

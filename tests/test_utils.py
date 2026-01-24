@@ -193,7 +193,7 @@ def assert_statistical_property(
 
     if not np.allclose(value, expected_value, atol=tolerance, rtol=1e-12):
         raise AssertionError(
-            f"{name} = {value}, expected {expected_value}, " f"difference = {abs(value - expected_value)} > {tolerance}"
+            f"{name} = {value}, expected {expected_value}, difference = {abs(value - expected_value)} > {tolerance}"
         )
 
 

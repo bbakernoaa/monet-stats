@@ -201,7 +201,7 @@ class PerformanceBenchmark:
                 if isinstance(result, dict) and "error" not in result:
                     avg_time = result["avg_time"]
                     std_time = result["std_time"]
-                    print(f"{name:<20}: {avg_time*1000:>8.4f}±{std_time*1000:.4f} ms")
+                    print(f"{name:<20}: {avg_time * 1000:>8.4f}±{std_time * 1000:.4f} ms")
                 elif isinstance(result, dict):
                     print(f"{name:<20}: ERROR - {result.get('error')}")
                 else:
@@ -318,9 +318,7 @@ class AccuracyVerification:
         for test_name, result in results.items():
             status = "PASS" if result["passed"] else "FAIL"
             print(
-                f"{test_name:<20}: {status:<4} | "
-                f"Computed: {result['computed']:.6f}, "
-                f"Expected: {result['expected']:.6f}"
+                f"{test_name:<20}: {status:<4} | Computed: {result['computed']:.6f}, Expected: {result['expected']:.6f}"
             )
             if result["passed"]:
                 passed += 1

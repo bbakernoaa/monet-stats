@@ -29,13 +29,13 @@ from monet_stats.spatial_ensemble_metrics import (
     BSS,
     CRPS,
     EDS,
-    FSS,
     SAL,
     ensemble_mean,
     ensemble_std,
     rank_histogram,
     spread_error,
 )
+from monet_stats.spatial_skill_metrics import FSS
 
 
 class TestSpatialEnsembleMetrics:
@@ -100,7 +100,7 @@ class TestSpatialEnsembleMetrics:
     @pytest.mark.unit
     def test_fss_perfect_agreement(self):
         """Test FSS (Fractions Skill Score) with perfect agreement."""
-        result = FSS(self.obs_2d_perfect, self.mod_2d_perfect, window=3, threshold=5.0)
+        result = FSS(self.obs_2d_perfect, self.mod_2d_perfect, window_size=3, threshold=5.0)
         assert np.isclose(result, 1.0, atol=0.1), f"Perfect agreement FSS should be close to 1.0, got {result}"
 
         # Test with example from docstring
@@ -108,7 +108,7 @@ class TestSpatialEnsembleMetrics:
         obs[2, 2] = 1
         mod = np.zeros((5, 5))
         mod[2, 3] = 1
-        result = FSS(obs, mod, window=3, threshold=0.5)
+        result = FSS(obs, mod, window_size=3, threshold=0.5)
         assert isinstance(result, (float, np.floating)), f"FSS should return float, got {type(result)}"
 
     @pytest.mark.unit
@@ -119,10 +119,10 @@ class TestSpatialEnsembleMetrics:
 
         # Test different window sizes
         for window in [3, 5, 7]:
-            result = FSS(obs, mod, window=window, threshold=5.0)
-            assert isinstance(
-                result, (float, np.floating)
-            ), f"FSS should return float for window={window}, got {type(result)}"
+            result = FSS(obs, mod, window_size=window, threshold=5.0)
+            assert isinstance(result, (float, np.floating)), (
+                f"FSS should return float for window_size={window}, got {type(result)}"
+            )
             assert 0 <= result <= 1, f"FSS should be between 0 and 1, got {result}"
 
     @pytest.mark.unit
@@ -132,10 +132,10 @@ class TestSpatialEnsembleMetrics:
         mod = obs + np.random.uniform(-1, 1, (10, 10))
 
         # Test with auto threshold (threshold=None)
-        result = FSS(obs, mod, window=3, threshold=None)
-        assert isinstance(
-            result, (float, np.floating)
-        ), f"FSS with auto threshold should return float, got {type(result)}"
+        result = FSS(obs, mod, window_size=3, threshold=None)
+        assert isinstance(result, (float, np.floating)), (
+            f"FSS with auto threshold should return float, got {type(result)}"
+        )
 
     @pytest.mark.unit
     def test_eds_extreme_dependency_score(self):
@@ -154,9 +154,9 @@ class TestSpatialEnsembleMetrics:
         mod_extreme = np.zeros((5, 5))
         mod_extreme[2, 2] = 1
         result_perfect = EDS(obs_extreme, mod_extreme, threshold=0.5)
-        assert isinstance(
-            result_perfect, (float, np.floating)
-        ), f"Perfect EDS should return float, got {type(result_perfect)}"
+        assert isinstance(result_perfect, (float, np.floating)), (
+            f"Perfect EDS should return float, got {type(result_perfect)}"
+        )
 
     @pytest.mark.unit
     def test_crps_continuous_ranked_probability_score(self):
@@ -166,9 +166,9 @@ class TestSpatialEnsembleMetrics:
         obs = np.array([2, 3])
         result = CRPS(ens, obs)
         expected = np.array([0.22222222, 0.22222222])
-        assert np.allclose(
-            result, expected, atol=1e-6
-        ), f"CRPS calculation incorrect. Expected {expected}, got {result}"
+        assert np.allclose(result, expected, atol=1e-6), (
+            f"CRPS calculation incorrect. Expected {expected}, got {result}"
+        )
 
         # Test with perfect ensemble (may not give exactly 0 due to implementation)
         perfect_ens = np.array([[2, 3], [2, 3], [2, 3]])
@@ -186,9 +186,9 @@ class TestSpatialEnsembleMetrics:
         for axis in [0]:
             result = CRPS(ens, obs, axis=axis)
             expected_shape = ens.shape[1:]  # Should remove ensemble dimension
-            assert (
-                result.shape == expected_shape
-            ), f"CRPS result shape mismatch for axis={axis}. Expected {expected_shape}, got {result.shape}"
+            assert result.shape == expected_shape, (
+                f"CRPS result shape mismatch for axis={axis}. Expected {expected_shape}, got {result.shape}"
+            )
 
     @pytest.mark.unit
     def test_spread_error_relationship(self):
@@ -220,9 +220,9 @@ class TestSpatialEnsembleMetrics:
         climatology_forecast = np.full_like(self.mod_prob, climatology)
         result_climatology = BSS(self.obs_binary, climatology_forecast, threshold=0.5)
         # Allow for some tolerance in climatology calculation
-        assert isinstance(
-            result_climatology, (float, np.floating)
-        ), f"Climatology BSS should return float, got {type(result_climatology)}"
+        assert isinstance(result_climatology, (float, np.floating)), (
+            f"Climatology BSS should return float, got {type(result_climatology)}"
+        )
 
     @pytest.mark.unit
     def test_sal_structure_amplitude_location(self):
@@ -266,9 +266,9 @@ class TestSpatialEnsembleMetrics:
         ens = np.array([[1, 2], [2, 3], [3, 4]])
         result = ensemble_std(ens)
         expected = np.array([0.81649658, 0.81649658])  # sample std dev
-        assert np.allclose(
-            result, expected, atol=1e-6
-        ), f"Ensemble std example incorrect. Expected {expected}, got {result}"
+        assert np.allclose(result, expected, atol=1e-6), (
+            f"Ensemble std example incorrect. Expected {expected}, got {result}"
+        )
 
     @pytest.mark.unit
     def test_rank_histogram(self):
@@ -283,30 +283,30 @@ class TestSpatialEnsembleMetrics:
         # Test with proper ensemble
         result = rank_histogram(self.ensemble_data, self.obs_ensemble)
         assert isinstance(result, np.ndarray), f"Rank histogram should return array, got {type(result)}"
-        assert (
-            len(result) == len(self.ensemble_data) + 1
-        ), f"Rank histogram length should be n_ensemble + 1, got {len(result)}"
+        assert len(result) == len(self.ensemble_data) + 1, (
+            f"Rank histogram length should be n_ensemble + 1, got {len(result)}"
+        )
 
     @pytest.mark.xarray
     def test_xarray_dataarray_input(self):
         """Test that functions work with xarray DataArray inputs."""
         # Test FSS with xarray
-        result = FSS(self.obs_2d_xr, self.mod_2d_xr, window=3, threshold=5.0)
-        assert isinstance(
-            result, (float, np.floating, xr.DataArray)
-        ), f"FSS should work with xarray inputs, got {type(result)}"
+        result = FSS(self.obs_2d_xr, self.mod_2d_xr, window_size=3, threshold=5.0)
+        assert isinstance(result, (float, np.floating, xr.DataArray)), (
+            f"FSS should work with xarray inputs, got {type(result)}"
+        )
 
         # Test ensemble_mean with xarray
         result = ensemble_mean(self.ensemble_xr, axis=0)
-        assert isinstance(
-            result, (xr.DataArray, np.ndarray)
-        ), f"Ensemble mean should work with xarray inputs, got {type(result)}"
+        assert isinstance(result, (xr.DataArray, np.ndarray)), (
+            f"Ensemble mean should work with xarray inputs, got {type(result)}"
+        )
 
     @pytest.mark.parametrize("metric_func", [FSS, EDS, BSS])
     def test_spatial_metrics_output_type(self, metric_func):
         """Test that spatial metrics return appropriate values."""
         if metric_func == FSS:
-            result = metric_func(self.obs_2d_good, self.mod_2d_good, window=3, threshold=5.0)
+            result = metric_func(self.obs_2d_good, self.mod_2d_good, window_size=3, threshold=5.0)
         elif metric_func == EDS:
             result = metric_func(self.obs_2d_good, self.mod_2d_good, threshold=5.0)
         elif metric_func == BSS:
@@ -314,9 +314,9 @@ class TestSpatialEnsembleMetrics:
         else:
             result = None  # Should not happen
 
-        assert isinstance(
-            result, (float, np.floating, int, np.integer)
-        ), f"{metric_func.__name__} should return a numeric value, got {type(result)}"
+        assert isinstance(result, (float, np.floating, int, np.integer)), (
+            f"{metric_func.__name__} should return a numeric value, got {type(result)}"
+        )
 
     @pytest.mark.parametrize("ensemble_func", [ensemble_mean, ensemble_std])
     def test_ensemble_functions_output_type(self, ensemble_func):
@@ -330,13 +330,13 @@ class TestSpatialEnsembleMetrics:
         # Test with all zeros
         obs_zeros = np.zeros((5, 5))
         mod_zeros = np.zeros((5, 5))
-        result = FSS(obs_zeros, mod_zeros, window=3, threshold=0.5)
+        result = FSS(obs_zeros, mod_zeros, window_size=3, threshold=0.5)
         assert isinstance(result, (float, np.floating)), f"FSS with zeros should return float, got {type(result)}"
 
         # Test with small array
         obs_small = np.array([[1, 2], [3, 4]])
         mod_small = np.array([[1.1, 2.1], [3.1, 4.1]])
-        result = FSS(obs_small, mod_small, window=3, threshold=2.0)
+        result = FSS(obs_small, mod_small, window_size=3, threshold=2.0)
         assert isinstance(result, (float, np.floating)), f"FSS with small array should return float, got {type(result)}"
 
     @pytest.mark.unit
@@ -370,7 +370,7 @@ class TestSpatialEnsembleMetrics:
         start_time = time.time()
 
         # Test multiple metrics
-        fss_result = FSS(large_obs, large_mod, window=5, threshold=5.0)
+        fss_result = FSS(large_obs, large_mod, window_size=5, threshold=5.0)
         crps_result = CRPS(large_ensemble, large_obs_ens)
         ens_mean = ensemble_mean(large_ensemble)
 
@@ -393,9 +393,9 @@ class TestSpatialEnsembleMetrics:
         # Test ensemble_mean with different axes
         result = ensemble_mean(ens_3d, axis=axis)
         expected_shape = ens_3d.shape[:axis] + ens_3d.shape[axis + 1 :]  # noqa: E203
-        assert (
-            result.shape == expected_shape
-        ), f"Ensemble mean result shape mismatch for axis={axis}. Expected {expected_shape}, got {result.shape}"
+        assert result.shape == expected_shape, (
+            f"Ensemble mean result shape mismatch for axis={axis}. Expected {expected_shape}, got {result.shape}"
+        )
 
     @pytest.mark.unit
     def test_sal_properties(self):
@@ -415,9 +415,9 @@ class TestSpatialEnsembleMetrics:
 
         # A should reflect amplitude difference
         expected_A = 2 * (6.0 - 5.0) / (6.0 + 5.0)
-        assert np.isclose(
-            A_amp, expected_A, atol=0.1
-        ), f"Amplitude component incorrect. Expected {expected_A}, got {A_amp}"
+        assert np.isclose(A_amp, expected_A, atol=0.1), (
+            f"Amplitude component incorrect. Expected {expected_A}, got {A_amp}"
+        )
 
 
 class TestSpatialEnsembleMetricsHypothesis:
@@ -433,7 +433,7 @@ class TestSpatialEnsembleMetricsHypothesis:
     def test_fss_bounds_property(self, data):
         """Test that FSS values are within expected bounds."""
         assume(np.any(data > 0))  # Ensure some non-zero values
-        result = FSS(data, data, window=3, threshold=5.0)
+        result = FSS(data, data, window_size=3, threshold=5.0)
         assert 0 <= result <= 1, f"FSS should be between 0 and 1: {result}"
 
     @given(
@@ -490,9 +490,9 @@ class TestSpatialEnsembleMetricsEdgeCases:
         # Should handle NaN gracefully
         for metric_func in [FSS, EDS]:
             result = metric_func(obs_nan, mod_nan, threshold=5.0)
-            assert isinstance(
-                result, (float, np.floating)
-            ), f"{metric_func.__name__} should handle NaN gracefully, got {type(result)}"
+            assert isinstance(result, (float, np.floating)), (
+                f"{metric_func.__name__} should handle NaN gracefully, got {type(result)}"
+            )
 
     def test_inf_handling(self):
         """Test handling of infinity values."""
@@ -504,9 +504,9 @@ class TestSpatialEnsembleMetricsEdgeCases:
         # Should handle infinity gracefully
         for metric_func in [FSS]:
             result = metric_func(obs_inf, mod_inf, threshold=5.0)
-            assert isinstance(
-                result, (float, np.floating)
-            ), f"{metric_func.__name__} should handle infinity gracefully, got {type(result)}"
+            assert isinstance(result, (float, np.floating)), (
+                f"{metric_func.__name__} should handle infinity gracefully, got {type(result)}"
+            )
 
     def test_empty_ensemble(self):
         """Test handling of empty ensemble."""
@@ -540,7 +540,7 @@ class TestSpatialEnsembleMetricsEdgeCases:
         single_loc_obs_ens = np.array([5], dtype=float)
 
         # Should work with single locations
-        fss_result = FSS(single_loc_obs, single_loc_mod, window=1, threshold=4.0)
+        fss_result = FSS(single_loc_obs, single_loc_mod, window_size=1, threshold=4.0)
         crps_result = CRPS(single_loc_ens, single_loc_obs_ens)
 
         assert isinstance(fss_result, (float, np.floating))
@@ -553,17 +553,17 @@ class TestSpatialEnsembleMetricsEdgeCases:
         obs_all_zero = np.zeros(10)
         mod_all_zero = np.zeros(10)
         result = BSS(obs_all_zero, mod_all_zero, threshold=0.5)
-        assert isinstance(
-            result, (float, np.floating, int)
-        ), f"BSS with all zeros should return numeric, got {type(result)}"
+        assert isinstance(result, (float, np.floating, int)), (
+            f"BSS with all zeros should return numeric, got {type(result)}"
+        )
 
         # All ones
         obs_all_one = np.ones(10)
         mod_all_one = np.ones(10)
         result = BSS(obs_all_one, mod_all_one, threshold=0.5)
-        assert isinstance(
-            result, (float, np.floating, int)
-        ), f"BSS with all ones should return numeric, got {type(result)}"
+        assert isinstance(result, (float, np.floating, int)), (
+            f"BSS with all ones should return numeric, got {type(result)}"
+        )
 
     def test_large_arrays_memory_efficiency(self):
         """Test memory efficiency with large arrays."""
@@ -580,7 +580,7 @@ class TestSpatialEnsembleMetricsEdgeCases:
         memory_before = process.memory_info().rss / 1024 / 1024  # MB
 
         # Calculate FSS
-        fss_result = FSS(large_obs, large_mod, window=5, threshold=5.0)
+        fss_result = FSS(large_obs, large_mod, window_size=5, threshold=5.0)
 
         memory_after = process.memory_info().rss / 1024 / 1024  # MB
         memory_increase = memory_after - memory_before

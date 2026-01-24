@@ -263,9 +263,9 @@ class TestPropertyBased:
         # RMSE should be the same when inputs are swapped
         rmse_original = RMSE(obs, mod)
         rmse_swapped = RMSE(mod, obs)
-        assert (
-            abs(rmse_original - rmse_swapped) < 1e-10
-        ), f"RMSE should be symmetric, got {rmse_original} vs {rmse_swapped}"
+        assert abs(rmse_original - rmse_swapped) < 1e-10, (
+            f"RMSE should be symmetric, got {rmse_original} vs {rmse_swapped}"
+        )
 
         # MAE should be the same when inputs are swapped
         mae_original = MAE(obs, mod)
@@ -304,9 +304,9 @@ class TestPropertyBased:
             nmb_scaled = NMB(scaled_obs, scaled_mod)
 
             if np.isfinite(nmb_original) and np.isfinite(nmb_scaled):
-                assert (
-                    abs(nmb_original - nmb_scaled) < 1e-10
-                ), f"NMB should be scale-invariant, got {nmb_original} vs {nmb_scaled}"
+                assert abs(nmb_original - nmb_scaled) < 1e-10, (
+                    f"NMB should be scale-invariant, got {nmb_original} vs {nmb_scaled}"
+                )
         except ZeroDivisionError:
             # This can happen when mean of obs is 0
             pass

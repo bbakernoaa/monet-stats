@@ -212,9 +212,9 @@ class TestErrorMetrics:
     def test_error_metrics_output_type(self, metric_func):
         """Test that error metrics return appropriate values."""
         result = metric_func(self.obs_random, self.mod_random)
-        assert isinstance(
-            result, (float, np.floating, int, np.integer)
-        ), f"{metric_func.__name__} should return a numeric value, got {type(result)}"
+        assert isinstance(result, (float, np.floating, int, np.integer)), (
+            f"{metric_func.__name__} should return a numeric value, got {type(result)}"
+        )
 
     def test_edge_case_single_element(self):
         """Test behavior with single element arrays."""
@@ -365,9 +365,9 @@ class TestErrorMetrics:
     def test_missing_error_functions_perfect_agreement(self, metric_func, expected_value):
         """Test perfect agreement for all missing error metric functions."""
         result = metric_func(self.obs_perfect, self.mod_perfect)
-        assert (
-            abs(result - expected_value) < 1e-10
-        ), f"{metric_func.__name__} should give {expected_value} for perfect agreement, got {result}"
+        assert abs(result - expected_value) < 1e-10, (
+            f"{metric_func.__name__} should give {expected_value} for perfect agreement, got {result}"
+        )
 
     def test_mathematical_correctness_mape_mod(self):
         """Test mathematical correctness of MAPE_mod."""

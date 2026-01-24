@@ -67,7 +67,7 @@ def main() -> int:
         if not run_command(cmd, description):
             all_passed = False
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     if all_passed:
         print("✓ All CI/CD checks PASSED!")
         return 0
