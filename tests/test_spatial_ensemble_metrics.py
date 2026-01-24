@@ -29,13 +29,13 @@ from monet_stats.spatial_ensemble_metrics import (
     BSS,
     CRPS,
     EDS,
-    FSS,
     SAL,
     ensemble_mean,
     ensemble_std,
     rank_histogram,
     spread_error,
 )
+from monet_stats.spatial_skill_metrics import FSS
 
 
 class TestSpatialEnsembleMetrics:
@@ -100,7 +100,7 @@ class TestSpatialEnsembleMetrics:
     @pytest.mark.unit
     def test_fss_perfect_agreement(self):
         """Test FSS (Fractions Skill Score) with perfect agreement."""
-        result = FSS(self.obs_2d_perfect, self.mod_2d_perfect, window=3, threshold=5.0)
+        result = FSS(self.obs_2d_perfect, self.mod_2d_perfect, window_size=3, threshold=5.0)
         assert np.isclose(result, 1.0, atol=0.1), f"Perfect agreement FSS should be close to 1.0, got {result}"
 
         # Test with example from docstring
@@ -108,7 +108,7 @@ class TestSpatialEnsembleMetrics:
         obs[2, 2] = 1
         mod = np.zeros((5, 5))
         mod[2, 3] = 1
-        result = FSS(obs, mod, window=3, threshold=0.5)
+        result = FSS(obs, mod, window_size=3, threshold=0.5)
         assert isinstance(result, (float, np.floating)), f"FSS should return float, got {type(result)}"
 
     @pytest.mark.unit
@@ -119,10 +119,10 @@ class TestSpatialEnsembleMetrics:
 
         # Test different window sizes
         for window in [3, 5, 7]:
-            result = FSS(obs, mod, window=window, threshold=5.0)
+            result = FSS(obs, mod, window_size=window, threshold=5.0)
             assert isinstance(
                 result, (float, np.floating)
-            ), f"FSS should return float for window={window}, got {type(result)}"
+            ), f"FSS should return float for window_size={window}, got {type(result)}"
             assert 0 <= result <= 1, f"FSS should be between 0 and 1, got {result}"
 
     @pytest.mark.unit
@@ -132,7 +132,7 @@ class TestSpatialEnsembleMetrics:
         mod = obs + np.random.uniform(-1, 1, (10, 10))
 
         # Test with auto threshold (threshold=None)
-        result = FSS(obs, mod, window=3, threshold=None)
+        result = FSS(obs, mod, window_size=3, threshold=None)
         assert isinstance(
             result, (float, np.floating)
         ), f"FSS with auto threshold should return float, got {type(result)}"
@@ -291,7 +291,7 @@ class TestSpatialEnsembleMetrics:
     def test_xarray_dataarray_input(self):
         """Test that functions work with xarray DataArray inputs."""
         # Test FSS with xarray
-        result = FSS(self.obs_2d_xr, self.mod_2d_xr, window=3, threshold=5.0)
+        result = FSS(self.obs_2d_xr, self.mod_2d_xr, window_size=3, threshold=5.0)
         assert isinstance(
             result, (float, np.floating, xr.DataArray)
         ), f"FSS should work with xarray inputs, got {type(result)}"
@@ -306,7 +306,7 @@ class TestSpatialEnsembleMetrics:
     def test_spatial_metrics_output_type(self, metric_func):
         """Test that spatial metrics return appropriate values."""
         if metric_func == FSS:
-            result = metric_func(self.obs_2d_good, self.mod_2d_good, window=3, threshold=5.0)
+            result = metric_func(self.obs_2d_good, self.mod_2d_good, window_size=3, threshold=5.0)
         elif metric_func == EDS:
             result = metric_func(self.obs_2d_good, self.mod_2d_good, threshold=5.0)
         elif metric_func == BSS:
@@ -330,13 +330,13 @@ class TestSpatialEnsembleMetrics:
         # Test with all zeros
         obs_zeros = np.zeros((5, 5))
         mod_zeros = np.zeros((5, 5))
-        result = FSS(obs_zeros, mod_zeros, window=3, threshold=0.5)
+        result = FSS(obs_zeros, mod_zeros, window_size=3, threshold=0.5)
         assert isinstance(result, (float, np.floating)), f"FSS with zeros should return float, got {type(result)}"
 
         # Test with small array
         obs_small = np.array([[1, 2], [3, 4]])
         mod_small = np.array([[1.1, 2.1], [3.1, 4.1]])
-        result = FSS(obs_small, mod_small, window=3, threshold=2.0)
+        result = FSS(obs_small, mod_small, window_size=3, threshold=2.0)
         assert isinstance(result, (float, np.floating)), f"FSS with small array should return float, got {type(result)}"
 
     @pytest.mark.unit
@@ -370,7 +370,7 @@ class TestSpatialEnsembleMetrics:
         start_time = time.time()
 
         # Test multiple metrics
-        fss_result = FSS(large_obs, large_mod, window=5, threshold=5.0)
+        fss_result = FSS(large_obs, large_mod, window_size=5, threshold=5.0)
         crps_result = CRPS(large_ensemble, large_obs_ens)
         ens_mean = ensemble_mean(large_ensemble)
 
@@ -433,7 +433,7 @@ class TestSpatialEnsembleMetricsHypothesis:
     def test_fss_bounds_property(self, data):
         """Test that FSS values are within expected bounds."""
         assume(np.any(data > 0))  # Ensure some non-zero values
-        result = FSS(data, data, window=3, threshold=5.0)
+        result = FSS(data, data, window_size=3, threshold=5.0)
         assert 0 <= result <= 1, f"FSS should be between 0 and 1: {result}"
 
     @given(
@@ -540,7 +540,7 @@ class TestSpatialEnsembleMetricsEdgeCases:
         single_loc_obs_ens = np.array([5], dtype=float)
 
         # Should work with single locations
-        fss_result = FSS(single_loc_obs, single_loc_mod, window=1, threshold=4.0)
+        fss_result = FSS(single_loc_obs, single_loc_mod, window_size=1, threshold=4.0)
         crps_result = CRPS(single_loc_ens, single_loc_obs_ens)
 
         assert isinstance(fss_result, (float, np.floating))
@@ -580,7 +580,7 @@ class TestSpatialEnsembleMetricsEdgeCases:
         memory_before = process.memory_info().rss / 1024 / 1024  # MB
 
         # Calculate FSS
-        fss_result = FSS(large_obs, large_mod, window=5, threshold=5.0)
+        fss_result = FSS(large_obs, large_mod, window_size=5, threshold=5.0)
 
         memory_after = process.memory_info().rss / 1024 / 1024  # MB
         memory_increase = memory_after - memory_before
