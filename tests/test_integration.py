@@ -217,18 +217,18 @@ class TestIntegration:
         rmse_scaled = RMSE(obs_scaled, mod_scaled)
         expected_scaled = rmse_original * scale_factor
 
-        assert (
-            abs(rmse_scaled - expected_scaled) < 1e-6
-        ), f"RMSE should scale linearly, got {rmse_scaled} vs expected {expected_scaled}"
+        assert abs(rmse_scaled - expected_scaled) < 1e-6, (
+            f"RMSE should scale linearly, got {rmse_scaled} vs expected {expected_scaled}"
+        )
 
         # NMB should be unchanged (relative metric)
         nmb_original = NMB(obs_original, mod_original)
         nmb_scaled = NMB(obs_scaled, mod_scaled)
 
         if np.isfinite(nmb_original) and np.isfinite(nmb_scaled):
-            assert (
-                abs(nmb_original - nmb_scaled) < 1e-6
-            ), f"NMB should be scale-invariant, got {nmb_original} vs {nmb_scaled}"
+            assert abs(nmb_original - nmb_scaled) < 1e-6, (
+                f"NMB should be scale-invariant, got {nmb_original} vs {nmb_scaled}"
+            )
 
     def test_correlation_calculation_methods(self):
         """Test different methods of calculating correlation."""
@@ -278,9 +278,9 @@ class TestIntegration:
         # Verify all metrics are computed
         for name, value in metrics.items():
             if np.isfinite(value):
-                assert isinstance(
-                    value, (int, float, np.number)
-                ), f"{name} should return a numeric value, got {type(value)}"
+                assert isinstance(value, (int, float, np.number)), (
+                    f"{name} should return a numeric value, got {type(value)}"
+                )
 
         # Check that error metrics are positive
         error_metrics = ["RMSE", "MAE"]

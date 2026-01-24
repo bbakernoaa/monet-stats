@@ -68,7 +68,6 @@ def test_relative_metrics_axis_string():
 
 def test_all_relative_metrics_coverage():
     """Systematically call all functions in relative_metrics to ensure coverage."""
-
     # Setup data
     obs_np = np.array([[10.0, 20.0, 30.0], [40.0, 50.0, 60.0]])
     mod_np = np.array([[11.0, 22.0, 33.0], [44.0, 55.0, 66.0]])

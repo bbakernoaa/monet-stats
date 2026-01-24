@@ -331,32 +331,32 @@ class TestRelativeMetrics:
         """Test that functions work with xarray DataArray inputs."""
         # Test NMB with xarray
         result = NMB(self.obs_xr, self.mod_xr)
-        assert isinstance(
-            result, (float, np.floating, xr.DataArray)
-        ), f"NMB should work with xarray inputs, got {type(result)}"
+        assert isinstance(result, (float, np.floating, xr.DataArray)), (
+            f"NMB should work with xarray inputs, got {type(result)}"
+        )
 
         # Test ME with xarray
         result = ME(self.obs_xr, self.mod_xr)
-        assert isinstance(
-            result, (float, np.floating, xr.DataArray)
-        ), f"ME should work with xarray inputs, got {type(result)}"
+        assert isinstance(result, (float, np.floating, xr.DataArray)), (
+            f"ME should work with xarray inputs, got {type(result)}"
+        )
 
     @pytest.mark.xarray
     def test_xarray_2d_input(self):
         """Test that 2D functions work with xarray DataArray inputs."""
         # Test MNPB with 2D xarray using dimension names instead of axis numbers
         result = MNPB(self.obs_2d_xr, self.mod_2d_xr, paxis="x", axis=None)
-        assert isinstance(
-            result, (float, np.floating, xr.DataArray)
-        ), f"MNPB should work with 2D xarray inputs, got {type(result)}"
+        assert isinstance(result, (float, np.floating, xr.DataArray)), (
+            f"MNPB should work with 2D xarray inputs, got {type(result)}"
+        )
 
     @pytest.mark.parametrize("metric_func", [NMB, NMB_ABS, NMdnB, FB, ME, MdnE, NME, NMdnE, FE])
     def test_relative_metrics_output_type(self, metric_func):
         """Test that relative metrics return appropriate values."""
         result = metric_func(self.obs_random, self.mod_random)
-        assert isinstance(
-            result, (float, np.floating, int, np.integer)
-        ), f"{metric_func.__name__} should return a numeric value, got {type(result)}"
+        assert isinstance(result, (float, np.floating, int, np.integer)), (
+            f"{metric_func.__name__} should return a numeric value, got {type(result)}"
+        )
 
     @pytest.mark.unit
     def test_circlebias_utility_functions(self):
@@ -391,9 +391,9 @@ class TestRelativeMetrics:
 
         for metric_func in [NMB, ME, NME]:
             result = metric_func(obs_neg, mod_neg)
-            assert isinstance(
-                result, (float, np.floating)
-            ), f"{metric_func.__name__} should handle negative values, got {type(result)}"
+            assert isinstance(result, (float, np.floating)), (
+                f"{metric_func.__name__} should handle negative values, got {type(result)}"
+            )
 
     @pytest.mark.slow
     def test_performance_large_arrays(self):
@@ -433,9 +433,9 @@ class TestRelativeMetrics:
         for metric_func in [ME, MdnE]:
             result = metric_func(obs_2d, mod_2d, axis=axis)
             if axis is None:
-                assert (
-                    np.isscalar(result) or result.shape == ()
-                ), f"{metric_func.__name__} with axis=None should return scalar"
+                assert np.isscalar(result) or result.shape == (), (
+                    f"{metric_func.__name__} with axis=None should return scalar"
+                )
             else:
                 expected_shape = obs_2d.shape[:axis] + obs_2d.shape[axis + 1 :]  # noqa: E203  # noqa: E203
                 assert result.shape == expected_shape, f"{metric_func.__name__} result shape mismatch"
@@ -507,9 +507,9 @@ class TestRelativeMetricsEdgeCases:
         # Should handle NaN gracefully
         for metric_func in [NMB, ME, NME]:
             result = metric_func(obs_nan, mod_nan)
-            assert isinstance(
-                result, (float, np.floating)
-            ), f"{metric_func.__name__} should handle NaN gracefully, got {type(result)}"
+            assert isinstance(result, (float, np.floating)), (
+                f"{metric_func.__name__} should handle NaN gracefully, got {type(result)}"
+            )
 
     def test_inf_handling(self):
         """Test handling of infinity values."""
@@ -519,9 +519,9 @@ class TestRelativeMetricsEdgeCases:
         # Should handle infinity gracefully
         for metric_func in [NMB, ME]:
             result = metric_func(obs_inf, mod_inf)
-            assert isinstance(
-                result, (float, np.floating)
-            ), f"{metric_func.__name__} should handle infinity gracefully, got {type(result)}"
+            assert isinstance(result, (float, np.floating)), (
+                f"{metric_func.__name__} should handle infinity gracefully, got {type(result)}"
+            )
 
     def test_empty_arrays(self):
         """Test handling of empty arrays."""
@@ -531,9 +531,9 @@ class TestRelativeMetricsEdgeCases:
         for metric_func in [ME, NME]:
             result = metric_func(obs_empty, mod_empty)
             # Empty arrays should return NaN or similar indicator
-            assert np.isnan(result) or np.ma.is_masked(
-                result
-            ), f"{metric_func.__name__} should handle empty arrays gracefully, got {result}"
+            assert np.isnan(result) or np.ma.is_masked(result), (
+                f"{metric_func.__name__} should handle empty arrays gracefully, got {result}"
+            )
 
     def test_wind_direction_boundary_cases(self):
         """Test wind direction calculations at 0/360 boundary."""
@@ -544,12 +544,12 @@ class TestRelativeMetricsEdgeCases:
         result_me = WDME_m(obs_dir, mod_dir)
         result_std = WDME(obs_dir, mod_dir)
 
-        assert isinstance(
-            result_me, (float, np.floating)
-        ), f"WDME_m should handle boundary cases, got {type(result_me)}"
-        assert isinstance(
-            result_std, (float, np.floating)
-        ), f"WDME should handle boundary cases, got {type(result_std)}"
+        assert isinstance(result_me, (float, np.floating)), (
+            f"WDME_m should handle boundary cases, got {type(result_me)}"
+        )
+        assert isinstance(result_std, (float, np.floating)), (
+            f"WDME should handle boundary cases, got {type(result_std)}"
+        )
 
     def test_single_value_arrays(self):
         """Test handling of single value arrays."""
@@ -558,9 +558,9 @@ class TestRelativeMetricsEdgeCases:
 
         for metric_func in [NMB, ME, NME]:
             result = metric_func(obs_single, mod_single)
-            assert isinstance(
-                result, (float, np.floating)
-            ), f"{metric_func.__name__} should handle single values, got {type(result)}"
+            assert isinstance(result, (float, np.floating)), (
+                f"{metric_func.__name__} should handle single values, got {type(result)}"
+            )
 
     def test_large_arrays_memory_efficiency(self):
         """Test memory efficiency with large arrays."""

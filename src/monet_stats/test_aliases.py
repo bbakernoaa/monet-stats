@@ -1,6 +1,8 @@
 """
 Test aliases for backwards compatibility and testing framework.
-This module provides the functions that the test files expect but that may have different names in the actual implementation.
+
+This module provides the functions that the test files expect but that may
+have different names in the actual implementation.
 """
 
 from typing import Any

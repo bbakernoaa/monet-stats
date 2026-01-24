@@ -314,9 +314,9 @@ class TestCorrelationMetrics:
         """Test perfect agreement for all missing correlation metric functions."""
         result = metric_func(self.obs_perfect, self.mod_perfect)
         if result is not None:  # Some functions might return None for edge cases
-            assert (
-                abs(result - expected_value) < 1e-1
-            ), f"{metric_func.__name__} should give {expected_value} for perfect agreement, got {result}"
+            assert abs(result - expected_value) < 1e-1, (
+                f"{metric_func.__name__} should give {expected_value} for perfect agreement, got {result}"
+            )
 
     def test_mathematical_correctness_e1_prime(self):
         """Test mathematical correctness of E1_prime."""
@@ -370,9 +370,9 @@ class TestCorrelationMetrics:
 
         # Functions should handle mismatched arrays gracefully without raising exceptions
         result = E1_prime(obs_short, mod_long)
-        assert np.isfinite(result) or np.isnan(
-            result
-        ), f"E1_prime should handle mismatched arrays gracefully, got {result}"
+        assert np.isfinite(result) or np.isnan(result), (
+            f"E1_prime should handle mismatched arrays gracefully, got {result}"
+        )
 
         # Test with empty arrays
         empty_obs = np.array([])

@@ -94,7 +94,6 @@ def WDNMB_m(
     >>> WDNMB_m(obs, mod)
     -5.0
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = axis
@@ -186,7 +185,6 @@ def NMdnB(
     >>> NMdnB(obs, mod)
     10.0
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = axis
@@ -324,7 +322,6 @@ def MdnE(
     >>> MdnE(obs, mod)
     1.0
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = axis
@@ -374,7 +371,6 @@ def WDME_m(
     >>> WDME_m(obs, mod)
     20.0
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = axis
@@ -521,7 +517,6 @@ def NME_m(
     >>> NME_m(obs, mod)
     37.5
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = axis
@@ -572,7 +567,6 @@ def NME_m_ABS(
     >>> NME_m_ABS(obs, mod)
     37.5
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = axis
@@ -621,7 +615,6 @@ def NME(
     >>> NME(obs, mod)
     37.5
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = axis
@@ -670,7 +663,6 @@ def NMdnE(
     >>> NMdnE(obs, mod)
     33.33333333333333
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = axis
@@ -760,7 +752,6 @@ def USUTPB(
     >>> USUTPB(obs, mod)
     25.0
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = axis
@@ -809,7 +800,6 @@ def USUTPE(
     >>> USUTPE(obs, mod)
     25.0
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = axis
@@ -953,7 +943,6 @@ def MNPE(
     >>> MNPE(obs, mod, paxis=1)
     33.33333333333333
     """
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         pdim = paxis
@@ -1278,7 +1267,6 @@ def PSUTMNPB(
 
     Wrapper for MNPB with paxis=0, axis=None.
     """
-
     return MNPB(obs, mod, paxis=0, axis=None)
 
 
@@ -1292,7 +1280,6 @@ def PSUTMdnNPB(
 
     Wrapper for MdnNPB with paxis=0, axis=None.
     """
-
     return MdnNPB(obs, mod, paxis=0, axis=None)
 
 
@@ -1306,7 +1293,6 @@ def PSUTMNPE(
 
     Wrapper for MNPE with paxis=0, axis=None.
     """
-
     return MNPE(obs, mod, paxis=0, axis=None)
 
 
@@ -1320,7 +1306,6 @@ def PSUTMdnNPE(
 
     Wrapper for MdnNPE with paxis=0, axis=None.
     """
-
     return MdnNPE(obs, mod, paxis=0, axis=None)
 
 

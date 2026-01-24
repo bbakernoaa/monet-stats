@@ -115,9 +115,9 @@ class TestMathematicalIdentities:
             rmse = root_mean_squared_error(obs, mod)
 
             # RMSE should be >= MAE (equality when all errors are equal)
-            assert (
-                rmse >= mae - 1e-10
-            ), f"Jensen's inequality violated: RMSE ({rmse}) < MAE ({mae}) for correlation {correlation}"
+            assert rmse >= mae - 1e-10, (
+                f"Jensen's inequality violated: RMSE ({rmse}) < MAE ({mae}) for correlation {correlation}"
+            )
 
     def test_correlation_bounds(self):
         """Test that correlation coefficients are within valid bounds."""
@@ -141,9 +141,9 @@ class TestMathematicalIdentities:
             assert 0 <= r2 <= 1, f"R² {r2} outside [0, 1]"
 
             # R² should equal Pearson correlation squared
-            assert (
-                abs(pearson_r**2 - r2) < 1e-10
-            ), f"R² should equal Pearson correlation squared: {pearson_r**2} vs {r2}"
+            assert abs(pearson_r**2 - r2) < 1e-10, (
+                f"R² should equal Pearson correlation squared: {pearson_r**2} vs {r2}"
+            )
 
     def test_index_of_agreement_bounds(self):
         """Test that Index of Agreement is within valid bounds."""
@@ -215,9 +215,9 @@ class TestScaleAndTranslationInvariance:
             corr_original = pearson_correlation(obs, mod)
             corr_scaled = pearson_correlation(obs_scaled, mod_scaled)
 
-            assert (
-                abs(corr_original - corr_scaled) < 1e-10
-            ), f"Correlation not scale-invariant: {corr_original} vs {corr_scaled}"
+            assert abs(corr_original - corr_scaled) < 1e-10, (
+                f"Correlation not scale-invariant: {corr_original} vs {corr_scaled}"
+            )
 
     def test_correlation_translation_invariance(self):
         """Test that correlation is invariant to translations."""
@@ -234,9 +234,9 @@ class TestScaleAndTranslationInvariance:
             corr_original = pearson_correlation(obs, mod)
             corr_offset = pearson_correlation(obs_offset, mod_offset)
 
-            assert (
-                abs(corr_original - corr_offset) < 1e-10
-            ), f"Correlation not translation-invariant: {corr_original} vs {corr_offset}"
+            assert abs(corr_original - corr_offset) < 1e-10, (
+                f"Correlation not translation-invariant: {corr_original} vs {corr_offset}"
+            )
 
 
 class TestErrorMetricConsistency:
@@ -297,15 +297,15 @@ class TestReproducibility:
 
         # All results should be identical
         for i in range(1, len(results)):
-            assert (
-                abs(results[0][0] - results[i][0]) < 1e-15
-            ), f"MAE not deterministic: {results[0][0]} vs {results[i][0]}"
-            assert (
-                abs(results[0][1] - results[i][1]) < 1e-15
-            ), f"RMSE not deterministic: {results[0][1]} vs {results[i][1]}"
-            assert (
-                abs(results[0][2] - results[i][2]) < 1e-15
-            ), f"Correlation not deterministic: {results[0][2]} vs {results[i][2]}"
+            assert abs(results[0][0] - results[i][0]) < 1e-15, (
+                f"MAE not deterministic: {results[0][0]} vs {results[i][0]}"
+            )
+            assert abs(results[0][1] - results[i][1]) < 1e-15, (
+                f"RMSE not deterministic: {results[0][1]} vs {results[i][1]}"
+            )
+            assert abs(results[0][2] - results[i][2]) < 1e-15, (
+                f"Correlation not deterministic: {results[0][2]} vs {results[i][2]}"
+            )
 
 
 if __name__ == "__main__":
