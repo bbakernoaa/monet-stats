@@ -184,9 +184,10 @@ def stats(
     maxval: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
-    Calculate summary statistics for observations and model results.
+    Calculate summary statistics for observations and model results (Aero Protocol).
 
-    Supports both pandas DataFrames and xarray Datasets.
+    Supports both pandas DataFrames and xarray Datasets. For xarray, it optimizes
+    performance by bundling all computations into a single Dask graph evaluation.
 
     Parameters
     ----------
@@ -206,7 +207,31 @@ def stats(
     Returns
     -------
     Dict[str, Any]
-        Dictionary of calculated statistics.
+        Dictionary of calculated statistics:
+        - N: Number of valid points
+        - Obs: Mean of observations
+        - Mod: Mean of model
+        - MB: Mean Bias
+        - MAE: Mean Absolute Error
+        - RMSE: Root Mean Square Error
+        - R: Pearson Correlation
+        - IOA: Index of Agreement
+        - NMB: Normalized Mean Bias
+        - MNB: Mean Normalized Bias
+        - POD: Probability of Detection (at threshold)
+        - FAR: False Alarm Rate (at threshold)
+        - HSS: Heidke Skill Score (at threshold)
+        - NSE: Nash-Sutcliffe Efficiency
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from monet_stats import stats
+    >>> df = pd.DataFrame({'Obs': [1, 2, 3], 'Mod': [1.1, 1.9, 3.2]})
+    >>> results = stats(df)
+    >>> print(results['MB'])
+    0.06666666666666665
     """
     # Restore legacy parameters filtering logic
     if minval is not None:
@@ -221,25 +246,32 @@ def stats(
             data = data.where(data[obs_name] <= maxval, drop=True)
 
     if isinstance(data, pd.DataFrame):
-        obs = data[obs_name]
-        mod = data[mod_name]
+        obs_s = data[obs_name]
+        mod_s = data[mod_name]
+        obs = obs_s.values
+        mod = mod_s.values
+
         res: Dict[str, Any] = {}
-        res["N"] = obs.dropna().count()
-        res["Obs"] = obs.mean()
-        res["Mod"] = mod.mean()
-        res["MB"] = MB(obs.values, mod.values)
-        res["R"] = pearsonr(obs.values, mod.values)
-        res["IOA"] = IOA(obs.values, mod.values)
-        res["RMSE"] = RMSE(obs.values, mod.values)
-        res["NMB"] = NMB(obs.values, mod.values)
+        res["N"] = obs_s.dropna().count()
+        res["Obs"] = obs_s.mean()
+        res["Mod"] = mod_s.mean()
+        res["MB"] = MB(obs, mod)
+        res["MAE"] = MAE(obs, mod)
+        res["RMSE"] = RMSE(obs, mod)
+        res["R"] = pearsonr(obs, mod)
+        res["IOA"] = IOA(obs, mod)
+        res["NMB"] = NMB(obs, mod)
+        res["MNB"] = MNB(obs, mod)
+        res["NSE"] = NSE(obs, mod)
 
         try:
-            a, b, c, d = scores(obs.values, mod.values, threshold)
-            res["POD"] = a / (a + b) if (a + b) > 0 else 0.0
-            res["FAR"] = c / (a + c) if (a + c) > 0 else 0.0
+            res["POD"] = POD(obs, mod, threshold)
+            res["FAR"] = FAR(obs, mod, threshold)
+            res["HSS"] = HSS(obs, mod, threshold)
         except Exception:
             res["POD"] = np.nan
             res["FAR"] = np.nan
+            res["HSS"] = np.nan
         return res
 
     elif isinstance(data, xr.Dataset):
@@ -252,35 +284,41 @@ def stats(
             "Obs": obs.mean(),
             "Mod": mod.mean(),
             "MB": MB(obs, mod),
+            "MAE": MAE(obs, mod),
+            "RMSE": RMSE(obs, mod),
             "R": pearsonr(obs, mod),
             "IOA": IOA(obs, mod),
-            "RMSE": RMSE(obs, mod),
             "NMB": NMB(obs, mod),
+            "MNB": MNB(obs, mod),
+            "NSE": NSE(obs, mod),
         }
 
-        # Contingency scores
+        # Contingency scores (optional if threshold is valid)
         try:
-            a_l, b_l, c_l, d_l = scores(obs, mod, threshold)
-            metrics_lazy["a"] = a_l
-            metrics_lazy["b"] = b_l
-            metrics_lazy["c"] = c_l
-        except Exception:
-            pass
+            metrics_lazy["POD"] = POD(obs, mod, threshold)
+            metrics_lazy["FAR"] = FAR(obs, mod, threshold)
+            metrics_lazy["HSS"] = HSS(obs, mod, threshold)
+        except (ValueError, TypeError):
+            # If thresholding fails during graph construction
+            metrics_lazy["POD"] = xr.DataArray(np.nan)
+            metrics_lazy["FAR"] = xr.DataArray(np.nan)
+            metrics_lazy["HSS"] = xr.DataArray(np.nan)
 
-        # Single optimized compute call
-        computed = xr.compute(*metrics_lazy.values())
-        results = dict(zip(metrics_lazy.keys(), [v.item() if hasattr(v, "item") else v for v in computed]))
+        # Single optimized compute call using a dummy Dataset to bundle dask graph
+        # This avoids a direct dependency on dask.base.compute
+        ds_lazy = xr.Dataset({k: v for k, v in metrics_lazy.items() if isinstance(v, (xr.DataArray, xr.Dataset))})
+        ds_computed = ds_lazy.compute()
 
-        # Format final output
-        res = {k: results[k] for k in ["N", "Obs", "Mod", "MB", "R", "IOA", "RMSE", "NMB"]}
-        if "a" in results:
-            a, b, c = results["a"], results["b"], results["c"]
-            res["POD"] = a / (a + b) if (a + b) > 0 else 0.0
-            res["FAR"] = c / (a + c) if (a + c) > 0 else 0.0
-        else:
-            res["POD"] = np.nan
-            res["FAR"] = np.nan
-        return res
+        results = {}
+        for k, v in metrics_lazy.items():
+            if k in ds_computed:
+                val = ds_computed[k].values
+                results[k] = val.item() if hasattr(val, "item") else val
+            else:
+                # For non-xarray types (already computed or scalar)
+                results[k] = v.item() if hasattr(v, "item") else v
+
+        return results
 
     else:
         raise TypeError("data must be a pandas DataFrame or xarray Dataset")
