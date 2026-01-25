@@ -7,63 +7,64 @@ have different names in the actual implementation.
 
 from typing import Any
 
+import numpy as np
 from numpy.typing import ArrayLike
 
 
 # Error Metrics - Common aliases expected by tests
 def mean_bias_error(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for MB (Mean Bias)"""
-    from .error_metrics import MB
+    from monet_stats.error_metrics import MB
 
     return MB(obs, mod)
 
 
 def mean_absolute_error(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for MAE (Mean Absolute Error)"""
-    from .error_metrics import MAE
+    from monet_stats.error_metrics import MAE
 
     return MAE(obs, mod)
 
 
 def root_mean_squared_error(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for RMSE (Root Mean Square Error)"""
-    from .error_metrics import RMSE
+    from monet_stats.error_metrics import RMSE
 
     return RMSE(obs, mod)
 
 
 def normalized_mean_bias_error(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for NMB (Normalized Mean Bias)"""
-    from .error_metrics import MNB
+    from monet_stats.relative_metrics import NMB
 
-    return MNB(obs, mod)
+    return NMB(obs, mod)
 
 
 def normalized_mean_absolute_error(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for NMAE calculation"""
-    from .error_metrics import MAE, MO
+    from monet_stats.error_metrics import MAE
 
-    return MAE(obs, mod) / abs(MO(obs, mod))
+    return MAE(obs, mod) / np.mean(np.abs(obs))
 
 
 # Correlation Metrics - Common aliases expected by tests
 def pearson_correlation(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for pearsonr (Pearson correlation)"""
-    from .correlation_metrics import pearsonr
+    from monet_stats.correlation_metrics import pearsonr
 
     return pearsonr(obs, mod)
 
 
 def spearman_correlation(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for spearmanr (Spearman correlation)"""
-    from .correlation_metrics import spearmanr
+    from monet_stats.correlation_metrics import spearmanr
 
     return spearmanr(obs, mod)
 
 
 def coefficient_of_determination(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for R2 (Coefficient of Determination)"""
-    from .correlation_metrics import R2
+    from monet_stats.correlation_metrics import R2
 
     return R2(obs, mod)
 
@@ -71,42 +72,42 @@ def coefficient_of_determination(obs: ArrayLike, mod: ArrayLike) -> Any:
 # Contingency Metrics - Common aliases expected by tests
 def hit_rate(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for POD (Probability of Detection)"""
-    from .contingency_metrics import POD
+    from monet_stats.contingency_metrics import POD
 
     return POD(obs, mod, 0.5)
 
 
 def false_alarm_rate(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for FAR (False Alarm Rate)"""
-    from .contingency_metrics import FAR
+    from monet_stats.contingency_metrics import FAR
 
     return FAR(obs, mod, 0.5)
 
 
 def critical_success_index(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for CSI (Critical Success Index)"""
-    from .contingency_metrics import CSI
+    from monet_stats.contingency_metrics import CSI
 
     return CSI(obs, mod, 0.5)
 
 
 def equitable_threat_score(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for ETS (Equitable Threat Score)"""
-    from .contingency_metrics import ETS
+    from monet_stats.contingency_metrics import ETS
 
     return ETS(obs, mod, 0.5)
 
 
 def peirce_skill_score(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for TSS (True Skill Statistic)"""
-    from .contingency_metrics import TSS
+    from monet_stats.contingency_metrics import TSS
 
     return TSS(obs, mod, 0.5)
 
 
 def heidke_skill_score(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for HSS (Heidke Skill Score)"""
-    from .contingency_metrics import HSS
+    from monet_stats.contingency_metrics import HSS
 
     return HSS(obs, mod, 0.5)
 
@@ -114,14 +115,14 @@ def heidke_skill_score(obs: ArrayLike, mod: ArrayLike) -> Any:
 # Efficiency Metrics - Common aliases expected by tests
 def index_of_agreement(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for IOA (Index of Agreement)"""
-    from .correlation_metrics import IOA
+    from monet_stats.correlation_metrics import IOA
 
     return IOA(obs, mod)
 
 
 def modified_index_of_agreement(obs: ArrayLike, mod: ArrayLike) -> Any:
     """Alias for d1 (Modified Index of Agreement)"""
-    from .correlation_metrics import d1
+    from monet_stats.correlation_metrics import d1
 
     return d1(obs, mod)
 

@@ -77,6 +77,7 @@ def R2(
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
             output_dtypes=[float],
         )
         # Update history
@@ -340,6 +341,7 @@ def RMSEs(
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
             output_dtypes=[float],
         )
         # Update history
@@ -486,6 +488,7 @@ def RMSEu(
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
             output_dtypes=[float],
         )
         # Update history
@@ -1304,6 +1307,7 @@ def pearsonr(
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
             output_dtypes=[float],
         )
         # Update history
@@ -1386,6 +1390,7 @@ def spearmanr(
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
             output_dtypes=[float],
         )
         # Update history
@@ -1481,6 +1486,7 @@ def kendalltau(
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
             output_dtypes=[float],
         )
         # Update history

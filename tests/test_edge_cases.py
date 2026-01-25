@@ -4,8 +4,7 @@ Edge case testing for robust error handling and boundary conditions.
 
 import numpy as np
 import pytest
-
-from monet_stats.test_aliases import (
+from test_aliases import (
     coefficient_of_determination,
     critical_success_index,
     equitable_threat_score,

@@ -8,6 +8,7 @@ probability of detection, false alarm rate, threat score, etc.
 import numpy as np
 import pytest
 import xarray as xr
+from test_utils import TestDataGenerator
 
 from monet_stats.contingency_metrics import (
     CSI,  # Critical Success Index
@@ -24,7 +25,6 @@ from monet_stats.contingency_metrics import (
     POD_max_threshold,
     scores,  # Contingency table function
 )
-from monet_stats.test_utils import TestDataGenerator
 
 
 class TestContingencyMetrics:
