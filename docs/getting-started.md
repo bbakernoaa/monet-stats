@@ -257,6 +257,53 @@ print(f"  Fractions Skill Score: {fss:.3f}")
 print(f"  SAL - Structure: {sal_s:.3f}, Amplitude: {sal_a:.3f}, Location: {sal_l:.3f}")
 ```
 
+## Advanced Analysis Methods
+
+### 1. Kolmogorov-Zurbenko (KZ) Filter
+
+The KZ filter is a low-pass filter widely used in air quality analysis to separate different time scales.
+
+```python
+# Separate long-term trend from daily variations
+filtered_data = ms.kz_filter(observed_temps, m=5, k=3)
+```
+
+### 2. Air Quality Metrics (MDA8)
+
+Maximum Daily 8-hour Average (MDA8) is a standard regulatory metric for ozone.
+
+```python
+# Assuming hourly ozone data
+mda8_ozone = ms.mda8(hourly_ozone_da)
+```
+
+### 3. Climatology and Diurnal Cycle
+
+```python
+# Compute monthly climatology
+monthly_climo = ms.climatology(obs_da, freq="month")
+
+# Compute average hourly profile
+diurnal = ms.diurnal_cycle(obs_da)
+```
+
+### 4. Weighted Spatial Mean
+
+For global or regional lat/lon grids, area-weighting (cos(lat)) is crucial.
+
+```python
+spatial_mean = ms.weighted_spatial_mean(da_2d, lat_dim="lat", lon_dim="lon")
+```
+
+### 5. FFT Analysis
+
+Fast Fourier Transform (FFT) analysis for periodicities and spectral decomposition.
+
+```python
+# Compute Power Spectral Density
+psd = ms.fft_analysis(obs_da, dim="time", output="psd")
+```
+
 ## Wind Direction Analysis
 
 ### Specialized Wind Metrics

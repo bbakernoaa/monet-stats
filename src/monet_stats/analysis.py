@@ -3,7 +3,7 @@ Advanced analysis methods for weather and air quality (Aero Protocol Compliant).
 """
 
 import warnings
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 import numpy as np
 import pandas as pd
@@ -446,3 +446,71 @@ def weighted_spatial_mean(
     weighted_data = data.weighted(weights)
     res = weighted_data.mean(dim=(lat_dim, lon_dim))
     return _update_history(res, "Weighted spatial mean")
+
+
+def fft_analysis(
+    data: xr.DataArray,
+    dim: str = "time",
+    output: str = "psd",
+) -> xr.DataArray:
+    """
+    Perform Fast Fourier Transform (FFT) analysis (Aero Protocol).
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        Input data.
+    dim : str, optional
+        Dimension along which to perform FFT. Default is 'time'.
+    output : str, optional
+        Type of output to return:
+        - 'psd': Power Spectral Density (magnitude squared of FFT).
+        - 'magnitude': Magnitude of FFT.
+        - 'complex': Complex FFT results.
+        Default is 'psd'.
+
+    Returns
+    -------
+    xarray.DataArray
+        FFT results. The coordinate for 'dim' is replaced by frequency indices.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> t = np.linspace(0, 10, 100)
+    >>> signal = np.sin(2 * np.pi * 1.5 * t)  # 1.5 Hz signal
+    >>> da = xr.DataArray(signal, coords={"time": t}, dims="time")
+    >>> psd = fft_analysis(da, dim="time", output="psd")
+    """
+
+    def _fft_wrapper(x):
+        return np.fft.fft(x, axis=-1)
+
+    # Core dimensions for apply_ufunc must be a single chunk if using dask
+    if hasattr(data.data, "chunks"):
+        data = data.chunk({dim: -1})
+
+    res_complex = xr.apply_ufunc(
+        _fft_wrapper,
+        data,
+        input_core_dims=[[dim]],
+        output_core_dims=[[dim]],
+        dask="parallelized",
+        output_dtypes=[np.complex128],
+    )
+
+    if output == "complex":
+        res = res_complex
+    elif output == "magnitude":
+        res = np.abs(res_complex)
+    elif output == "psd":
+        res = np.abs(res_complex) ** 2
+    else:
+        raise ValueError(f"Unknown output type: {output}")
+
+    # Update coordinate to frequency index
+    n = data.sizes[dim]
+    res = res.assign_coords({dim: np.arange(n)})
+
+    return _update_history(res, f"FFT analysis (output={output})")

@@ -12,6 +12,7 @@ nav:
   - System Integration: system-integration.md
   - API:
     - Overview: api/overview.md
+    - Analysis: api/analysis.md
     - Benchmarks: api/benchmarks.md
     - Contingency Metrics: api/contingency-metrics.md
     - Correlation Metrics: api/correlation-metrics.md

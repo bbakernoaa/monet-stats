@@ -13,6 +13,7 @@ from .analysis import (
     climatology,
     diurnal_cycle,
     exceedance_count,
+    fft_analysis,
     kz_filter,
     mda8,
     peak_timing,
@@ -101,6 +102,7 @@ __all__ = [
     "percentile",
     "peak_timing",
     "weighted_spatial_mean",
+    "fft_analysis",
     # contingency_metrics
     "CSI",
     "ETS",

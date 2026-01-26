@@ -7,6 +7,7 @@ from monet_stats.analysis import (
     climatology,
     diurnal_cycle,
     exceedance_count,
+    fft_analysis,
     kz_filter,
     mda8,
     peak_timing,
@@ -75,7 +76,11 @@ def test_climatology(lazy):
     assert len(res.month) == 12
 
     # Check January mean
-    jan_mean = da.where(da.time.dt.month == 1, drop=True).mean().compute() if lazy else da.where(da.time.dt.month == 1, drop=True).mean()
+    jan_mean = (
+        da.where(da.time.dt.month == 1, drop=True).mean().compute()
+        if lazy
+        else da.where(da.time.dt.month == 1, drop=True).mean()
+    )
     assert np.isclose(res.sel(month=1), jan_mean)
 
     # Seasonal climatology
@@ -229,16 +234,8 @@ def test_weighted_spatial_mean(lazy):
 
     lats = np.array([-60, 0, 60])
     lons = np.array([0, 120, 240])
-    data = np.array([
-        [1, 1, 1],
-        [2, 2, 2],
-        [1, 1, 1]
-    ])
-    da = xr.DataArray(
-        data,
-        coords={"lat": lats, "lon": lons},
-        dims=("lat", "lon")
-    )
+    data = np.array([[1, 1, 1], [2, 2, 2], [1, 1, 1]])
+    da = xr.DataArray(data, coords={"lat": lats, "lon": lons}, dims=("lat", "lon"))
     if lazy:
         da = da.chunk({"lat": 1})
 
@@ -247,3 +244,40 @@ def test_weighted_spatial_mean(lazy):
         assert hasattr(res.data, "chunks")
         res = res.compute()
     assert np.isclose(float(res), 1.5)
+
+
+@pytest.mark.parametrize("lazy", [False, True])
+def test_fft_analysis(lazy):
+    if lazy and not HAS_DASK:
+        pytest.skip("Dask not available")
+
+    t = np.linspace(0, 1, 100)
+    # 10 Hz signal
+    data = np.sin(2 * np.pi * 10 * t)
+    da = xr.DataArray(data, coords={"time": t}, dims="time")
+
+    if lazy:
+        da = da.chunk({"time": 50})
+
+    # Test PSD
+    psd = fft_analysis(da, dim="time", output="psd")
+    if lazy:
+        assert hasattr(psd.data, "chunks")
+        psd = psd.compute()
+
+    assert psd.dims == ("time",)
+    assert psd.size == 100
+    # Peak should be at frequency index 10 (for 1 second duration)
+    assert np.argmax(psd.values) == 10
+
+    # Test Magnitude
+    mag = fft_analysis(da, dim="time", output="magnitude")
+    if lazy:
+        mag = mag.compute()
+    assert np.allclose(mag, np.sqrt(psd))
+
+    # Test Complex
+    comp = fft_analysis(da, dim="time", output="complex")
+    if lazy:
+        comp = comp.compute()
+    assert np.iscomplexobj(comp.values)
