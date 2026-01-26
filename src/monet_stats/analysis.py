@@ -3,7 +3,7 @@ Advanced analysis methods for weather and air quality (Aero Protocol Compliant).
 """
 
 import warnings
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -514,3 +514,82 @@ def fft_analysis(
     res = res.assign_coords({dim: np.arange(n)})
 
     return _update_history(res, f"FFT analysis (output={output})")
+
+
+def power_spectrum(
+    data: xr.DataArray,
+    dim: str = "time",
+    fs: float = 1.0,
+    window: str = "hann",
+    nperseg: Optional[int] = None,
+    **kwargs: Any,
+) -> xr.DataArray:
+    """
+    Compute power spectrum using Welch's method (Aero Protocol).
+
+    Welch's method computes an estimate of the power spectral density by
+    dividing the data into overlapping segments, computing a periodogram for
+    each segment and averaging the results.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        Input data.
+    dim : str, optional
+        Dimension along which to compute the spectrum. Default is 'time'.
+    fs : float, optional
+        Sampling frequency. Default is 1.0.
+    window : str, optional
+        Desired window to use. Default is 'hann'.
+    nperseg : int, optional
+        Length of each segment. Default is None (256).
+    **kwargs : Any
+        Additional keyword arguments passed to scipy.signal.welch.
+
+    Returns
+    -------
+    xarray.DataArray
+        Power spectral density. The 'dim' dimension is replaced by 'frequency'.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> t = np.linspace(0, 100, 1000)
+    >>> signal = np.sin(2 * np.pi * 0.1 * t) + np.random.randn(1000) * 2
+    >>> da = xr.DataArray(signal, coords={"time": t}, dims="time")
+    >>> psd = power_spectrum(da, dim="time", fs=10.0)
+    """
+    from scipy.signal import welch
+
+    # Core dimensions for apply_ufunc must be a single chunk if using dask
+    if hasattr(data.data, "chunks"):
+        data = data.chunk({dim: -1})
+
+    def _welch_wrapper(x, fs, window, nperseg, **kwargs):
+        f, psd = welch(x, fs=fs, window=window, nperseg=nperseg, axis=-1, **kwargs)
+        return psd
+
+    # Get the number of frequency bins to set output_core_dims size
+    # For real FFT, it's nperseg // 2 + 1
+    if nperseg is None:
+        nperseg = min(data.sizes[dim], 256)
+
+    n_freq = nperseg // 2 + 1
+
+    res = xr.apply_ufunc(
+        _welch_wrapper,
+        data,
+        input_core_dims=[[dim]],
+        output_core_dims=[["frequency"]],
+        kwargs={"fs": fs, "window": window, "nperseg": nperseg, **kwargs},
+        dask="parallelized",
+        output_dtypes=[data.dtype],
+        dask_gufunc_kwargs={"output_sizes": {"frequency": n_freq}},
+    )
+
+    # Assign frequency coordinates
+    freqs = np.fft.rfftfreq(nperseg, d=1.0 / fs)
+    res = res.assign_coords(frequency=freqs)
+
+    return _update_history(res, "Power spectrum (Welch method)")

@@ -304,6 +304,15 @@ Fast Fourier Transform (FFT) analysis for periodicities and spectral decompositi
 psd = ms.fft_analysis(obs_da, dim="time", output="psd")
 ```
 
+### 6. Power Spectrum (Welch's Method)
+
+For smoother spectral estimates, use Welch's method.
+
+```python
+# Compute Power Spectrum using Welch's method
+psd_smooth = ms.power_spectrum(obs_da, dim="time", fs=1.0, nperseg=256)
+```
+
 ## Wind Direction Analysis
 
 ### Specialized Wind Metrics

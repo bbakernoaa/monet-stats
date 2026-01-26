@@ -18,6 +18,7 @@ from .analysis import (
     mda8,
     peak_timing,
     percentile,
+    power_spectrum,
     resample_data,
     rolling_mean_8h,
     rolling_mean_24h,
@@ -103,6 +104,7 @@ __all__ = [
     "peak_timing",
     "weighted_spatial_mean",
     "fft_analysis",
+    "power_spectrum",
     # contingency_metrics
     "CSI",
     "ETS",

@@ -12,6 +12,7 @@ from monet_stats.analysis import (
     mda8,
     peak_timing,
     percentile,
+    power_spectrum,
     resample_data,
     rolling_mean_8h,
     rolling_mean_24h,
@@ -281,3 +282,32 @@ def test_fft_analysis(lazy):
     if lazy:
         comp = comp.compute()
     assert np.iscomplexobj(comp.values)
+
+
+@pytest.mark.parametrize("lazy", [False, True])
+def test_power_spectrum(lazy):
+    if lazy and not HAS_DASK:
+        pytest.skip("Dask not available")
+
+    t = np.linspace(0, 10, 1000)
+    # 5 Hz signal
+    data = np.sin(2 * np.pi * 5 * t)
+    da = xr.DataArray(data, coords={"time": t}, dims="time")
+
+    if lazy:
+        da = da.chunk({"time": 250})
+
+    # Sampling frequency is 100 Hz (1000 points over 10 seconds)
+    fs = 100.0
+    nperseg = 200
+    psd = power_spectrum(da, dim="time", fs=fs, nperseg=nperseg)
+
+    if lazy:
+        assert hasattr(psd.data, "chunks")
+        psd = psd.compute()
+
+    assert psd.dims == ("frequency",)
+    assert psd.size == nperseg // 2 + 1
+    # Peak should be at 5 Hz
+    peak_freq = psd.frequency[np.argmax(psd.values)]
+    assert np.isclose(peak_freq, 5.0)
