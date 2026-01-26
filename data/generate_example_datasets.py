@@ -16,7 +16,6 @@ import xarray as xr
 
 def generate_temperature_data(n_years: int = 10, n_stations: int = 10, n_ensemble_members: int = 10) -> Dict[str, Any]:
     """Generate synthetic temperature data for model-observation comparison."""
-
     # Time dimension
     start_date = datetime(2010, 1, 1)
     end_date = datetime(2010 + n_years, 1, 1)
@@ -97,7 +96,6 @@ def generate_temperature_data(n_years: int = 10, n_stations: int = 10, n_ensembl
 
 def generate_precipitation_data(n_years: int = 10, n_stations: int = 10) -> Dict[str, Any]:
     """Generate synthetic precipitation data for contingency analysis."""
-
     start_date = datetime(2010, 1, 1)
     end_date = datetime(2010 + n_years, 1, 1)
     dates = pd.date_range(start=start_date, end=end_date, freq="D")
@@ -171,7 +169,6 @@ def generate_precipitation_data(n_years: int = 10, n_stations: int = 10) -> Dict
 
 def generate_wind_data(n_years: int = 5, n_stations: int = 5) -> Dict[str, Any]:
     """Generate synthetic wind data with direction and speed."""
-
     start_date = datetime(2015, 1, 1)
     end_date = datetime(2015 + n_years, 1, 1)
     dates = pd.date_range(start=start_date, end=end_date, freq="H")  # Hourly data
@@ -259,7 +256,6 @@ def generate_wind_data(n_years: int = 5, n_stations: int = 5) -> Dict[str, Any]:
 
 def generate_spatial_data() -> Dict[str, Any]:
     """Generate synthetic spatial data for spatial verification metrics."""
-
     # Define spatial grid
     lat_range = (30, 50)
     lon_range = (-120, -70)
@@ -336,7 +332,6 @@ def generate_spatial_data() -> Dict[str, Any]:
 
 def save_datasets() -> None:
     """Generate and save all example datasets."""
-
     print("Generating temperature dataset...")
     temp_data = generate_temperature_data()
     temp_data["temp_df"].to_csv("data/temperature_obs_mod.csv", index=False)
@@ -359,10 +354,10 @@ def save_datasets() -> None:
     # Create summary file
     summary = f"""
 Dataset Summary:
-- Temperature: {len(temp_data['dates'])} days, {len(temp_data['stations'])} stations
-- Precipitation: {len(precip_data['dates'])} days, {len(precip_data['stations'])} stations
-- Wind: {len(wind_data['dates'])} hours, {len(wind_data['stations'])} stations
-- Spatial: {len(spatial_data['dates'])} days, {len(spatial_data['lats'])}x{len(spatial_data['lons'])} grid
+- Temperature: {len(temp_data["dates"])} days, {len(temp_data["stations"])} stations
+- Precipitation: {len(precip_data["dates"])} days, {len(precip_data["stations"])} stations
+- Wind: {len(wind_data["dates"])} hours, {len(wind_data["stations"])} stations
+- Spatial: {len(spatial_data["dates"])} days, {len(spatial_data["lats"])}x{len(spatial_data["lons"])} grid
 
 Files created:
 - data/temperature_obs_mod.csv

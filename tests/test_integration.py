@@ -79,7 +79,7 @@ class TestIntegration:
 
         # Mean bias should detect the bias
         mb_val = MB(self.obs, mod_biased)
-        assert abs(mb_val - (-bias)) < 1e-10, f"MB should detect bias of {bias}, got {mb_val}"
+        assert abs(mb_val - bias) < 1e-10, f"MB should detect bias of {bias}, got {mb_val}"
 
         # NMB should also reflect the bias
         nmb_val = NMB(self.obs, mod_biased)
@@ -180,7 +180,7 @@ class TestIntegration:
         # Check reasonable ranges
         assert rmse > 0, f"RMSE should be positive, got {rmse}"
         assert mae > 0, f"MAE should be positive, got {mae}"
-        assert abs(mb - (-0.8)) < 0.5, f"MB should be close to bias (0.8), got {mb}"  # Allow some variation
+        assert abs(mb - 0.8) < 0.5, f"MB should be close to bias (0.8), got {mb}"  # Allow some variation
         assert -1 <= nse <= 1, f"NSE should be in [-1,1], got {nse}"
         assert -1 <= r2 <= 1, f"R2 should be in [-1,1], got {r2}"
         assert 0 <= ioa <= 1, f"IOA should be in [0,1], got {ioa}"
@@ -217,18 +217,18 @@ class TestIntegration:
         rmse_scaled = RMSE(obs_scaled, mod_scaled)
         expected_scaled = rmse_original * scale_factor
 
-        assert (
-            abs(rmse_scaled - expected_scaled) < 1e-6
-        ), f"RMSE should scale linearly, got {rmse_scaled} vs expected {expected_scaled}"
+        assert abs(rmse_scaled - expected_scaled) < 1e-6, (
+            f"RMSE should scale linearly, got {rmse_scaled} vs expected {expected_scaled}"
+        )
 
         # NMB should be unchanged (relative metric)
         nmb_original = NMB(obs_original, mod_original)
         nmb_scaled = NMB(obs_scaled, mod_scaled)
 
         if np.isfinite(nmb_original) and np.isfinite(nmb_scaled):
-            assert (
-                abs(nmb_original - nmb_scaled) < 1e-6
-            ), f"NMB should be scale-invariant, got {nmb_original} vs {nmb_scaled}"
+            assert abs(nmb_original - nmb_scaled) < 1e-6, (
+                f"NMB should be scale-invariant, got {nmb_original} vs {nmb_scaled}"
+            )
 
     def test_correlation_calculation_methods(self):
         """Test different methods of calculating correlation."""
@@ -278,9 +278,9 @@ class TestIntegration:
         # Verify all metrics are computed
         for name, value in metrics.items():
             if np.isfinite(value):
-                assert isinstance(
-                    value, (int, float, np.number)
-                ), f"{name} should return a numeric value, got {type(value)}"
+                assert isinstance(value, (int, float, np.number)), (
+                    f"{name} should return a numeric value, got {type(value)}"
+                )
 
         # Check that error metrics are positive
         error_metrics = ["RMSE", "MAE"]

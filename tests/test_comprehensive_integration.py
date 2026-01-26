@@ -7,8 +7,7 @@ import numpy as np
 import pytest
 import xarray as xr
 from pytest_benchmark.fixture import BenchmarkFixture
-
-from monet_stats.test_aliases import (
+from test_aliases import (
     coefficient_of_determination,
     critical_success_index,
     false_alarm_rate,
@@ -19,7 +18,7 @@ from monet_stats.test_aliases import (
     pearson_correlation,
     root_mean_squared_error,
 )
-from monet_stats.test_utils import TestDataGenerator
+from test_utils import TestDataGenerator
 
 
 class TestModuleInteractions:

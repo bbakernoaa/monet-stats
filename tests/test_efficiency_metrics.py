@@ -174,9 +174,9 @@ class TestEfficiencyMetrics:
     def test_efficiency_metrics_output_type_parametrized(self, metric_func):
         """Test that efficiency metrics return appropriate values."""
         result = metric_func(self.obs_random, self.mod_random)
-        assert isinstance(
-            result, (float, np.floating, int, np.integer)
-        ), f"{metric_func.__name__} should return a numeric value, got {type(result)}"
+        assert isinstance(result, (float, np.floating, int, np.integer)), (
+            f"{metric_func.__name__} should return a numeric value, got {type(result)}"
+        )
 
     @pytest.mark.unit
     def test_efficiency_metrics_mathematical_correctness(self):
@@ -207,9 +207,9 @@ class TestEfficiencyMetrics:
         # Should handle NaN gracefully (depends on implementation)
         for metric_func in [NSE, MSE, MAE, MAPE]:
             result = metric_func(obs_nan, mod_nan)
-            assert isinstance(
-                result, (float, np.floating)
-            ), f"{metric_func.__name__} should handle NaN gracefully, got {type(result)}"
+            assert isinstance(result, (float, np.floating)), (
+                f"{metric_func.__name__} should handle NaN gracefully, got {type(result)}"
+            )
 
     @pytest.mark.unit
     def test_inf_handling(self):
@@ -220,9 +220,9 @@ class TestEfficiencyMetrics:
         # Should handle infinity gracefully
         for metric_func in [NSE, MAE]:
             result = metric_func(obs_inf, mod_inf)
-            assert isinstance(
-                result, (float, np.floating, np.ma.core.MaskedConstant)
-            ), f"{metric_func.__name__} should handle infinity gracefully, got {type(result)}"
+            assert isinstance(result, (float, np.floating, np.ma.core.MaskedConstant)), (
+                f"{metric_func.__name__} should handle infinity gracefully, got {type(result)}"
+            )
 
     @pytest.mark.unit
     def test_empty_arrays(self):
@@ -234,9 +234,9 @@ class TestEfficiencyMetrics:
         for metric_func in [MSE, MAE]:
             result = metric_func(obs_empty, mod_empty)
             # Empty arrays should return NaN or similar indicator
-            assert np.isnan(result) or np.ma.is_masked(
-                result
-            ), f"{metric_func.__name__} should handle empty arrays gracefully, got {result}"
+            assert np.isnan(result) or np.ma.is_masked(result), (
+                f"{metric_func.__name__} should handle empty arrays gracefully, got {result}"
+            )
 
     @pytest.mark.unit
     def test_single_value_arrays(self):
@@ -246,24 +246,24 @@ class TestEfficiencyMetrics:
 
         for metric_func in [NSE, MSE, MAE]:
             result = metric_func(obs_single, mod_single)
-            assert isinstance(
-                result, (float, np.floating)
-            ), f"{metric_func.__name__} should handle single values, got {type(result)}"
+            assert isinstance(result, (float, np.floating)), (
+                f"{metric_func.__name__} should handle single values, got {type(result)}"
+            )
 
     @pytest.mark.xarray
     def test_xarray_dataarray_input(self):
         """Test that functions work with xarray DataArray inputs."""
         # Test NSE with xarray
         result = NSE(self.obs_xr, self.mod_xr)
-        assert isinstance(
-            result, (float, np.floating, xr.DataArray)
-        ), f"NSE should work with xarray inputs, got {type(result)}"
+        assert isinstance(result, (float, np.floating, xr.DataArray)), (
+            f"NSE should work with xarray inputs, got {type(result)}"
+        )
 
         # Test MSE with xarray
         result = MSE(self.obs_xr, self.mod_xr)
-        assert isinstance(
-            result, (float, np.floating, xr.DataArray)
-        ), f"MSE should work with xarray inputs, got {type(result)}"
+        assert isinstance(result, (float, np.floating, xr.DataArray)), (
+            f"MSE should work with xarray inputs, got {type(result)}"
+        )
 
     @pytest.mark.xarray
     def test_xarray_alignment(self):
@@ -341,9 +341,9 @@ class TestEfficiencyMetrics:
         for metric_func in [MAE, MSE]:
             result = metric_func(obs_2d, mod_2d, axis=axis)
             if axis is None:
-                assert (
-                    np.isscalar(result) or result.shape == ()
-                ), f"{metric_func.__name__} with axis=None should return scalar"
+                assert np.isscalar(result) or result.shape == (), (
+                    f"{metric_func.__name__} with axis=None should return scalar"
+                )
             else:
                 expected_shape = obs_2d.shape[:axis] + obs_2d.shape[axis + 1 :]  # noqa: E203  # noqa: E203
                 assert result.shape == expected_shape, f"{metric_func.__name__} result shape mismatch"
@@ -452,9 +452,9 @@ class TestEfficiencyMetricsEdgeCases:
 
         for metric_func in [NSE, MSE, MAE]:
             result = metric_func(obs, mod)
-            assert isinstance(
-                result, (float, np.floating)
-            ), f"{metric_func.__name__} should handle negative values, got {type(result)}"
+            assert isinstance(result, (float, np.floating)), (
+                f"{metric_func.__name__} should handle negative values, got {type(result)}"
+            )
 
     def test_large_arrays_memory_efficiency(self):
         """Test memory efficiency with large arrays."""

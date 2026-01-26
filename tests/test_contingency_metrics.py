@@ -8,18 +8,23 @@ probability of detection, false alarm rate, threat score, etc.
 import numpy as np
 import pytest
 import xarray as xr
+from test_utils import TestDataGenerator
 
-from monet_stats.contingency_metrics import CSI  # Critical Success Index
-from monet_stats.contingency_metrics import ETS  # Equitable Threat Score
-from monet_stats.contingency_metrics import FAR  # False Alarm Rate
-from monet_stats.contingency_metrics import FBI  # Frequency Bias Index
-from monet_stats.contingency_metrics import HSS  # Heidke Skill Score
-from monet_stats.contingency_metrics import POD  # Probability of Detection
-from monet_stats.contingency_metrics import TSS  # True Skill Statistic
-from monet_stats.contingency_metrics import BSS_binary  # Binary Brier Skill Score
-from monet_stats.contingency_metrics import scores  # Contingency table function
-from monet_stats.contingency_metrics import ETS_max_threshold, FAR_min_threshold, HSS_max_threshold, POD_max_threshold
-from monet_stats.test_utils import TestDataGenerator
+from monet_stats.contingency_metrics import (
+    CSI,  # Critical Success Index
+    ETS,  # Equitable Threat Score
+    FAR,  # False Alarm Rate
+    FBI,  # Frequency Bias Index
+    HSS,  # Heidke Skill Score
+    POD,  # Probability of Detection
+    TSS,  # True Skill Statistic
+    BSS_binary,  # Binary Brier Skill Score
+    ETS_max_threshold,
+    FAR_min_threshold,
+    HSS_max_threshold,
+    POD_max_threshold,
+    scores,  # Contingency table function
+)
 
 
 class TestContingencyMetrics:

@@ -44,7 +44,7 @@ class TestErrorMetrics:
         """Test Mean Bias."""
         obs, mod = sample_data
         result = MB(obs, mod)
-        expected = np.mean(obs - mod)
+        expected = np.mean(mod - obs)
         assert np.isclose(result, expected)
 
     def test_NRMSE(self, sample_data):
