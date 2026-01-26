@@ -5,10 +5,9 @@ Error Metrics for Model Evaluation
 from typing import Iterable, Optional, Union
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 
-from .utils_stats import circlebias, circlebias_m, matchmasks
+from .utils_stats import _update_history, circlebias, circlebias_m, matchmasks
 
 ############################################################
 # 1. Basic Error Metrics
@@ -57,10 +56,7 @@ def STDO(
         else:
             dim = axis
         result = errors.std(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"STDO computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "STDO")
 
     # Fallback to numpy-compatible logic
     errors = np.subtract(obs, mod)
@@ -109,10 +105,7 @@ def STDP(
         else:
             dim = axis
         result = errors.std(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"STDP computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "STDP")
 
     # Fallback to numpy-compatible logic
     errors = np.subtract(mod, obs)
@@ -149,12 +142,34 @@ def MNB(
         else:
             dim = axis
         result = ((mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
-        # Update history
-        history = f"MNB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MNB")
     else:
         return np.ma.masked_invalid((mod - obs) / obs).mean(axis=axis) * 100.0
+
+
+def MNB_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Mean Normalized Bias (%, robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the bias.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean normalized bias (percent).
+    """
+    return MNB(obs, mod, axis=axis)
 
 
 def MNE(
@@ -187,12 +202,34 @@ def MNE(
         else:
             dim = axis
         result = (abs(mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
-        # Update history
-        history = f"MNE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MNE")
     else:
         return np.ma.masked_invalid(np.ma.abs(mod - obs) / obs).mean(axis=axis) * 100.0
+
+
+def MNE_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Mean Normalized Gross Error (%, robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the error.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean normalized gross error (percent).
+    """
+    return MNE(obs, mod, axis=axis)
 
 
 def MdnNB(
@@ -232,10 +269,7 @@ def MdnNB(
         else:
             dim = axis
         result = ((mod - obs) / obs).median(dim=dim, keep_attrs=True) * 100.0
-        # Update history
-        history = f"MdnNB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MdnNB")
     else:
         return np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
 
@@ -277,10 +311,7 @@ def MdnNE(
         else:
             dim = axis
         result = (abs(mod - obs) / obs).median(dim=dim, keep_attrs=True) * 100.0
-        # Update history
-        history = f"MdnNE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MdnNE")
     else:
         return np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=axis) * 100.0
 
@@ -331,10 +362,7 @@ def NMdnGE(
         else:
             dim = axis
         result = (abs(mod - obs).median(dim=dim) / obs.mean(dim=dim)) * 100.0
-        # Update history
-        history = f"NMdnGE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NMdnGE")
     else:
         return np.ma.masked_invalid(np.ma.median(np.ma.abs(mod - obs), axis=axis) / np.ma.mean(obs, axis=axis)) * 100.0
 
@@ -507,12 +535,37 @@ def MO(
         else:
             dim = axis
         result = (mod - obs).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MO computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MO")
     else:
         return np.mean(np.subtract(mod, obs), axis=axis)
+
+
+def MO_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Mean Error (MO, robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the mean error.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean error (model - observation).
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        return MO(obs, mod, axis=axis)
+    else:
+        return np.ma.mean(np.subtract(mod, obs), axis=axis)
 
 
 def MP(
@@ -551,10 +604,7 @@ def MP(
         else:
             dim = axis
         result = mod.mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MP computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MP")
     else:
         return np.mean(mod, axis=axis)
 
@@ -605,12 +655,37 @@ def MdnO(
         else:
             dim = axis
         result = (mod - obs).median(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MdnO computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MdnO")
     else:
         return np.median(np.subtract(mod, obs), axis=axis)
+
+
+def MdnO_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Median Error (MdnO, robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the median error.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Median error (model - observation).
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        return MdnO(obs, mod, axis=axis)
+    else:
+        return np.ma.median(np.subtract(mod, obs), axis=axis)
 
 
 def MdnP(
@@ -644,10 +719,7 @@ def MdnP(
         else:
             dim = axis
         result = (mod - obs).median(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MdnP computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MdnP")
     else:
         return np.median(np.subtract(mod, obs), axis=axis)
 
@@ -683,10 +755,7 @@ def RM(
         else:
             dim = axis
         result = np.sqrt(((obs - mod) ** 2).mean(dim=dim, keep_attrs=True))
-        # Update history
-        history = f"RM computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "RM")
     else:
         return np.sqrt(np.mean((np.subtract(obs, mod)) ** 2, axis=axis))
 
@@ -722,10 +791,7 @@ def RMdn(
         else:
             dim = axis
         result = np.sqrt(((obs - mod) ** 2).median(dim=dim, keep_attrs=True))
-        # Update history
-        history = f"RMdn computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "RMdn")
     else:
         squared_errors = (np.subtract(obs, mod)) ** 2
         return np.sqrt(np.median(squared_errors, axis=axis))
@@ -762,12 +828,34 @@ def MB(
         else:
             dim = axis
         result = (mod - obs).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MB")
     else:
         return np.ma.mean(np.subtract(mod, obs), axis=axis)
+
+
+def MB_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Mean Bias (MB, robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the mean bias.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean bias value(s) = mean(model - observation).
+    """
+    return MB(obs, mod, axis=axis)
 
 
 def MdnB(
@@ -801,12 +889,34 @@ def MdnB(
         else:
             dim = axis
         result = (mod - obs).median(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MdnB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MdnB")
     else:
         return np.ma.median(np.subtract(mod, obs), axis=axis)
+
+
+def MdnB_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Median Bias (MdnB, robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the median bias.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Median bias value(s) = median(model - observation).
+    """
+    return MdnB(obs, mod, axis=axis)
 
 
 def WDMB_m(
@@ -842,10 +952,7 @@ def WDMB_m(
         else:
             dim = axis
         result = circlebias_m(mod - obs).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"WDMB_m computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "WDMB_m")
     else:
         return np.ma.mean(circlebias_m(np.subtract(mod, obs)), axis=axis)
 
@@ -883,10 +990,7 @@ def WDMB(
         else:
             dim = axis
         result = circlebias(mod - obs).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"WDMB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "WDMB")
     else:
         return np.ma.mean(circlebias(np.subtract(mod, obs)), axis=axis)
 
@@ -921,10 +1025,7 @@ def WDMdnB(
         else:
             dim = axis
         result = circlebias(mod - obs).median(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"WDMdnB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "WDMdnB")
     else:
         return np.ma.median(circlebias(np.subtract(mod, obs)), axis=axis)
 
@@ -974,10 +1075,7 @@ def MAE(
         else:
             dim = axis
         result = abs(mod - obs).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MAE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MAE")
     else:
         return np.ma.abs(np.subtract(mod, obs)).mean(axis=axis)
 
@@ -1027,10 +1125,7 @@ def MedAE(
         else:
             dim = axis
         result = abs(mod - obs).median(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MedAE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MedAE")
     else:
         return np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)
 
@@ -1082,10 +1177,7 @@ def CRMSE(
         o_ = obs - obs.mean(dim=dim)
         m_ = mod - mod.mean(dim=dim)
         result = ((m_ - o_) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"CRMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "CRMSE")
     else:
         o_ = np.subtract(obs, np.mean(obs, axis=axis))
         m_ = np.subtract(mod, np.mean(mod, axis=axis))
@@ -1138,10 +1230,7 @@ def MAPE(
         else:
             dim = axis
         result = (100 * abs(mod - obs) / abs(obs)).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MAPE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MAPE")
     else:
         return (100 * np.ma.abs(np.subtract(mod, obs)) / np.ma.abs(obs)).mean(axis=axis)
 
@@ -1192,10 +1281,7 @@ def sMAPE(
         else:
             dim = axis
         result = (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"sMAPE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "sMAPE")
     else:
         return (200 * np.ma.abs(np.subtract(mod, obs)) / (np.ma.abs(mod) + np.ma.abs(obs))).mean(axis=axis)
 
@@ -1249,10 +1335,7 @@ def NRMSE(
         rmse = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         obs_range = obs.max(dim=dim) - obs.min(dim=dim)
         result = rmse / obs_range
-        # Update history
-        history = f"NRMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NRMSE")
     else:
         rmse = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
         obs_range = np.ma.max(obs, axis=axis) - np.ma.min(obs, axis=axis)
@@ -1316,10 +1399,7 @@ def MASE(
 
         model_error = abs(mod - obs).mean(dim=dim, keep_attrs=True)
         result = model_error / naive_error
-        # Update history
-        history = f"MASE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MASE")
     else:
         # Calculate naive forecast error (using previous observation)
         if axis is not None:
@@ -1431,10 +1511,7 @@ def RMSPE(
         else:
             dim = axis
         result = (100 * ((mod - obs) / obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"RMSPE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "RMSPE")
     else:
         return 100 * np.ma.sqrt(np.ma.mean(((mod - obs) / obs) ** 2, axis=axis))
 
@@ -1577,10 +1654,7 @@ def NSC(
         numerator = ((obs - mod) ** 2).sum(dim=dim)
         denominator = ((obs - obs_mean) ** 2).sum(dim=dim)
         result = 1.0 - (numerator / denominator)
-        # Update history
-        history = f"NSC computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NSC")
     else:
         obs_mean = np.mean(obs, axis=axis)
         numerator = np.sum((obs - mod) ** 2, axis=axis)
@@ -1633,10 +1707,7 @@ def NSE_alpha(
         else:
             dim = axis
         result = mod.std(dim=dim) / obs.std(dim=dim)
-        # Update history
-        history = f"NSE_alpha computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NSE_alpha")
     else:
         return np.std(mod, axis=axis) / np.std(obs, axis=axis)
 
@@ -1686,10 +1757,7 @@ def NSE_beta(
         else:
             dim = axis
         result = mod.mean(dim=dim) / obs.mean(dim=dim)
-        # Update history
-        history = f"NSE_beta computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NSE_beta")
     else:
         return np.mean(mod, axis=axis) / np.mean(obs, axis=axis)
 
@@ -1829,10 +1897,7 @@ def RMSE(
         else:
             dim = axis
         result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"RMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "RMSE")
     else:
         return np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
 
@@ -1931,10 +1996,7 @@ def IOA(
         num = ((obs - mod) ** 2).sum(dim=dim)
         denom = ((abs(mod - obs_mean) + abs(obs - obs_mean)) ** 2).sum(dim=dim)
         result = 1.0 - (num / denom)
-        # Update history
-        history = f"IOA computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "IOA")
     else:
         obs_mean = np.mean(obs, axis=axis)
         num = np.sum((obs - mod) ** 2, axis=axis)
@@ -2030,10 +2092,7 @@ def MAPE_mod(
         # Add epsilon to avoid division by zero
         obs_safe = xr.where(abs(obs) < epsilon, epsilon, obs)
         result = (100 * abs(mod - obs) / abs(obs_safe)).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MAPE_mod computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MAPE_mod")
     else:
         # Add epsilon to avoid division by zero
         obs_safe = np.where(np.abs(obs) < epsilon, epsilon, obs)
@@ -2081,10 +2140,7 @@ def MASE_mod(
         model_error = abs(mod - obs).mean(dim=dim, keep_attrs=True)
         # Avoid division by zero
         result = xr.where(naive_error == 0, model_error, model_error / naive_error)
-        # Update history
-        history = f"MASE_mod computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MASE_mod")
     else:
         # Calculate naive forecast error (using previous observation)
         if axis is not None:
@@ -2136,10 +2192,7 @@ def RMSE_norm(
         obs_range = obs_max - obs_min
         # Avoid division by zero
         result = xr.where(obs_range == 0, rmse, rmse / obs_range)
-        # Update history
-        history = f"RMSE_norm computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "RMSE_norm")
     else:
         rmse = np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
         obs_min = np.min(obs, axis=axis)
@@ -2187,10 +2240,7 @@ def MAE_norm(
         obs_range = obs_max - obs_min
         # Avoid division by zero
         result = xr.where(obs_range == 0, mae, mae / obs_range)
-        # Update history
-        history = f"MAE_norm computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MAE_norm")
     else:
         mae = np.mean(np.abs(np.subtract(mod, obs)), axis=axis)
         obs_min = np.min(obs, axis=axis)
@@ -2236,10 +2286,7 @@ def bias_fraction(
         total_error = np.sqrt(((mod - obs) ** 2).mean(dim=dim, keep_attrs=True))
         # Avoid division by zero
         result = xr.where(total_error == 0, 0, (bias**2) / (total_error**2))
-        # Update history
-        history = f"bias_fraction computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "bias_fraction")
     else:
         bias = np.mean(np.subtract(mod, obs), axis=axis)
         total_error = np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
@@ -2300,15 +2347,45 @@ def NMSE(
         obs_var = obs.var(dim=dim)
         # Handle case where variance is 0 (perfect agreement)
         result = xr.where(obs_var == 0, 0, mse / obs_var)
-        # Update history
-        history = f"NMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NMSE")
     else:
         mse = np.mean((np.subtract(mod, obs)) ** 2, axis=axis)
         obs_var = np.var(obs, axis=axis)
         # Handle case where variance is 0 (perfect agreement)
         result = np.where(obs_var == 0, 0, mse / obs_var)
+        return result.item() if np.ndim(result) == 0 else result
+
+
+def NMSE_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Normalized Mean Square Error (NMSE, robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute NMSE.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Normalized mean square error (unitless).
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        return NMSE(obs, mod, axis=axis)
+    else:
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        mse = np.ma.mean((mod_m - obs_m) ** 2, axis=axis)
+        obs_var = np.ma.var(obs_m, axis=axis)
+        result = np.ma.where(obs_var == 0, 0, mse / obs_var)
         return result.item() if np.ndim(result) == 0 else result
 
 
@@ -2365,10 +2442,7 @@ def LOG_ERROR(
         obs_log = np.log(obs_safe)
         mod_log = np.log(mod_safe)
         result = ((mod_log - obs_log) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"LOG_ERROR computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "LOG_ERROR")
     else:
         # Use abs to handle potential negative values, then add epsilon
         obs_safe = np.abs(obs) + epsilon
@@ -2383,6 +2457,46 @@ def LOG_ERROR(
         return result
 
 
+def LOG_ERROR_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Logarithmic Error Metric (robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute log error.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Logarithmic error metric.
+    """
+    # Add small epsilon to avoid log(0) and handle negative values
+    epsilon = 1e-10
+
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        return LOG_ERROR(obs, mod, axis=axis)
+    else:
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        # Use abs to handle potential negative values, then add epsilon
+        obs_safe = np.ma.abs(obs_m) + epsilon
+        mod_safe = np.ma.abs(mod_m) + epsilon
+        obs_log = np.ma.log(obs_safe)
+        mod_log = np.ma.log(mod_safe)
+
+        result = np.ma.sqrt(np.ma.mean((mod_log - obs_log) ** 2, axis=axis))
+        return result
+
+
 def COE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
@@ -2391,11 +2505,8 @@ def COE(
     """
     Center of Mass Error (COE).
 
-    Typical Use Cases
-    -----------------
-    - Evaluating the displacement error of spatial features.
-    - Used in meteorology for precipitation field verification.
-    - Assesses how much model features are shifted compared to observations.
+    Calculates the Euclidean distance between the center of mass (centroid) of
+    the observed field and the modeled field.
 
     Parameters
     ----------
@@ -2404,29 +2515,106 @@ def COE(
     mod : numpy.ndarray or xarray.DataArray
         Model or predicted values (typically 2D spatial field).
     axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute COE.
+        Axis or dimension along which to compute the centroid.
+        If None, computes over all axes.
 
     Returns
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
-        Center of mass error.
+        Center of mass error (distance between centroids).
 
     Examples
     --------
     >>> import numpy as np
     >>> from monet_stats.error_metrics import COE
-    >>> obs = np.array([[1, 0], [0, 1]])  # Diagonal pattern
-    >>> mod = np.array([[0, 1], [1, 0]])  # Opposite diagonal
+    >>> obs = np.array([[1, 0], [0, 0]])
+    >>> mod = np.array([[0, 0], [0, 1]])
     >>> COE(obs, mod)
     1.4142135623730951
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        # For simplicity, returning RMSE for xarray case as per previous logic
-        # A more robust implementation would involve spatial centroid calculation
-        return RMSE(obs, mod, axis=axis)
-    else:
-        # For numpy arrays, compute center of mass error (RMSE fallback)
-        return np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        obs, mod = xr.align(obs, mod, join="inner")
+        if axis is None:
+            dims = obs.dims
+        elif isinstance(axis, int):
+            dims = [obs.dims[axis]]
+        elif isinstance(axis, str):
+            dims = [axis]
+        else:
+            dims = [obs.dims[ax] if isinstance(ax, int) else ax for ax in axis]
+
+        def get_centroid(da, dimensions):
+            # Use coordinates if they are numeric and match the dimensions
+            centroids = []
+            total_mass = da.sum(dim=dimensions)
+            for d in dimensions:
+                coord = da.coords.get(d, xr.DataArray(np.arange(da.sizes[d]), dims=[d], name=d))
+                # Ensure coord is broadcastable to da shape for weighted average
+                # But we only need to sum over the specified dimensions
+                weighted_coord = (da * coord).sum(dim=dimensions)
+                centroids.append(weighted_coord / total_mass)
+            return centroids
+
+        c_obs = get_centroid(obs, dims)
+        c_mod = get_centroid(mod, dims)
+
+        # Euclidean distance
+        dist_sq = sum((co - cm) ** 2 for co, cm in zip(c_obs, c_mod))
+        result = np.sqrt(dist_sq)
+        return _update_history(result, "COE")
+
+    # Fallback to numpy
+    obs_arr = np.ma.masked_invalid(obs)
+    mod_arr = np.ma.masked_invalid(mod)
+
+    def get_numpy_centroid(data, axes):
+        if axes is None:
+            axes = tuple(range(data.ndim))
+        elif isinstance(axes, int):
+            axes = (axes,)
+        else:
+            axes = tuple(axes)
+
+        indices = np.indices(data.shape)
+        centroids = []
+        total_mass = np.ma.sum(data, axis=axes)
+        for ax in axes:
+            weighted_coord = np.ma.sum(data * indices[ax], axis=axes)
+            centroids.append(weighted_coord / total_mass)
+        return centroids
+
+    axes_np = axis
+    c_obs_np = get_numpy_centroid(obs_arr, axes_np)
+    c_mod_np = get_numpy_centroid(mod_arr, axes_np)
+
+    dist_sq_np = sum((co - cm) ** 2 for co, cm in zip(c_obs_np, c_mod_np))
+    result_np = np.sqrt(dist_sq_np)
+    return result_np.item() if np.ndim(result_np) == 0 else result_np
+
+
+def COE_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Center of Mass Error (COE, robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the centroid.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Center of mass error.
+    """
+    return COE(obs, mod, axis=axis)
 
 
 def VOLUMETRIC_ERROR(
@@ -2476,14 +2664,37 @@ def VOLUMETRIC_ERROR(
         obs_sum = obs.sum(dim=dim)
         mod_sum = mod.sum(dim=dim)
         result = abs(mod_sum - obs_sum) / abs(obs_sum)
-        # Update history
-        history = f"VOLUMETRIC_ERROR computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "VOLUMETRIC_ERROR")
     else:
-        obs_sum = np.sum(obs, axis=axis)
-        mod_sum = np.sum(mod, axis=axis)
-        return np.abs(mod_sum - obs_sum) / np.abs(obs_sum)
+        obs_sum = np.ma.sum(obs, axis=axis)
+        mod_sum = np.ma.sum(mod, axis=axis)
+        result = np.abs(mod_sum - obs_sum) / np.abs(obs_sum)
+        return result.item() if np.ndim(result) == 0 else result
+
+
+def VOLUMETRIC_ERROR_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Volumetric Error Metric (robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute volumetric error.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Volumetric error metric.
+    """
+    return VOLUMETRIC_ERROR(obs, mod, axis=axis)
 
 
 def CORR_INDEX(
@@ -2532,10 +2743,7 @@ def CORR_INDEX(
             dim = axis
         # Using xarray's built-in correlation function
         result = xr.corr(obs, mod, dim=dim)
-        # Update history
-        history = f"CORR_INDEX computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "CORR_INDEX")
     else:
         # Fallback to numpy-compatible logic
         obs = np.asarray(obs)
@@ -2552,4 +2760,49 @@ def CORR_INDEX(
             mod_std = mod - mod_mean
             num = np.sum(obs_std * mod_std, axis=axis)
             den = np.sqrt(np.sum(obs_std**2, axis=axis) * np.sum(mod_std**2, axis=axis))
+            return num / den
+
+
+def CORR_INDEX_m(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Correlation Index (CORR_INDEX, robust to masks).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute correlation index.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Correlation index.
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        return CORR_INDEX(obs, mod, axis=axis)
+    else:
+        obs_m, mod_m = matchmasks(obs, mod)
+        if axis is None:
+            from scipy.stats import pearsonr
+
+            # pearsonr doesn't handle masked arrays directly in a way that respects the mask
+            # so we use compressed data
+            obs_c, mod_c = obs_m.compressed(), mod_m.compressed()
+            if len(obs_c) < 2:
+                return np.nan
+            return pearsonr(obs_c, mod_c)[0]
+        else:
+            obs_mean = np.ma.mean(obs_m, axis=axis, keepdims=True)
+            mod_mean = np.ma.mean(mod_m, axis=axis, keepdims=True)
+            obs_std = obs_m - obs_mean
+            mod_std = mod_m - mod_mean
+            num = np.ma.sum(obs_std * mod_std, axis=axis)
+            den = np.ma.sqrt(np.ma.sum(obs_std**2, axis=axis) * np.ma.sum(mod_std**2, axis=axis))
             return num / den

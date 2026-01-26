@@ -338,6 +338,41 @@ class TestErrorMetrics:
         result = COE(self.obs_perfect, self.mod_perfect)
         assert abs(result - 0.0) < 1e-10, f"Perfect agreement should give COE=0.0, got {result}"
 
+    def test_coe_spatial_displacement(self):
+        """Test COE with spatially displaced patterns."""
+        # Pattern 1: Peak at (0,0)
+        obs = np.zeros((3, 3))
+        obs[0, 0] = 1.0
+        # Pattern 2: Peak at (2,2)
+        mod = np.zeros((3, 3))
+        mod[2, 2] = 1.0
+
+        # Centroids are at (0,0) and (2,2)
+        # Distance should be sqrt(2^2 + 2^2) = sqrt(8) approx 2.828
+        result = COE(obs, mod)
+        expected = np.sqrt(8)
+        assert abs(result - expected) < 1e-10, f"Expected COE={expected}, got {result}"
+
+    def test_coe_xarray_spatial(self):
+        """Test COE with xarray spatial data."""
+        obs = xr.DataArray(
+            [[1.0, 0.0], [0.0, 0.0]],
+            dims=["lat", "lon"],
+            coords={"lat": [10, 20], "lon": [100, 110]},
+        )
+        mod = xr.DataArray(
+            [[0.0, 0.0], [0.0, 1.0]],
+            dims=["lat", "lon"],
+            coords={"lat": [10, 20], "lon": [100, 110]},
+        )
+        # Centroids:
+        # obs: lat=10, lon=100
+        # mod: lat=20, lon=110
+        # Dist = sqrt(10^2 + 10^2) = sqrt(200) approx 14.14
+        result = COE(obs, mod)
+        expected = np.sqrt(200)
+        assert abs(result - expected) < 1e-10, f"Expected COE={expected}, got {result}"
+
     def test_volumetric_error_perfect_agreement(self):
         """Test Volumetric Error with perfect agreement."""
         result = VOLUMETRIC_ERROR(self.obs_perfect, self.mod_perfect)
