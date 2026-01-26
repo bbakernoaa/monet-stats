@@ -9,6 +9,21 @@ import pandas as pd
 import xarray as xr
 
 # Explicit imports for all public API symbols (for lint compliance)
+from .analysis import (
+    climatology,
+    diurnal_cycle,
+    exceedance_count,
+    fft_analysis,
+    kz_filter,
+    mda8,
+    peak_timing,
+    percentile,
+    power_spectrum,
+    resample_data,
+    rolling_mean_8h,
+    rolling_mean_24h,
+    weighted_spatial_mean,
+)
 from .contingency_metrics import CSI, ETS, FAR, FBI, HSS, POD, TSS, scores
 from .correlation_metrics import (
     AC,
@@ -76,6 +91,20 @@ from .utils_stats import (
 )
 
 __all__ = [
+    # analysis
+    "resample_data",
+    "climatology",
+    "kz_filter",
+    "diurnal_cycle",
+    "rolling_mean_8h",
+    "rolling_mean_24h",
+    "mda8",
+    "exceedance_count",
+    "percentile",
+    "peak_timing",
+    "weighted_spatial_mean",
+    "fft_analysis",
+    "power_spectrum",
     # contingency_metrics
     "CSI",
     "ETS",
