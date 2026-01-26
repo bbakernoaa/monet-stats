@@ -369,6 +369,10 @@ def percentile(
     Union[xr.DataArray, xr.Dataset]
         Computed percentiles.
     """
+    # Ensure dimension is in a single chunk for Dask-backed arrays
+    if hasattr(data.data, "chunks"):
+        data = data.chunk({dim: -1})
+
     # xarray uses 0-1 for quantile, so divide by 100
     res = data.quantile(np.asanyarray(q) / 100.0, dim=dim, **kwargs)
     return _update_history(res, f"Percentile (q={q})")
@@ -401,6 +405,10 @@ def peak_timing(
     >>> da = xr.DataArray(np.random.rand(24), coords={"time": times}, dims="time")
     >>> peak_hour = peak_timing(da, dim="time")
     """
+    # Ensure dimension is in a single chunk for Dask-backed arrays
+    if hasattr(data.data, "chunks"):
+        data = data.chunk({dim: -1})
+
     # idxmax returns the coordinate of the maximum
     res = data.idxmax(dim=dim)
     return _update_history(res, f"Peak timing along {dim}")
