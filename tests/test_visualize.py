@@ -2,12 +2,9 @@
 Unit tests for the visualization module (Aero Protocol).
 """
 
-import cartopy.crs as ccrs
-import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import xarray as xr
-
 from monet_stats.visualize import plot_spatial
 
 
@@ -35,6 +32,9 @@ def test_plot_spatial_invalid_method(sample_da):
 
 def test_plot_spatial_matplotlib(sample_da):
     """Test Track A (matplotlib/cartopy) plot generation."""
+    plt = pytest.importorskip("matplotlib.pyplot")
+    pytest.importorskip("cartopy.crs")
+
     ax = plot_spatial(sample_da, method="matplotlib", title="Test Plot")
 
     assert isinstance(ax, plt.Axes)
@@ -46,6 +46,9 @@ def test_plot_spatial_matplotlib(sample_da):
 
 def test_plot_spatial_matplotlib_custom_ax(sample_da):
     """Test Track A with a pre-provided axis."""
+    plt = pytest.importorskip("matplotlib.pyplot")
+    ccrs = pytest.importorskip("cartopy.crs")
+
     fig = plt.figure()
     custom_ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
     ax = plot_spatial(sample_da, method="matplotlib", ax=custom_ax)
@@ -56,7 +59,8 @@ def test_plot_spatial_matplotlib_custom_ax(sample_da):
 
 def test_plot_spatial_hvplot(sample_da):
     """Test Track B (hvplot) plot generation."""
-    import holoviews as hv
+    hv = pytest.importorskip("holoviews")
+    pytest.importorskip("hvplot.xarray")
 
     plot = plot_spatial(sample_da, method="hvplot", title="Interactive Test")
     # hvplot with rasterize=True can return a DynamicMap or Element
@@ -68,6 +72,9 @@ def test_plot_spatial_matplotlib_missing(sample_da, monkeypatch):
     """Test handling of missing matplotlib/cartopy dependencies."""
     import builtins
     import sys
+
+    # Skip this test if cartopy is actually present and we can't easily mock its absence
+    # Actually, we ARE mocking its absence here.
 
     real_import = builtins.__import__
 
@@ -88,7 +95,7 @@ def test_plot_spatial_matplotlib_missing(sample_da, monkeypatch):
     monkeypatch.setattr(builtins, "__import__", mock_import)
 
     try:
-        with pytest.raises(ImportError, match=r"Track A \(matplotlib\) requires"):
+        with pytest.raises(ImportError, match="Track A \(matplotlib\) requires"):
             plot_spatial(sample_da, method="matplotlib")
     finally:
         # Restore sys.modules

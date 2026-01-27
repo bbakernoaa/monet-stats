@@ -143,6 +143,6 @@ def VETS(
     total_union = np.sum(np.maximum(obs_arr, mod_arr), axis=axis)
     hits_random = (sum_obs * sum_mod) / total_union
     denominator = hits + misses + false_alarms - hits_random
-    if denominator == 0:
-        return 1.0
-    return (hits - hits_random) / denominator
+    with np.errstate(divide="ignore", invalid="ignore"):
+        res = np.where(denominator == 0, 1.0, (hits - hits_random) / denominator)
+        return res.item() if np.ndim(res) == 0 else res

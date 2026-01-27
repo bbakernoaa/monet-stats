@@ -1087,8 +1087,8 @@ def CRMSE(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        o_ = np.subtract(obs, np.mean(obs, axis=axis))
-        m_ = np.subtract(mod, np.mean(mod, axis=axis))
+        o_ = np.subtract(obs, np.mean(obs, axis=axis, keepdims=True))
+        m_ = np.subtract(mod, np.mean(mod, axis=axis, keepdims=True))
         return (np.ma.abs(m_ - o_) ** 2).mean(axis=axis) ** 0.5
 
 
@@ -1248,7 +1248,7 @@ def NRMSE(
             dim = axis
         rmse = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         obs_range = obs.max(dim=dim) - obs.min(dim=dim)
-        result = rmse / obs_range
+        result = xr.where(obs_range == 0, 0, rmse / obs_range)
         # Update history
         history = f"NRMSE computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
@@ -1256,7 +1256,9 @@ def NRMSE(
     else:
         rmse = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
         obs_range = np.ma.max(obs, axis=axis) - np.ma.min(obs, axis=axis)
-        return rmse / obs_range
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(obs_range == 0, 0, rmse / obs_range)
+            return result.item() if np.ndim(result) == 0 else result
 
 
 def MASE(
@@ -1582,7 +1584,7 @@ def NSC(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        obs_mean = np.mean(obs, axis=axis)
+        obs_mean = np.mean(obs, axis=axis, keepdims=True)
         numerator = np.sum((obs - mod) ** 2, axis=axis)
         denominator = np.sum((obs - obs_mean) ** 2, axis=axis)
         return 1.0 - (numerator / denominator)
@@ -1936,7 +1938,7 @@ def IOA(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        obs_mean = np.mean(obs, axis=axis)
+        obs_mean = np.mean(obs, axis=axis, keepdims=True)
         num = np.sum((obs - mod) ** 2, axis=axis)
         denom = np.sum((np.abs(mod - obs_mean) + np.abs(obs - obs_mean)) ** 2, axis=axis)
         return 1.0 - (num / denom)
@@ -1983,7 +1985,7 @@ def IOA_m(
         # IOA implementation for xarray already handles NaNs
         return IOA(obs, mod, axis=axis)
     else:
-        obs_mean = np.ma.mean(obs, axis=axis)
+        obs_mean = np.ma.mean(obs, axis=axis, keepdims=True)
         num = np.ma.sum((obs - mod) ** 2, axis=axis)
         denom = np.ma.sum((np.ma.abs(mod - obs_mean) + np.ma.abs(obs - obs_mean)) ** 2, axis=axis)
         return 1.0 - (num / denom)
