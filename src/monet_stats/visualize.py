@@ -6,7 +6,7 @@ This module implements the "Two-Track Rule" for scientific visualization:
 - Track B (Exploration): Interactive exploration using HvPlot and GeoViews.
 """
 
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import xarray as xr
 
@@ -110,8 +110,7 @@ def plot_spatial(
             import hvplot.xarray  # noqa: F401
         except ImportError:
             raise ImportError(
-                "Track B (hvplot) requires 'hvplot' and 'geoviews'. "
-                "Install them with 'pip install monet-stats[viz]'."
+                "Track B (hvplot) requires 'hvplot' and 'geoviews'. Install them with 'pip install monet-stats[viz]'."
             )
 
         # Aero Protocol mandatory for large grids

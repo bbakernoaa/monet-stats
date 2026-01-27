@@ -2,12 +2,14 @@
 Unit tests for the visualization module (Aero Protocol).
 """
 
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import xarray as xr
+
 from monet_stats.visualize import plot_spatial
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
+
 
 @pytest.fixture
 def sample_da():
@@ -41,6 +43,7 @@ def test_plot_spatial_matplotlib(sample_da):
     assert "Plotted spatial data using Track A" in sample_da.attrs["history"]
     plt.close()
 
+
 def test_plot_spatial_matplotlib_custom_ax(sample_da):
     """Test Track A with a pre-provided axis."""
     fig = plt.figure()
@@ -50,13 +53,16 @@ def test_plot_spatial_matplotlib_custom_ax(sample_da):
     assert ax is custom_ax
     plt.close()
 
+
 def test_plot_spatial_hvplot(sample_da):
     """Test Track B (hvplot) plot generation."""
     import holoviews as hv
+
     plot = plot_spatial(sample_da, method="hvplot", title="Interactive Test")
     # hvplot with rasterize=True can return a DynamicMap or Element
     assert isinstance(plot, (hv.Element, hv.DynamicMap))
     assert "Plotted spatial data using Track B" in sample_da.attrs["history"]
+
 
 def test_plot_spatial_matplotlib_missing(sample_da, monkeypatch):
     """Test handling of missing matplotlib/cartopy dependencies."""
@@ -82,7 +88,7 @@ def test_plot_spatial_matplotlib_missing(sample_da, monkeypatch):
     monkeypatch.setattr(builtins, "__import__", mock_import)
 
     try:
-        with pytest.raises(ImportError, match="Track A \(matplotlib\) requires"):
+        with pytest.raises(ImportError, match=r"Track A \(matplotlib\) requires"):
             plot_spatial(sample_da, method="matplotlib")
     finally:
         # Restore sys.modules
