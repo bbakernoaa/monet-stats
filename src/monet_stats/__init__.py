@@ -89,6 +89,7 @@ from .utils_stats import (
     matchmasks,
     rmse,
 )
+from .visualize import plot_spatial
 
 __all__ = [
     # analysis
@@ -201,6 +202,8 @@ __all__ = [
     "rmse",
     "mae",
     "correlation",
+    # visualize
+    "plot_spatial",
 ]
 
 

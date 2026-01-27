@@ -590,7 +590,7 @@ def d1(
         return result
     else:
         num = np.ma.abs(np.subtract(obs, mod)).sum(axis=axis)
-        mean_obs = np.ma.mean(obs, axis=axis)
+        mean_obs = np.ma.mean(obs, axis=axis, keepdims=True)
         denom = (np.ma.abs(np.subtract(mod, mean_obs)) + np.ma.abs(np.subtract(obs, mean_obs))).sum(axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (num / denom)
@@ -656,7 +656,7 @@ def E1(
         return result
     else:
         num = np.ma.abs(np.subtract(obs, mod)).sum(axis=axis)
-        mean_obs = np.ma.mean(obs, axis=axis)
+        mean_obs = np.ma.mean(obs, axis=axis, keepdims=True)
         denom = np.ma.abs(np.subtract(obs, mean_obs)).sum(axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (num / denom)
@@ -722,7 +722,7 @@ def IOA_m(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        obsmean = np.ma.mean(obs, axis=axis)
+        obsmean = np.ma.mean(obs, axis=axis, keepdims=True)
         num = (np.ma.abs(np.subtract(obs, mod)) ** 2).sum(axis=axis)
         denom = ((np.ma.abs(np.subtract(mod, obsmean)) + np.ma.abs(np.subtract(obs, obsmean))) ** 2).sum(axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -789,7 +789,7 @@ def IOA(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        obsmean = np.ma.mean(obs, axis=axis)
+        obsmean = np.ma.mean(obs, axis=axis, keepdims=True)
         num = (np.ma.abs(np.subtract(obs, mod)) ** 2).sum(axis=axis)
         denom = ((np.ma.abs(np.subtract(mod, obsmean)) + np.ma.abs(np.subtract(obs, obsmean))) ** 2).sum(axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -865,7 +865,7 @@ def WDIOA_m(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        obsmean = np.ma.mean(obs, axis=axis)
+        obsmean = np.ma.mean(obs, axis=axis, keepdims=True)
         num = np.ma.sum(np.ma.abs(circlebias_m(np.subtract(obs, mod))), axis=axis)
         denom = np.ma.sum(
             np.ma.abs(circlebias_m(np.subtract(mod, obsmean))) + np.ma.abs(circlebias_m(np.subtract(obs, obsmean))),
@@ -942,7 +942,7 @@ def WDIOA(
         return result
     else:
         num = np.ma.sum(np.ma.abs(circlebias(np.subtract(obs, mod))), axis=axis)
-        mean_obs = np.ma.mean(obs, axis=axis)
+        mean_obs = np.ma.mean(obs, axis=axis, keepdims=True)
         denom = np.ma.sum(
             np.ma.abs(circlebias(np.subtract(mod, mean_obs))) + np.ma.abs(circlebias(np.subtract(obs, mean_obs))),
             axis=axis,
@@ -1240,15 +1240,30 @@ def KGE(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        from scipy.stats import pearsonr
+        if axis is None:
+            from scipy.stats import pearsonr
 
-        if np.ma.is_masked(obs):
-            r = pearsonr(obs.compressed(), mod.compressed())[0]
+            obsc, modc = matchedcompressed(obs, mod)
+            if len(obsc) < 2:
+                r = 0.0
+            else:
+                r, _ = pearsonr(obsc, modc)
         else:
-            r = pearsonr(obs, mod)[0]
+            # Manual vectorized correlation for numpy with axis
+            obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
+            mod_mean = np.nanmean(mod, axis=axis, keepdims=True)
+            obs_std = obs - obs_mean
+            mod_std = mod - mod_mean
+            num = np.nansum(obs_std * mod_std, axis=axis)
+            den = np.sqrt(np.nansum(obs_std**2, axis=axis) * np.nansum(mod_std**2, axis=axis))
+            with np.errstate(divide="ignore", invalid="ignore"):
+                r = num / den
+                r = np.where(np.isnan(r), 0.0, r)
+
         alpha = np.ma.std(mod, axis=axis) / np.ma.std(obs, axis=axis)
         beta = np.ma.mean(mod, axis=axis) / np.ma.mean(obs, axis=axis)
-        return 1.0 - ((r - 1.0) ** 2 + (alpha - 1.0) ** 2 + (beta - 1.0) ** 2) ** 0.5
+        result = 1.0 - ((r - 1.0) ** 2 + (alpha - 1.0) ** 2 + (beta - 1.0) ** 2) ** 0.5
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def pearsonr(
@@ -1677,12 +1692,13 @@ def E1_prime(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        obs_c, mod_c = matchedcompressed(obs, mod)
-        obs_mean = np.nanmean(obs_c, axis=axis)
-        if axis is not None:
-            obs_mean_kd = np.nanmean(obs_c, axis=axis, keepdims=True)
+        if axis is None:
+            obs_c, mod_c = matchedcompressed(obs, mod)
+            obs_mean_kd = np.nanmean(obs_c)
         else:
-            obs_mean_kd = obs_mean
+            obs_c, mod_c = obs, mod
+            obs_mean_kd = np.nanmean(obs_c, axis=axis, keepdims=True)
+
         num = np.nansum(np.abs(obs_c - mod_c), axis=axis)
         denom = np.nansum(np.abs(obs_c - obs_mean_kd), axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -1756,12 +1772,13 @@ def IOA_prime(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        obs_c, mod_c = matchedcompressed(obs, mod)
-        obsmean = np.nanmean(obs_c, axis=axis)
-        if axis is not None:
-            obsmean_kd = np.nanmean(obs_c, axis=axis, keepdims=True)
+        if axis is None:
+            obs_c, mod_c = matchedcompressed(obs, mod)
+            obsmean_kd = np.nanmean(obs_c)
         else:
-            obsmean_kd = obsmean
+            obs_c, mod_c = obs, mod
+            obsmean_kd = np.nanmean(obs_c, axis=axis, keepdims=True)
+
         num = np.nansum((obs_c - mod_c) ** 2, axis=axis)
         denom = np.nansum((np.abs(mod_c - obsmean_kd) + np.abs(obs_c - obsmean_kd)) ** 2, axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):

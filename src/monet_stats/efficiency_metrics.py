@@ -70,7 +70,7 @@ def NSE(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        obs_mean = np.nanmean(obs, axis=axis)
+        obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
         numerator = np.nansum((obs - mod) ** 2, axis=axis)
         denominator = np.nansum((obs - obs_mean) ** 2, axis=axis)
 
@@ -211,8 +211,8 @@ def rNSE(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        obs_mean = np.nanmean(obs, axis=axis)
-        obs_range = np.nanmax(obs, axis=axis) - np.nanmin(obs, axis=axis)
+        obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
+        obs_range = np.nanmax(obs, axis=axis, keepdims=True) - np.nanmin(obs, axis=axis, keepdims=True)
         obs_range_safe = np.where(obs_range == 0, 1.0, obs_range)
 
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -278,7 +278,7 @@ def mNSE(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        obs_mean = np.nanmean(obs, axis=axis)
+        obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
         numerator = np.nansum(np.abs(obs - mod), axis=axis)
         denominator = np.nansum(np.abs(obs - obs_mean), axis=axis)
 
