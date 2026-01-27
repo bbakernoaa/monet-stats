@@ -3,42 +3,159 @@ Tests specifically designed to boost coverage for the Aero Protocol refactor.
 Targets numpy fallbacks with axis, missing dependency handling, and edge cases.
 """
 
+import builtins
+import sys
+
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
-import sys
-import builtins
-import pandas as pd
-from monet_stats.visualize import plot_spatial
+
+import monet_stats.analysis as analysis
+import monet_stats.interfaces as interfaces
+import monet_stats.performance as perf
+import monet_stats.utils_stats as utils
+from monet_stats import stats
+from monet_stats.contingency_metrics import (
+    CSI,
+    ETS,
+    FAR,
+    FBI,
+    HSS,
+    POD,
+    TSS,
+    BSS_binary,
+    ETS_max_threshold,
+    FAR_min_threshold,
+    HSS_max_threshold,
+    POD_max_threshold,
+)
 from monet_stats.correlation_metrics import (
-    R2, RMSEs, RMSEu, d1, E1, IOA_m, AC, WDAC, taylor_skill, KGE, pearsonr, spearmanr, kendalltau, CCC, E1_prime, IOA_prime
+    AC,
+    CCC,
+    E1,
+    KGE,
+    R2,
+    WDAC,
+    E1_prime,
+    IOA_m,
+    IOA_prime,
+    RMSEs,
+    RMSEu,
+    d1,
+    kendalltau,
+    pearsonr,
+    spearmanr,
+    taylor_skill,
+)
+from monet_stats.efficiency_metrics import MSE, NSE, PC, NSElog, mNSE, rNSE
+from monet_stats.error_metrics import (
+    COE,
+    CORR_INDEX,
+    CRMSE,
+    IOA,
+    LOG_ERROR,
+    MAE,
+    MAPE,
+    MASE,
+    MB,
+    MNB,
+    MNE,
+    MO,
+    MP,
+    NMSE,
+    NO,
+    NOP,
+    NP,
+    NRMSE,
+    NSC,
+    RM,
+    RMSPE,
+    VOLUMETRIC_ERROR,
+    WDMB,
+    MAE_m,
+    MAE_norm,
+    MAPE_mod,
+    MASE_mod,
+    MASEm,
+    MdnB,
+    MdnNB,
+    MdnNE,
+    MdnO,
+    MdnP,
+    MedAE,
+    MedAE_m,
+    NMdnGE,
+    NSE_alpha,
+    NSE_beta,
+    RMdn,
+    RMSE_m,
+    RMSE_norm,
+    WDMB_m,
+    WDMdnB,
+    bias_fraction,
+    sMAPE,
 )
 from monet_stats.error_metrics import (
-    MNB, MNE, MdnNB, MdnNE, NMdnGE, NO, NOP, NP, MO, MP, MdnO, MdnP, RM, RMdn, MB, MdnB, WDMB_m, WDMB, WDMdnB, MAE, MedAE, CRMSE, MAPE, sMAPE, NRMSE, MASE, MASEm, RMSPE, MAPEm, sMAPEm, NSC, NSE_alpha, NSE_beta, MAE_m, MedAE_m, RMSE_m, IOA, IOA_m as IOA_m_err, MAPE_mod, MASE_mod, RMSE_norm, MAE_norm, bias_fraction, NMSE, LOG_ERROR, COE, VOLUMETRIC_ERROR, CORR_INDEX
+    IOA_m as IOA_m_err,
 )
-from monet_stats.efficiency_metrics import NSE, NSElog, rNSE, mNSE, PC, MSE
-from monet_stats.contingency_metrics import HSS, ETS, CSI, POD, FAR, FBI, TSS, BSS_binary, HSS_max_threshold, ETS_max_threshold, POD_max_threshold, FAR_min_threshold
 from monet_stats.relative_metrics import (
-    NMB, WDNMB_m, NMB_ABS, NMdnB, FB, ME, MdnE, WDME_m, WDME, WDMdnE,
-    NME_m, NME_m_ABS, NME, NMdnE, FE, USUTPB, USUTPE, MPE, MdnPE,
-    MNPB, MdnNPB, MNPE, MdnNPE, NMPB, NMdnPB, NMPE, NMdnPE,
-    PSUTMNPB, PSUTMdnNPB, PSUTMNPE, PSUTMdnNPE, PSUTNMPB, PSUTNMPE, PSUTNMdnPB, PSUTNMdnPE
+    FB,
+    FE,
+    ME,
+    MNPB,
+    MNPE,
+    MPE,
+    NMB,
+    NMB_ABS,
+    NME,
+    NMPB,
+    NMPE,
+    PSUTMNPB,
+    PSUTMNPE,
+    PSUTNMPB,
+    PSUTNMPE,
+    USUTPB,
+    USUTPE,
+    WDME,
+    MdnE,
+    MdnNPB,
+    MdnNPE,
+    MdnPE,
+    NMdnB,
+    NMdnE,
+    NMdnPB,
+    NMdnPE,
+    NME_m,
+    NME_m_ABS,
+    PSUTMdnNPB,
+    PSUTMdnNPE,
+    PSUTNMdnPB,
+    PSUTNMdnPE,
+    WDMdnE,
+    WDME_m,
+    WDNMB_m,
 )
 from monet_stats.spatial_ensemble_metrics import (
-    EDS, CRPS, spread_error, BSS, SAL, ensemble_mean, ensemble_std, rank_histogram
+    BSS,
+    CRPS,
+    EDS,
+    SAL,
+    ensemble_mean,
+    ensemble_std,
+    rank_histogram,
+    spread_error,
 )
 from monet_stats.spatial_skill_metrics import FSS, VETS
-import monet_stats.utils_stats as utils
-import monet_stats.performance as perf
-import monet_stats.interfaces as interfaces
-from monet_stats import stats
-import monet_stats.analysis as analysis
+from monet_stats.visualize import plot_spatial
 
 try:
-    import dask.array as da
+    import dask.array as da  # noqa: F401
+
     HAS_DASK = True
 except ImportError:
     HAS_DASK = False
+
 
 @pytest.fixture
 def sample_da():
@@ -55,6 +172,7 @@ def sample_da():
     )
     return da
 
+
 @pytest.fixture
 def sample_pair_da():
     """Create a pair of aligned DataArrays."""
@@ -65,6 +183,7 @@ def sample_pair_da():
     obs = xr.DataArray(obs_data, coords={"lat": lat, "lon": lon}, dims=("lat", "lon"), name="Obs")
     mod = xr.DataArray(mod_data, coords={"lat": lat, "lon": lon}, dims=("lat", "lon"), name="Mod")
     return obs, mod
+
 
 def test_plot_spatial_hvplot_missing(sample_da, monkeypatch):
     """Boost coverage: Test Track B missing hvplot."""
@@ -83,12 +202,13 @@ def test_plot_spatial_hvplot_missing(sample_da, monkeypatch):
     monkeypatch.setattr(builtins, "__import__", mock_import)
 
     try:
-        with pytest.raises(ImportError, match="Track B \(hvplot\) requires 'hvplot'"):
+        with pytest.raises(ImportError, match=r"Track B \(hvplot\) requires 'hvplot'"):
             plot_spatial(sample_da, method="hvplot")
     finally:
         for k, v in saved_modules.items():
             if v:
                 sys.modules[k] = v
+
 
 def test_correlation_numpy_axis():
     """Boost coverage: Target numpy fallback with axis in correlation_metrics."""
@@ -125,22 +245,61 @@ def test_correlation_numpy_axis():
     assert E1_prime(obs, mod, axis=0).shape == (5,)
     assert IOA_prime(obs, mod, axis=1).shape == (10,)
 
+
 def test_error_numpy_axis():
     """Boost coverage: Target numpy fallback with axis in error_metrics."""
     obs = np.random.rand(10, 5) + 1.0
     mod = np.random.rand(10, 5) + 1.0
 
     metrics = [
-        MNB, MNE, MdnNB, MdnNE, NMdnGE, NO, NOP, NP, MO, MP, MdnO, MdnP,
-        RM, RMdn, MB, MdnB, WDMB_m, WDMB, WDMdnB, MAE, MedAE, CRMSE,
-        MAPE, sMAPE, NRMSE, RMSPE, NSC, NSE_alpha, NSE_beta, MAE_m,
-        MedAE_m, RMSE_m, IOA_m_err, MAPE_mod, MASE_mod, RMSE_norm, MAE_norm, bias_fraction,
-        NMSE, LOG_ERROR, COE, VOLUMETRIC_ERROR
+        MNB,
+        MNE,
+        MdnNB,
+        MdnNE,
+        NMdnGE,
+        NO,
+        NOP,
+        NP,
+        MO,
+        MP,
+        MdnO,
+        MdnP,
+        RM,
+        RMdn,
+        MB,
+        MdnB,
+        WDMB_m,
+        WDMB,
+        WDMdnB,
+        MAE,
+        MedAE,
+        CRMSE,
+        MAPE,
+        sMAPE,
+        NRMSE,
+        RMSPE,
+        NSC,
+        NSE_alpha,
+        NSE_beta,
+        MAE_m,
+        MedAE_m,
+        RMSE_m,
+        IOA_m_err,
+        MAPE_mod,
+        MASE_mod,
+        RMSE_norm,
+        MAE_norm,
+        bias_fraction,
+        NMSE,
+        LOG_ERROR,
+        COE,
+        VOLUMETRIC_ERROR,
     ]
 
     for func in metrics:
         res = func(obs, mod, axis=0)
         assert np.shape(res) == (5,)
+
 
 def test_error_MASE_numpy():
     """Boost coverage: MASE and MASE_mod numpy paths."""
@@ -154,6 +313,7 @@ def test_error_MASE_numpy():
     assert MASE(obs2, mod2, axis=0).shape == (5,)
     assert MASEm(obs2, mod2, axis=1).shape == (10,)
 
+
 def test_efficiency_numpy_axis():
     """Boost coverage: Target numpy fallback with axis in efficiency_metrics."""
     obs = np.random.rand(10, 5) + 1.0
@@ -165,6 +325,7 @@ def test_efficiency_numpy_axis():
     assert mNSE(obs, mod, axis=1).shape == (10,)
     assert PC(obs, mod, axis=0).shape == (5,)
     assert MSE(obs, mod, axis=1).shape == (10,)
+
 
 def test_contingency_numpy_axis():
     """Boost coverage: Target numpy fallback with axis in contingency_metrics."""
@@ -180,6 +341,7 @@ def test_contingency_numpy_axis():
     assert TSS(obs, mod, 0.5, axis=0).shape == (5,)
     assert BSS_binary(obs, mod, 0.5, axis=1).shape == (10,)
 
+
 def test_hss_max_threshold_xarray(sample_da):
     """Boost coverage: HSS_max_threshold with xarray."""
     obs = sample_da
@@ -188,13 +350,27 @@ def test_hss_max_threshold_xarray(sample_da):
     assert isinstance(thresh, float)
     assert isinstance(val, float)
 
+
 def test_all_metrics_xarray_axis(sample_pair_da):
     """Boost coverage: Test all metrics with xarray and axis (dim name)."""
     obs, mod = sample_pair_da
 
     # Correlation metrics
     corr_metrics = [
-        R2, d1, E1, IOA_m, AC, WDAC, taylor_skill, KGE, pearsonr, spearmanr, kendalltau, CCC, E1_prime, IOA_prime
+        R2,
+        d1,
+        E1,
+        IOA_m,
+        AC,
+        WDAC,
+        taylor_skill,
+        KGE,
+        pearsonr,
+        spearmanr,
+        kendalltau,
+        CCC,
+        E1_prime,
+        IOA_prime,
     ]
     for func in corr_metrics:
         res = func(obs, mod, axis="lat")
@@ -203,11 +379,50 @@ def test_all_metrics_xarray_axis(sample_pair_da):
 
     # Error metrics
     err_metrics = [
-        MNB, MNE, MdnNB, MdnNE, NMdnGE, NO, NOP, NP, MO, MP, MdnO, MdnP,
-        RM, RMdn, MB, MdnB, WDMB_m, WDMB, WDMdnB, MAE, MedAE, CRMSE,
-        MAPE, sMAPE, NRMSE, RMSPE, NSC, NSE_alpha, NSE_beta, MAE_m,
-        MedAE_m, RMSE_m, IOA, IOA_m_err, MAPE_mod, MASE_mod, RMSE_norm, MAE_norm, bias_fraction,
-        NMSE, LOG_ERROR, COE, VOLUMETRIC_ERROR, CORR_INDEX
+        MNB,
+        MNE,
+        MdnNB,
+        MdnNE,
+        NMdnGE,
+        NO,
+        NOP,
+        NP,
+        MO,
+        MP,
+        MdnO,
+        MdnP,
+        RM,
+        RMdn,
+        MB,
+        MdnB,
+        WDMB_m,
+        WDMB,
+        WDMdnB,
+        MAE,
+        MedAE,
+        CRMSE,
+        MAPE,
+        sMAPE,
+        NRMSE,
+        RMSPE,
+        NSC,
+        NSE_alpha,
+        NSE_beta,
+        MAE_m,
+        MedAE_m,
+        RMSE_m,
+        IOA,
+        IOA_m_err,
+        MAPE_mod,
+        MASE_mod,
+        RMSE_norm,
+        MAE_norm,
+        bias_fraction,
+        NMSE,
+        LOG_ERROR,
+        COE,
+        VOLUMETRIC_ERROR,
+        CORR_INDEX,
     ]
     for func in err_metrics:
         res = func(obs, mod, axis="lat")
@@ -221,6 +436,7 @@ def test_all_metrics_xarray_axis(sample_pair_da):
         res = func(obs, mod, axis="lat")
         assert "lon" in res.coords
         assert res.dims == ("lon",)
+
 
 @pytest.mark.skipif(not HAS_DASK, reason="Dask not installed")
 def test_all_metrics_dask(sample_pair_da):
@@ -239,12 +455,14 @@ def test_all_metrics_dask(sample_pair_da):
         res_c = res.compute()
         assert not hasattr(res_c.data, "dask")
 
+
 def test_max_threshold_others(sample_pair_da):
     """Boost coverage: Other max/min threshold functions."""
     obs, mod = sample_pair_da
     ETS_max_threshold(obs, mod, 1.0, 2.0, 0.5)
     POD_max_threshold(obs, mod, 1.0, 2.0, 0.5)
     FAR_min_threshold(obs, mod, 1.0, 2.0, 0.5)
+
 
 def test_error_metrics_edge_cases():
     """Boost coverage: Edge cases like zero variance/range."""
@@ -259,6 +477,7 @@ def test_error_metrics_edge_cases():
     # Mismatch with zero variance in obs
     assert NSE(obs, mod2) == -np.inf
 
+
 def test_correlation_edge_cases():
     """Boost coverage: Edge cases for correlation."""
     obs = np.ones(5)
@@ -271,14 +490,32 @@ def test_correlation_edge_cases():
     # Single pair after matching
     assert np.isnan(spearmanr(obs_m, mod_m))
 
+
 def test_relative_metrics_numpy_axis():
     """Boost coverage: Target numpy fallback with axis in relative_metrics."""
     obs = np.random.rand(10, 5) + 1.0
     mod = np.random.rand(10, 5) + 1.0
 
     metrics = [
-        NMB, WDNMB_m, NMB_ABS, NMdnB, FB, ME, MdnE, WDME_m, WDME, WDMdnE,
-        NME_m, NME_m_ABS, NME, NMdnE, FE, USUTPB, USUTPE, MPE, MdnPE
+        NMB,
+        WDNMB_m,
+        NMB_ABS,
+        NMdnB,
+        FB,
+        ME,
+        MdnE,
+        WDME_m,
+        WDME,
+        WDMdnE,
+        NME_m,
+        NME_m_ABS,
+        NME,
+        NMdnE,
+        FE,
+        USUTPB,
+        USUTPE,
+        MPE,
+        MdnPE,
     ]
     for func in metrics:
         res = func(obs, mod, axis=0)
@@ -295,20 +532,43 @@ def test_relative_metrics_numpy_axis():
         assert np.shape(res_ax) == ()
 
     # PSUT wrappers
-    wrappers = [
-        PSUTMNPB, PSUTMdnNPB, PSUTMNPE, PSUTMdnNPE, PSUTNMPB, PSUTNMPE, PSUTNMdnPB, PSUTNMdnPE
-    ]
+    wrappers = [PSUTMNPB, PSUTMdnNPB, PSUTMNPE, PSUTMdnNPE, PSUTNMPB, PSUTNMPE, PSUTNMdnPB, PSUTNMdnPE]
     for func in wrappers:
         res = func(obs, mod)
         assert np.shape(res) == ()
+
 
 def test_relative_metrics_xarray_axis(sample_pair_da):
     """Boost coverage: Test relative metrics with xarray and axis."""
     obs, mod = sample_pair_da
     metrics = [
-        NMB, WDNMB_m, NMB_ABS, NMdnB, FB, ME, MdnE, WDME_m, WDME, WDMdnE,
-        NME_m, NME_m_ABS, NME, NMdnE, FE, USUTPB, USUTPE, MPE, MdnPE,
-        PSUTMNPB, PSUTMdnNPB, PSUTMNPE, PSUTMdnNPE, PSUTNMPB, PSUTNMPE, PSUTNMdnPB, PSUTNMdnPE
+        NMB,
+        WDNMB_m,
+        NMB_ABS,
+        NMdnB,
+        FB,
+        ME,
+        MdnE,
+        WDME_m,
+        WDME,
+        WDMdnE,
+        NME_m,
+        NME_m_ABS,
+        NME,
+        NMdnE,
+        FE,
+        USUTPB,
+        USUTPE,
+        MPE,
+        MdnPE,
+        PSUTMNPB,
+        PSUTMdnNPB,
+        PSUTMNPE,
+        PSUTMdnNPE,
+        PSUTNMPB,
+        PSUTNMPE,
+        PSUTNMdnPB,
+        PSUTNMdnPE,
     ]
     for func in metrics:
         func(obs, mod, axis="lat")
@@ -316,6 +576,7 @@ def test_relative_metrics_xarray_axis(sample_pair_da):
     peak_metrics = [MNPB, MdnNPB, MNPE, MdnNPE, NMPB, NMdnPB, NMPE, NMdnPE]
     for func in peak_metrics:
         func(obs, mod, paxis="lat", axis="lon")
+
 
 def test_spatial_ensemble_metrics_numpy():
     """Boost coverage: spatial_ensemble_metrics with numpy."""
@@ -330,12 +591,13 @@ def test_spatial_ensemble_metrics_numpy():
     assert np.shape(e) == ()
     assert np.shape(BSS(obs, mod, threshold=0.5)) == ()
 
-    s, a, l = SAL(obs, mod, threshold=0.5)
+    s, a, l_val = SAL(obs, mod, threshold=0.5)
     assert isinstance(s, float)
 
     assert np.shape(ensemble_mean(ens, axis=0)) == (5, 5)
     assert np.shape(ensemble_std(ens, axis=0)) == (5, 5)
     assert np.shape(rank_histogram(ens, obs, axis=0)) == (11,)
+
 
 def test_spatial_ensemble_metrics_xarray(sample_pair_da):
     """Boost coverage: spatial_ensemble_metrics with xarray."""
@@ -355,6 +617,7 @@ def test_spatial_ensemble_metrics_xarray(sample_pair_da):
     assert isinstance(ensemble_mean(ens, axis="ensemble"), xr.DataArray)
     assert isinstance(rank_histogram(ens, obs, axis="ensemble"), xr.DataArray)
 
+
 def test_spatial_skill_metrics(sample_pair_da):
     """Boost coverage: spatial_skill_metrics."""
     obs, mod = sample_pair_da
@@ -364,6 +627,7 @@ def test_spatial_skill_metrics(sample_pair_da):
     # Numpy
     assert np.shape(FSS(obs.values, mod.values, threshold=1.5)) == ()
     assert np.shape(VETS(obs.values, mod.values, axis=0)) == (5,)
+
 
 def test_stats_backend_agnostic(sample_pair_da):
     """Boost coverage: stats function in __init__.py."""
@@ -380,6 +644,7 @@ def test_stats_backend_agnostic(sample_pair_da):
     res_df = stats(df)
     assert isinstance(res_df, dict)
     assert res_df["N"] == 10
+
 
 def test_analysis_module(sample_da):
     """Boost coverage: analysis.py."""
@@ -440,6 +705,7 @@ def test_analysis_module(sample_da):
     climo = analysis.climatology(da_time, freq="month")
     assert "month" in climo.coords
 
+
 def test_utils_stats(sample_pair_da):
     """Boost coverage: utils_stats.py."""
     obs, mod = sample_pair_da
@@ -461,6 +727,7 @@ def test_utils_stats(sample_pair_da):
     m1, m2 = utils.matchmasks(obs, mod)
     assert isinstance(m1, xr.DataArray)
 
+
 def test_performance_module(sample_pair_da):
     """Boost coverage: performance.py."""
     obs, mod = sample_pair_da
@@ -470,12 +737,16 @@ def test_performance_module(sample_pair_da):
     assert len(chunks) == 5
 
     # vectorize_function
-    def my_func(x, y): return x + y
+    def my_func(x, y):
+        return x + y
+
     vec = perf.vectorize_function(my_func, [1, 2], [3, 4])
     assert np.all(vec == [4, 6])
 
     # parallel_compute
-    def my_sum(x, axis=None): return np.sum(x, axis=axis)
+    def my_sum(x, axis=None):
+        return np.sum(x, axis=axis)
+
     res = perf.parallel_compute(my_sum, obs.values, chunk_size=5)
     assert isinstance(res, (float, np.float64))
 
@@ -490,6 +761,7 @@ def test_performance_module(sample_pair_da):
     perf.memory_efficient_correlation(obs, mod)
     perf.optimize_for_size(utils.rmse, obs, mod)
 
+
 def test_interfaces_module(sample_pair_da):
     """Boost coverage: interfaces.py."""
     obs, mod = sample_pair_da
@@ -498,20 +770,20 @@ def test_interfaces_module(sample_pair_da):
         def compute(self, obs, mod, **kwargs):
             self.validate_inputs(obs, mod)
             if isinstance(obs, xr.DataArray):
-                return self._handle_xarray(obs, mod, lambda o, m, **kw: (o-m).mean(**kw), **kwargs)
+                return self._handle_xarray(obs, mod, lambda o, m, **kw: (o - m).mean(**kw), **kwargs)
             else:
-                return self._handle_numpy(obs, mod, lambda o, m, **kw: np.mean(o-m, **kw), **kwargs)
+                return self._handle_numpy(obs, mod, lambda o, m, **kw: np.mean(o - m, **kw), **kwargs)
 
     metric = MyMetric()
     metric.compute(obs, mod, axis="lat")
     metric.compute(obs.values, mod.values, axis=0)
 
     # Masked arrays
-    metric._handle_masked_arrays(obs.values, mod.values, lambda o, m, **kw: np.ma.mean(o-m, **kw), axis=0)
+    metric._handle_masked_arrays(obs.values, mod.values, lambda o, m, **kw: np.ma.mean(o - m, **kw), axis=0)
 
     # Legacy wrappers
     interfaces.DataProcessor.to_numpy(obs)
     interfaces.DataProcessor.align_arrays(obs, mod)
     interfaces.DataProcessor.handle_missing_values(obs, mod)
     interfaces.PerformanceOptimizer.chunk_array(obs.values)
-    interfaces.PerformanceOptimizer.vectorize_function(lambda x: x*2, [1, 2])
+    interfaces.PerformanceOptimizer.vectorize_function(lambda x: x * 2, [1, 2])

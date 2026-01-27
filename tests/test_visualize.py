@@ -5,6 +5,7 @@ Unit tests for the visualization module (Aero Protocol).
 import numpy as np
 import pytest
 import xarray as xr
+
 from monet_stats.visualize import plot_spatial
 
 
@@ -95,7 +96,7 @@ def test_plot_spatial_matplotlib_missing(sample_da, monkeypatch):
     monkeypatch.setattr(builtins, "__import__", mock_import)
 
     try:
-        with pytest.raises(ImportError, match="Track A \(matplotlib\) requires"):
+        with pytest.raises(ImportError, match=r"Track A \(matplotlib\) requires"):
             plot_spatial(sample_da, method="matplotlib")
     finally:
         # Restore sys.modules
