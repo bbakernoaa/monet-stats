@@ -2,7 +2,7 @@
 Error Metrics for Model Evaluation
 """
 
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -2473,7 +2473,7 @@ def COE(
     else:
         axes = tuple(axis)
 
-    def _get_numpy_centroid(arr: np.ndarray, axes_tuple: tuple[int, ...]) -> List[np.ndarray]:
+    def _get_numpy_centroid(arr: np.ndarray, axes_tuple: Tuple[int, ...]) -> List[np.ndarray]:
         """Helper to calculate centroid of a NumPy array."""
         total = np.sum(arr, axis=axes_tuple)
         total_safe = np.where(total == 0, 1e-10, total)
