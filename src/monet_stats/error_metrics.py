@@ -2,7 +2,7 @@
 Error Metrics for Model Evaluation
 """
 
-from typing import Iterable, Optional, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -2393,11 +2393,9 @@ def COE(
     """
     Center of Mass Error (COE).
 
-    Typical Use Cases
-    -----------------
-    - Evaluating the displacement error of spatial features.
-    - Used in meteorology for precipitation field verification.
-    - Assesses how much model features are shifted compared to observations.
+    The COE measures the displacement between the centroids (centers of mass)
+    of two fields. For spatial data, this represents the shift in the center
+    of a feature (e.g., a storm or a pollutant plume).
 
     Parameters
     ----------
@@ -2406,29 +2404,94 @@ def COE(
     mod : numpy.ndarray or xarray.DataArray
         Model or predicted values (typically 2D spatial field).
     axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute COE.
+        Axis or dimension(s) over which to compute the centroid.
+        If None, computes over all axes.
 
     Returns
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
-        Center of mass error.
+        Center of mass error (Euclidean distance between centroids).
 
     Examples
     --------
     >>> import numpy as np
     >>> from monet_stats.error_metrics import COE
-    >>> obs = np.array([[1, 0], [0, 1]])  # Diagonal pattern
-    >>> mod = np.array([[0, 1], [1, 0]])  # Opposite diagonal
-    >>> COE(obs, mod)
-    1.4142135623730951
+    >>> obs = np.zeros((5, 5))
+    >>> obs[2, 2] = 1.0  # Peak at center (2, 2)
+    >>> mod = np.zeros((5, 5))
+    >>> mod[3, 3] = 1.0  # Peak shifted to (3, 3)
+    >>> # Displacement is sqrt(1^2 + 1^2) = sqrt(2) approx 1.414
+    >>> np.allclose(COE(obs, mod), np.sqrt(2))
+    True
     """
+    from .utils_stats import _update_history
+
+    def _get_centroid(da: xr.DataArray, dims: Iterable[str]) -> List[xr.DataArray]:
+        """Helper to calculate centroid of a DataArray."""
+        total = da.sum(dim=dims)
+        # Handle zero sum to avoid division by zero
+        total_safe = xr.where(total == 0, 1e-10, total)
+        coords_list = []
+        for d in dims:
+            # Check if coord exists and is numeric
+            if d in da.coords and np.issubdtype(da.coords[d].dtype, np.number):
+                coord = da.coords[d]
+            else:
+                # Fallback to dimension indices
+                coord = xr.DataArray(np.arange(da.sizes[d]), dims=d, name=d)
+            # Weighted mean of coordinate
+            c = (da * coord).sum(dim=dims) / total_safe
+            coords_list.append(c)
+        return coords_list
+
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        # For simplicity, returning RMSE for xarray case as per previous logic
-        # A more robust implementation would involve spatial centroid calculation
-        return RMSE(obs, mod, axis=axis)
+        obs, mod = xr.align(obs, mod, join="inner")
+        if axis is None:
+            dims = list(obs.dims)
+        elif isinstance(axis, (int, str)):
+            dims = [obs.dims[axis] if isinstance(axis, int) else axis]
+        else:
+            dims = [obs.dims[d] if isinstance(d, int) else d for d in axis]
+
+        c_obs = _get_centroid(obs, dims)
+        c_mod = _get_centroid(mod, dims)
+
+        # Euclidean distance
+        dist_sq = sum((cm - co) ** 2 for cm, co in zip(c_mod, c_obs))
+        result = dist_sq**0.5
+
+        return _update_history(result, "Center of Mass Error (COE)")
+
+    # Fallback to numpy
+    obs_arr = np.asanyarray(obs)
+    mod_arr = np.asanyarray(mod)
+
+    if axis is None:
+        axes = tuple(range(obs_arr.ndim))
+    elif isinstance(axis, int):
+        axes = (axis,)
     else:
-        # For numpy arrays, compute center of mass error (RMSE fallback)
-        return np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        axes = tuple(axis)
+
+    def _get_numpy_centroid(arr: np.ndarray, axes_tuple: Tuple[int, ...]) -> List[np.ndarray]:
+        """Helper to calculate centroid of a NumPy array."""
+        total = np.sum(arr, axis=axes_tuple)
+        total_safe = np.where(total == 0, 1e-10, total)
+        c_list = []
+        for ax in axes_tuple:
+            # Create coordinate array for this axis
+            shape = [1] * arr.ndim
+            shape[ax] = arr.shape[ax]
+            coord = np.arange(arr.shape[ax]).reshape(shape)
+            c = np.sum(arr * coord, axis=axes_tuple) / total_safe
+            c_list.append(c)
+        return c_list
+
+    c_obs_np = _get_numpy_centroid(obs_arr, axes)
+    c_mod_np = _get_numpy_centroid(mod_arr, axes)
+
+    dist_sq_np = sum((cm - co) ** 2 for cm, co in zip(c_mod_np, c_obs_np))
+    return dist_sq_np**0.5
 
 
 def VOLUMETRIC_ERROR(
