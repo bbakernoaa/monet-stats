@@ -6,6 +6,13 @@ import numpy as np
 import pytest
 import xarray as xr
 
+try:
+    import dask.array  # noqa: F401
+
+    HAS_DASK = True
+except ImportError:
+    HAS_DASK = False
+
 from monet_stats.performance import (
     apply_lazy_threshold,
     chunk_array,
@@ -93,6 +100,8 @@ class TestPerformance:
 
     def test_apply_lazy_threshold(self):
         """Test apply_lazy_threshold converts to Dask when needed."""
+        if not HAS_DASK:
+            pytest.skip("Dask not available")
         data = xr.DataArray(np.random.rand(1000, 1000), dims=["x", "y"])
 
         # Small threshold -> should become dask
@@ -110,6 +119,8 @@ class TestPerformance:
 
     def test_parallel_compute_xarray(self):
         """Test parallel_compute handles xarray internally with laziness."""
+        if not HAS_DASK:
+            pytest.skip("Dask not available")
         data = xr.DataArray(np.random.rand(100, 100), dims=["x", "y"])
 
         # Should convert to lazy internally if threshold is low (default is 500MB, so we force it)
