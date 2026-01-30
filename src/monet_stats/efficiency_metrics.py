@@ -5,10 +5,10 @@ Efficiency Metrics for Model Evaluation
 from typing import Iterable, Optional, Union
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 
-from .error_metrics import MAE, MAPE, MASE  # noqa: F401
+from .error_metrics import MAE, MAPE, MASE, MSE  # noqa: F401
+from .utils_stats import _update_history
 
 
 def NSE(
@@ -65,10 +65,7 @@ def NSE(
         result = xr.where((numerator == 0) & (denominator == 0), 1.0, result)
         result = xr.where((numerator != 0) & (denominator == 0), -np.inf, result)
 
-        # Update history
-        history = f"NSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NSE")
     else:
         obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
         numerator = np.nansum((obs - mod) ** 2, axis=axis)
@@ -88,6 +85,8 @@ def NSEm(
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Nash-Sutcliffe Efficiency (NSE) - robust to masked arrays.
+
+    This function is a wrapper for NSE that explicitly handles masked data and NaNs.
 
     Parameters
     ----------
@@ -124,6 +123,8 @@ def NSElog(
     """
     Log Nash-Sutcliffe Efficiency (NSElog).
 
+    Calculates NSE on logarithmic-transformed data to focus on lower values.
+
     Parameters
     ----------
     obs : numpy.ndarray or xarray.DataArray
@@ -150,7 +151,10 @@ def NSElog(
     epsilon = 1e-6
     obs_log = np.log(obs + epsilon)
     mod_log = np.log(mod + epsilon)
-    return NSE(obs_log, mod_log, axis=axis)
+    result = NSE(obs_log, mod_log, axis=axis)
+    if isinstance(result, xr.DataArray):
+        return _update_history(result, "NSElog")
+    return result
 
 
 def rNSE(
@@ -206,10 +210,7 @@ def rNSE(
         result = xr.where((numerator == 0) & (denominator == 0), 1.0, result)
         result = xr.where((numerator != 0) & (denominator == 0), -np.inf, result)
 
-        # Update history
-        history = f"rNSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "rNSE")
     else:
         obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
         obs_range = np.nanmax(obs, axis=axis, keepdims=True) - np.nanmin(obs, axis=axis, keepdims=True)
@@ -273,10 +274,7 @@ def mNSE(
         result = xr.where((numerator == 0) & (denominator == 0), 1.0, result)
         result = xr.where((numerator != 0) & (denominator == 0), -np.inf, result)
 
-        # Update history
-        history = f"mNSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "mNSE")
     else:
         obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
         numerator = np.nansum(np.abs(obs - mod), axis=axis)
@@ -297,6 +295,9 @@ def PC(
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Percent of Correct (PC).
+
+    Calculates the percentage of model predictions that are within a specified
+    tolerance of the observations.
 
     Parameters
     ----------
@@ -335,62 +336,20 @@ def PC(
         correct = np.abs(obs - mod) <= tol
         result = (correct.sum(dim=dim) / correct.count(dim=dim)) * 100.0
 
-        # Update history
-        history = f"PC computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "PC")
     else:
+        obs = np.asanyarray(obs)
+        mod = np.asanyarray(mod)
+        mask = np.isnan(obs) | np.isnan(mod)
+
         tol = tolerance * np.abs(obs)
         correct = np.abs(obs - mod) <= tol
-        total = np.sum(~np.isnan(correct), axis=axis)
-        correct_sum = np.nansum(correct, axis=axis)
-        return (correct_sum / total) * 100.0
 
+        total = np.sum(~mask, axis=axis)
+        correct_sum = np.sum(correct & ~mask, axis=axis)
 
-def MSE(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Mean Squared Error (MSE).
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = (correct_sum / total) * 100.0
+            result = np.where(total == 0, np.nan, result)
 
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed values.
-    mod : numpy.ndarray or xarray.DataArray
-        Model predicted values.
-    axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute the error.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Mean squared error.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.efficiency_metrics import MSE
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> MSE(obs, mod)
-    0.6666666666666666
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
-
-        result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True)
-
-        # Update history
-        history = f"MSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
-    else:
-        return np.nanmean((mod - obs) ** 2, axis=axis)
+        return result.item() if np.ndim(result) == 0 else result

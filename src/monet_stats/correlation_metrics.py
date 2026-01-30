@@ -2,14 +2,39 @@
 Correlation and Agreement Metrics for Model Evaluation
 """
 
-from typing import Iterable, Optional, Tuple, Union
+from typing import Iterable, Optional, Union
 
 import numpy as np
 import pandas as pd
 import xarray as xr
-from numpy.typing import ArrayLike
 
+from .error_metrics import IOA, RMSE, IOA_m
 from .utils_stats import circlebias, circlebias_m, matchedcompressed
+
+__all__ = [
+    "IOA",
+    "IOA_m",
+    "RMSE",
+    "R2",
+    "WDRMSE_m",
+    "WDRMSE",
+    "RMSEs",
+    "RMSEu",
+    "d1",
+    "E1",
+    "WDIOA_m",
+    "WDIOA",
+    "AC",
+    "WDAC",
+    "taylor_skill",
+    "KGE",
+    "pearsonr",
+    "spearmanr",
+    "kendalltau",
+    "CCC",
+    "E1_prime",
+    "IOA_prime",
+]
 
 
 def R2(
@@ -105,59 +130,6 @@ def R2(
                 r = num / den
                 result = np.where(np.isnan(r), 0.0, r**2)
                 return result.item() if np.ndim(result) == 0 else result
-
-
-def RMSE(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Root Mean Square Error (RMSE, model unit).
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average magnitude of errors between model and observations.
-    - Used in model evaluation, forecast verification, and regression analysis.
-
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed values.
-    mod : numpy.ndarray or xarray.DataArray
-        Model predicted values.
-    axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute the statistic.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Root mean square error value(s).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.correlation_metrics import RMSE
-    >>> obs = np.array([1, 2, 3, 4])
-    >>> mod = np.array([2, 2, 2, 2])
-    >>> RMSE(obs, mod)
-    1.118033988749895
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
-
-        result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"RMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
-    else:
-        return np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
 
 
 def WDRMSE_m(
@@ -384,41 +356,6 @@ def RMSEs(
                     mod_hat = b + m * obs_flat[i]
                     results.append(np.sqrt(np.nanmean((mod_hat - obs_flat[i]) ** 2)))
             return np.array(results).reshape(other_shape)
-
-
-def matchmasks(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ma.MaskedArray, np.ma.MaskedArray]:
-    """
-    Match and combine masks from two masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Ensuring that two arrays have the same mask for paired statistical calculations.
-    - Used in metrics that require both arrays to have valid data at the same locations (e.g., correlation, regression).
-
-    Parameters
-    ----------
-    a1 : array-like or numpy.ma.MaskedArray
-        First input array.
-    a2 : array-like or numpy.ma.MaskedArray
-        Second input array.
-
-    Returns
-    -------
-    tuple of numpy.ma.MaskedArray
-        Tuple of (a1_masked, a2_masked) with combined mask.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet.util import stats
-    >>> a1 = np.ma.array([1, 2, 3], mask=[0, 1, 0])
-    >>> a2 = np.ma.array([4, 5, 6], mask=[0, 0, 1])
-    >>> stats.matchmasks(a1, a2)
-    (masked_array(data=[1, --, 3], mask=[False,  True, False]),
-     masked_array(data=[4, --, --], mask=[False, False,  True]))
-    """
-    mask = np.ma.getmaskarray(a1) | np.ma.getmaskarray(a2)
-    return np.ma.masked_where(mask, a1), np.ma.masked_where(mask, a2)
 
 
 def RMSEu(
@@ -658,140 +595,6 @@ def E1(
         num = np.ma.abs(np.subtract(obs, mod)).sum(axis=axis)
         mean_obs = np.ma.mean(obs, axis=axis, keepdims=True)
         denom = np.ma.abs(np.subtract(obs, mean_obs)).sum(axis=axis)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            result = 1.0 - (num / denom)
-            result = np.where((num == 0) & (denom == 0), 1.0, result)
-            result = np.where((num != 0) & (denom == 0), -np.inf, result)
-        return result.item() if np.ndim(result) == 0 else result
-
-
-def IOA_m(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Index of Agreement (IOA), robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the agreement between model and observations, normalized by
-      total deviation.
-    - Used in model evaluation for skill assessment, robust to masked arrays.
-
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed values.
-    mod : numpy.ndarray or xarray.DataArray
-        Model predicted values.
-    axis : int, str, or iterable of such, optional
-        Axis along which to compute the statistic.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Index of agreement (unitless, 0-1).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.correlation_metrics import IOA_m
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> IOA_m(obs, mod)
-    0.8
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
-
-        obsmean = obs.mean(dim=dim)
-        num = ((obs - mod) ** 2).sum(dim=dim)
-        denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=dim)
-        result = 1.0 - (num / denom)
-        result = xr.where((num == 0) & (denom == 0), 1.0, result)
-        result = xr.where((num != 0) & (denom == 0), -np.inf, result)
-
-        # Update history
-        history = f"IOA_m computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
-    else:
-        obsmean = np.ma.mean(obs, axis=axis, keepdims=True)
-        num = (np.ma.abs(np.subtract(obs, mod)) ** 2).sum(axis=axis)
-        denom = ((np.ma.abs(np.subtract(mod, obsmean)) + np.ma.abs(np.subtract(obs, obsmean))) ** 2).sum(axis=axis)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            result = 1.0 - (num / denom)
-            result = np.where((num == 0) & (denom == 0), 1.0, result)
-            result = np.where((num != 0) & (denom == 0), -np.inf, result)
-        return result.item() if np.ndim(result) == 0 else result
-
-
-def IOA(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Index of Agreement (IOA).
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the agreement between model and observations, normalized by
-      total deviation.
-    - Used in model evaluation for skill assessment.
-
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed values.
-    mod : numpy.ndarray or xarray.DataArray
-        Model predicted values.
-    axis : int, str, or iterable of such, optional
-        Axis along which to compute the statistic.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Index of agreement (unitless, 0-1).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.correlation_metrics import IOA
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> IOA(obs, mod)
-    0.8
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
-
-        obsmean = obs.mean(dim=dim)
-        num = ((obs - mod) ** 2).sum(dim=dim)
-        denom = ((abs(mod - obsmean) + abs(obs - obsmean)) ** 2).sum(dim=dim)
-        result = 1.0 - (num / denom)
-        result = xr.where((num == 0) & (denom == 0), 1.0, result)
-        result = xr.where((num != 0) & (denom == 0), -np.inf, result)
-
-        # Update history
-        history = f"IOA computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
-    else:
-        obsmean = np.ma.mean(obs, axis=axis, keepdims=True)
-        num = (np.ma.abs(np.subtract(obs, mod)) ** 2).sum(axis=axis)
-        denom = ((np.ma.abs(np.subtract(mod, obsmean)) + np.ma.abs(np.subtract(obs, obsmean))) ** 2).sum(axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (num / denom)
             result = np.where((num == 0) & (denom == 0), 1.0, result)
