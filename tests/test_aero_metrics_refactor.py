@@ -1,6 +1,13 @@
-import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
+
+try:
+    import dask.array as da
+
+    HAS_DASK = True
+except ImportError:
+    HAS_DASK = False
 
 from monet_stats.efficiency_metrics import NSE, PC, NSElog
 from monet_stats.error_metrics import IOA, MSE, RMSE
@@ -77,6 +84,7 @@ def test_pc_nan_handling():
     assert np.allclose(PC(obs, mod), expected)
 
 
+@pytest.mark.skipif(not HAS_DASK, reason="Dask not installed")
 def test_dask_compatibility():
     obs = xr.DataArray(da.random.random((10, 10), chunks=5), dims=("x", "y"))
     mod = xr.DataArray(da.random.random((10, 10), chunks=5), dims=("x", "y"))

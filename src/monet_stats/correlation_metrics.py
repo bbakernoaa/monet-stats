@@ -8,8 +8,33 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .error_metrics import RMSE
+from .error_metrics import IOA, RMSE, IOA_m
 from .utils_stats import circlebias, circlebias_m, matchedcompressed
+
+__all__ = [
+    "IOA",
+    "IOA_m",
+    "RMSE",
+    "R2",
+    "WDRMSE_m",
+    "WDRMSE",
+    "RMSEs",
+    "RMSEu",
+    "d1",
+    "E1",
+    "WDIOA_m",
+    "WDIOA",
+    "AC",
+    "WDAC",
+    "taylor_skill",
+    "KGE",
+    "pearsonr",
+    "spearmanr",
+    "kendalltau",
+    "CCC",
+    "E1_prime",
+    "IOA_prime",
+]
 
 
 def R2(
