@@ -31,12 +31,12 @@ def run_visualization_demo():
 
     # Subplot 1: Observations
     ax1 = fig.add_subplot(1, 2, 1, projection=ccrs.PlateCarree())
-    plot_spatial(obs, ax=ax1, title="Observations", cmap="RdBu_r")
+    plot_spatial(obs, ax=ax1, title="Observations", cmap="RdBu_r", cbar_kwargs={"shrink": 0.7})
 
     # Subplot 2: Local Error (Absolute Difference)
     ax2 = fig.add_subplot(1, 2, 2, projection=ccrs.PlateCarree())
     error = abs(mod - obs)
-    plot_spatial(error, ax=ax2, title="Absolute Error", cmap="Reds")
+    plot_spatial(error, ax=ax2, title="Absolute Error", cmap="Reds", cbar_kwargs={"shrink": 0.7})
 
     plt.tight_layout()
     plt.savefig("refactor_visualization_demo.png")
