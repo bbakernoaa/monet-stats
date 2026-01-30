@@ -50,7 +50,7 @@ def test_stdo_xarray_dask():
     expected = np.std(obs_data - mod_data)
     xr.testing.assert_allclose(result.compute(), xr.DataArray(expected))
     assert "history" in result.attrs
-    assert "STDO computed at" in result.attrs["history"]
+    assert "STDO" in result.attrs["history"]
 
 
 def test_stdo_xarray_eager():
@@ -63,7 +63,7 @@ def test_stdo_xarray_eager():
     expected = np.std(obs_data - mod_data)
     xr.testing.assert_allclose(result, xr.DataArray(expected))
     assert "history" in result.attrs
-    assert "STDO computed at" in result.attrs["history"]
+    assert "STDO" in result.attrs["history"]
 
 
 def test_stdp_xarray_dims():
@@ -106,7 +106,7 @@ def test_generic_metrics_xarray_dask():
         result = metric_func(obs, mod, axis="x")
         assert isinstance(result.data, da.Array), f"{name} failed dask check"
         assert "history" in result.attrs, f"{name} missing history"
-        assert f"{name} computed at" in result.attrs["history"]
+        assert name in result.attrs["history"]
         assert "y" in result.coords
         assert result.dims == ("y",)
 
@@ -134,7 +134,7 @@ def test_generic_metrics_xarray_eager():
         result = metric_func(obs, mod, axis="x")
         assert not hasattr(result.data, "dask")
         assert "history" in result.attrs, f"{name} missing history"
-        assert f"{name} computed at" in result.attrs["history"]
+        assert name in result.attrs["history"]
         assert "y" in result.coords
         assert result.dims == ("y",)
 

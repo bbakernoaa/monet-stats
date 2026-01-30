@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .utils_stats import circlebias, circlebias_m, matchmasks
+from .utils_stats import _update_history, circlebias, circlebias_m, matchmasks
 
 ############################################################
 # 1. Basic Error Metrics
@@ -929,6 +929,52 @@ def WDMdnB(
         return np.ma.median(circlebias(np.subtract(mod, obs)), axis=axis)
 
 
+def MSE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Mean Squared Error (MSE).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the error.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean squared error.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import MSE
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([2, 2, 4])
+    >>> MSE(obs, mod)
+    0.6666666666666666
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "MSE")
+    else:
+        result = np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis)
+        return result.item() if np.ndim(result) == 0 else result
+
+
 def MAE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
@@ -1831,12 +1877,10 @@ def RMSE(
         else:
             dim = axis
         result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"RMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "RMSE")
     else:
-        return np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        result = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def RMSE_m(
@@ -1933,15 +1977,14 @@ def IOA(
         num = ((obs - mod) ** 2).sum(dim=dim)
         denom = ((abs(mod - obs_mean) + abs(obs - obs_mean)) ** 2).sum(dim=dim)
         result = 1.0 - (num / denom)
-        # Update history
-        history = f"IOA computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "IOA")
     else:
-        obs_mean = np.mean(obs, axis=axis, keepdims=True)
-        num = np.sum((obs - mod) ** 2, axis=axis)
-        denom = np.sum((np.abs(mod - obs_mean) + np.abs(obs - obs_mean)) ** 2, axis=axis)
-        return 1.0 - (num / denom)
+        obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
+        num = np.nansum((obs - mod) ** 2, axis=axis)
+        denom = np.nansum((np.abs(mod - obs_mean) + np.abs(obs - obs_mean)) ** 2, axis=axis)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def IOA_m(
@@ -1988,7 +2031,9 @@ def IOA_m(
         obs_mean = np.ma.mean(obs, axis=axis, keepdims=True)
         num = np.ma.sum((obs - mod) ** 2, axis=axis)
         denom = np.ma.sum((np.ma.abs(mod - obs_mean) + np.ma.abs(obs - obs_mean)) ** 2, axis=axis)
-        return 1.0 - (num / denom)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 # Add the missing functions from the specification
