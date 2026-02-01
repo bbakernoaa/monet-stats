@@ -246,6 +246,60 @@ def WDRMSE(
         return np.ma.sqrt(np.ma.mean((circlebias(np.subtract(mod, obs))) ** 2, axis=axis))
 
 
+def _vectorized_regression_stats(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    mode: str = "RMSEs",
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """Internal helper for vectorized regression metrics."""
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        if axis is None:
+            axis = obs.dims
+
+    # Core logic using NumPy broadcasting
+    x = np.asarray(obs)
+    y = np.asarray(mod)
+    mask = ~np.isnan(x) & ~np.isnan(y)
+    xv = np.where(mask, x, 0.0)
+    yv = np.where(mask, y, 0.0)
+
+    n = np.sum(mask, axis=axis)
+    s_x = np.sum(xv, axis=axis)
+    s_y = np.sum(yv, axis=axis)
+    s_xx = np.sum(xv * xv, axis=axis)
+    s_yy = np.sum(yv * yv, axis=axis)
+    s_xy = np.sum(xv * yv, axis=axis)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ss_xx = s_xx - (s_x**2) / n
+        ss_xy = s_xy - (s_x * s_y) / n
+        m = np.where(ss_xx != 0, ss_xy / ss_xx, 0.0)
+        b = np.where(n != 0, (s_y - m * s_x) / n, 0.0)
+
+        if mode == "RMSEs":
+            # sum((m*x + b - x)^2) = sum(((m-1)*x + b)^2)
+            sse = (m - 1) ** 2 * s_xx + 2 * b * (m - 1) * s_x + n * b**2
+            res = np.where(n > 0, np.sqrt(np.maximum(sse, 0) / n), np.nan)
+        else:  # RMSEu
+            # Residual sum of squares: SSyy - (SSxy^2 / SSxx)
+            ss_yy = s_yy - (s_y**2) / n
+            rss = np.where(ss_xx != 0, ss_yy - (ss_xy**2) / ss_xx, ss_yy)
+            res = np.where(n > 0, np.sqrt(np.maximum(rss, 0) / n), np.nan)
+
+    if isinstance(obs, xr.DataArray):
+        # Create DataArray with same dims as input minus axis
+        if axis is None or (isinstance(axis, (list, tuple)) and len(axis) == len(obs.dims)):
+            res_da = xr.DataArray(res, attrs=obs.attrs)
+        else:
+            # Handle dim reduction
+            dummy = obs.mean(dim=axis)
+            res_da = xr.DataArray(res, coords=dummy.coords, dims=dummy.dims, attrs=obs.attrs)
+        return res_da
+    return res
+
+
 def RMSEs(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
@@ -275,7 +329,7 @@ def RMSEs(
     Returns
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray, optional
-        Root mean squared error value(s), or None if regression fails.
+        Root mean squared error value(s).
 
     Examples
     --------
@@ -286,76 +340,11 @@ def RMSEs(
     >>> RMSEs(obs, mod)
     0.7071067811865476
     """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
-
-        def _rmses(a, b):
-            from scipy.stats import linregress
-
-            mask = ~np.isnan(a) & ~np.isnan(b)
-            if not np.any(mask):
-                return np.nan
-            m, c, _, _, _ = linregress(a[mask], b[mask])
-            mod_hat = c + m * a
-            return np.sqrt(np.mean((mod_hat - a) ** 2))
-
-        result = xr.apply_ufunc(
-            _rmses,
-            obs,
-            mod,
-            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
-            output_core_dims=[[]],
-            vectorize=True,
-            dask="parallelized",
-            dask_gufunc_kwargs={"allow_rechunk": True},
-            output_dtypes=[float],
-        )
-        # Update history
+    res = _vectorized_regression_stats(obs, mod, axis=axis, mode="RMSEs")
+    if hasattr(res, "attrs"):
         history = f"RMSEs computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
-    else:
-        if axis is None:
-            try:
-                from scipy.stats import linregress
-
-                obsc, modc = matchedcompressed(obs, mod)
-                m, b, _, _, _ = linregress(obsc, modc)
-                mod_hat = b + m * obs
-                return RMSE(obs, mod_hat, axis=axis)
-            except (ValueError, ZeroDivisionError):
-                return None
-        else:
-            # Manual vectorized regression for numpy with axis
-            obs = np.asarray(obs)
-            mod = np.asarray(mod)
-            if axis < 0:
-                axis = obs.ndim + axis
-
-            obs_moved = np.moveaxis(obs, axis, -1)
-            mod_moved = np.moveaxis(mod, axis, -1)
-            other_shape = obs_moved.shape[:-1]
-            obs_flat = obs_moved.reshape(-1, obs_moved.shape[-1])
-            mod_flat = mod_moved.reshape(-1, mod_moved.shape[-1])
-
-            results = []
-            from scipy.stats import linregress
-
-            for i in range(len(obs_flat)):
-                mask = ~np.isnan(obs_flat[i]) & ~np.isnan(mod_flat[i])
-                if np.sum(mask) < 2:
-                    results.append(np.nan)
-                else:
-                    m, b, _, _, _ = linregress(obs_flat[i][mask], mod_flat[i][mask])
-                    mod_hat = b + m * obs_flat[i]
-                    results.append(np.sqrt(np.nanmean((mod_hat - obs_flat[i]) ** 2)))
-            return np.array(results).reshape(other_shape)
+        res.attrs["history"] = f"{res.attrs.get('history', '')}\n{history}".strip()
+    return res
 
 
 def RMSEu(
@@ -387,7 +376,7 @@ def RMSEu(
     Returns
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray, optional
-        Root mean squared error value(s), or None if regression fails.
+        Root mean squared error value(s).
 
     Examples
     --------
@@ -398,75 +387,11 @@ def RMSEu(
     >>> RMSEu(obs, mod)
     0.7071067811865476
     """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
-
-        def _rmseu(a, b):
-            from scipy.stats import linregress
-
-            mask = ~np.isnan(a) & ~np.isnan(b)
-            if not np.any(mask):
-                return np.nan
-            m, c, _, _, _ = linregress(a[mask], b[mask])
-            mod_hat = c + m * a
-            return np.sqrt(np.mean((mod_hat - b) ** 2))
-
-        result = xr.apply_ufunc(
-            _rmseu,
-            obs,
-            mod,
-            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
-            output_core_dims=[[]],
-            vectorize=True,
-            dask="parallelized",
-            dask_gufunc_kwargs={"allow_rechunk": True},
-            output_dtypes=[float],
-        )
-        # Update history
+    res = _vectorized_regression_stats(obs, mod, axis=axis, mode="RMSEu")
+    if hasattr(res, "attrs"):
         history = f"RMSEu computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
-    else:
-        if axis is None:
-            try:
-                from scipy.stats import linregress
-
-                obsc, modc = matchedcompressed(obs, mod)
-                m, b, _, _, _ = linregress(obsc, modc)
-                mod_hat = b + m * obs
-                return RMSE(mod_hat, mod, axis=axis)
-            except (ValueError, ZeroDivisionError):
-                return None
-        else:
-            obs = np.asarray(obs)
-            mod = np.asarray(mod)
-            if axis < 0:
-                axis = obs.ndim + axis
-
-            obs_moved = np.moveaxis(obs, axis, -1)
-            mod_moved = np.moveaxis(mod, axis, -1)
-            other_shape = obs_moved.shape[:-1]
-            obs_flat = obs_moved.reshape(-1, obs_moved.shape[-1])
-            mod_flat = mod_moved.reshape(-1, mod_moved.shape[-1])
-
-            results = []
-            from scipy.stats import linregress
-
-            for i in range(len(obs_flat)):
-                mask = ~np.isnan(obs_flat[i]) & ~np.isnan(mod_flat[i])
-                if np.sum(mask) < 2:
-                    results.append(np.nan)
-                else:
-                    m, b, _, _, _ = linregress(obs_flat[i][mask], mod_flat[i][mask])
-                    mod_hat = b + m * obs_flat[i]
-                    results.append(np.sqrt(np.nanmean((mod_hat - mod_flat[i]) ** 2)))
-            return np.array(results).reshape(other_shape)
+        res.attrs["history"] = f"{res.attrs.get('history', '')}\n{history}".strip()
+    return res
 
 
 def d1(
