@@ -7,6 +7,7 @@ mask handling, circular statistics, and basic statistical functions.
 
 import numpy as np
 import pytest
+import xarray as xr
 
 from monet_stats.utils_stats import (
     angular_difference,
@@ -138,6 +139,47 @@ class TestUtilsStats:
 
         assert np.array_equal(result.data, expected_data)
         assert np.array_equal(result.mask, expected_mask)
+
+    def test_circlebias_xarray(self) -> None:
+        """Test circlebias with xarray inputs and history tracking."""
+        da = xr.DataArray([190, -190], name="test")
+        result = circlebias(da)
+        assert isinstance(result, xr.DataArray)
+        assert np.array_equal(result.values, [-170, 170])
+        assert "history" in result.attrs
+        assert "circlebias" in result.attrs["history"]
+
+    def test_angular_difference_xarray(self) -> None:
+        """Test angular_difference with xarray inputs."""
+        da1 = xr.DataArray([10, 20], dims="x", name="a1")
+        da2 = xr.DataArray([350, 40], dims="x", name="a2")
+        result = angular_difference(da1, da2)
+        assert isinstance(result, xr.DataArray)
+        assert np.allclose(result.values, [20, 20])
+        assert "history" in result.attrs
+
+    def test_matchedcompressed_mismatched_shapes(self) -> None:
+        """Test matchedcompressed with arrays of different shapes."""
+        a1 = np.array([1, 2, 3, 4])
+        a2 = np.array([5, 6, 7])
+        r1, r2 = matchedcompressed(a1, a2)
+        assert len(r1) == 3
+        assert len(r2) == 3
+        assert np.array_equal(r1, [1, 2, 3])
+        assert np.array_equal(r2, [5, 6, 7])
+
+    def test_matchedcompressed_dask_warning(self) -> None:
+        """Test matchedcompressed triggers warning for dask-backed arrays."""
+        import dask.array as da
+
+        a1 = xr.DataArray(da.from_array([1.0, 2.0], chunks=1), name="a1")
+        a2 = xr.DataArray([3.0, 4.0], name="a2")
+
+        with pytest.warns(UserWarning, match="matchedcompressed triggered computation"):
+            r1, r2 = matchedcompressed(a1, a2)
+
+        assert np.array_equal(r1, [1.0, 2.0])
+        assert np.array_equal(r2, [3.0, 4.0])
 
     def test_angular_difference_basic(self) -> None:
         """Test angular_difference with basic values."""

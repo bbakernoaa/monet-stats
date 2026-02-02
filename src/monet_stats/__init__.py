@@ -90,7 +90,6 @@ from .utils_stats import (
     matchmasks,
     rmse,
 )
-from .visualize import plot_spatial, plot_taylor
 
 __all__ = [
     # analysis
@@ -194,9 +193,6 @@ __all__ = [
     # spatial_skill_metrics
     "FSS",
     "VETS",
-    # visualize
-    "plot_spatial",
-    "plot_taylor",
     # utils_stats
     "matchedcompressed",
     "matchmasks",
