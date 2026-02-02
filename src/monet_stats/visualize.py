@@ -78,7 +78,9 @@ def plot_spatial(
     da = _update_history(da, f"Plotted using {method} spatial plot")
 
     if method == "static":
-        return _plot_static(da, lat_dim=lat_dim, lon_dim=lon_dim, projection=projection, cmap=cmap, title=title, **kwargs)
+        return _plot_static(
+            da, lat_dim=lat_dim, lon_dim=lon_dim, projection=projection, cmap=cmap, title=title, **kwargs
+        )
     elif method == "interactive":
         return _plot_interactive(da, lat_dim=lat_dim, lon_dim=lon_dim, cmap=cmap, title=title, **kwargs)
     else:
@@ -99,7 +101,9 @@ def _plot_static(
         import cartopy.crs as ccrs
         import matplotlib.pyplot as plt
     except ImportError:
-        raise ImportError("Matplotlib and Cartopy are required for static plots. Install with 'pip install monet-stats[viz]'.")
+        raise ImportError(
+            "Matplotlib and Cartopy are required for static plots. Install with 'pip install monet-stats[viz]'."
+        )
 
     if projection is None:
         projection = ccrs.PlateCarree()
@@ -130,21 +134,15 @@ def _plot_interactive(
     try:
         import hvplot.xarray  # noqa: F401
     except ImportError:
-        raise ImportError("HvPlot and GeoViews are required for interactive plots. Install with 'pip install monet-stats[viz]'.")
+        raise ImportError(
+            "HvPlot and GeoViews are required for interactive plots. Install with 'pip install monet-stats[viz]'."
+        )
 
     # Standard Aero Protocol: rasterize=True for performance on large grids
     rasterize = kwargs.pop("rasterize", True)
     geo = kwargs.pop("geo", True)
 
-    plot = da.hvplot.quadmesh(
-        x=lon_dim,
-        y=lat_dim,
-        cmap=cmap,
-        rasterize=rasterize,
-        geo=geo,
-        title=title,
-        **kwargs
-    )
+    plot = da.hvplot.quadmesh(x=lon_dim, y=lat_dim, cmap=cmap, rasterize=rasterize, geo=geo, title=title, **kwargs)
 
     return plot
 
