@@ -80,6 +80,7 @@ from .error_metrics import (
 from .relative_metrics import FB, FE, MPE, NMB, NMB_ABS, NMdnB
 from .spatial_ensemble_metrics import BSS, CRPS, EDS, SAL, ensemble_mean, ensemble_std, rank_histogram, spread_error
 from .spatial_skill_metrics import FSS, VETS
+from .visualize import plot_spatial, plot_taylor
 from .utils_stats import (
     angular_difference,
     circlebias,
@@ -193,6 +194,9 @@ __all__ = [
     # spatial_skill_metrics
     "FSS",
     "VETS",
+    # visualize
+    "plot_spatial",
+    "plot_taylor",
     # utils_stats
     "matchedcompressed",
     "matchmasks",
