@@ -168,7 +168,9 @@ def circlebias(b: ArrayLike) -> Any:
     res_arr = (b_arr + 180) % 360 - 180
 
     if not np.ma.is_masked(res_arr) and not isinstance(b, np.ma.MaskedArray):
-        return res_arr.filled(np.nan) if np.issubdtype(res_arr.dtype, np.floating) else res_arr.data
+        if np.issubdtype(res_arr.dtype, np.floating):
+            return res_arr.filled(np.nan)
+        return np.ma.getdata(res_arr)
 
     return res_arr
 

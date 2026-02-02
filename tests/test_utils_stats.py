@@ -170,6 +170,7 @@ class TestUtilsStats:
 
     def test_matchedcompressed_dask_warning(self) -> None:
         """Test matchedcompressed triggers warning for dask-backed arrays."""
+        pytest.importorskip("dask")
         import dask.array as da
 
         a1 = xr.DataArray(da.from_array([1.0, 2.0], chunks=1), name="a1")
