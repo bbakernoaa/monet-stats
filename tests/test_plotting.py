@@ -2,10 +2,16 @@
 Tests for the plotting module.
 """
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import xarray as xr
+
+try:
+    import matplotlib.pyplot as plt
+
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
 
 try:
     import cartopy.crs as ccrs
@@ -42,8 +48,8 @@ def sample_da():
 
 def test_plot_spatial_static(sample_da):
     """Test static spatial plot returns GeoAxes."""
-    if not HAS_CARTOPY:
-        pytest.skip("Cartopy not available")
+    if not HAS_CARTOPY or not HAS_MPL:
+        pytest.skip("Cartopy or Matplotlib not available")
     ax = plot_spatial_static(sample_da, projection=ccrs.PlateCarree())
     assert hasattr(ax, "coastlines")
     # Check that it's a GeoAxes
