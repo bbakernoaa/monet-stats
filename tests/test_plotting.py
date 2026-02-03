@@ -25,7 +25,8 @@ def sample_da():
 
 def test_plot_spatial_static(sample_da):
     """Test that static plot returns a matplotlib axes."""
-    # We use a mock or just check the type
+    pytest.importorskip("matplotlib")
+    pytest.importorskip("cartopy")
     import matplotlib.axes
 
     ax = plot_spatial_static(sample_da)
@@ -34,6 +35,9 @@ def test_plot_spatial_static(sample_da):
 
 def test_plot_spatial_interactive(sample_da):
     """Test that interactive plot returns a holoviews element or DynamicMap."""
+    pytest.importorskip("hvplot")
+    pytest.importorskip("geoviews")
+    pytest.importorskip("holoviews")
     import holoviews as hv
 
     plot = plot_spatial_interactive(sample_da)

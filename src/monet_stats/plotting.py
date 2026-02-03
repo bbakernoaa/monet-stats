@@ -4,7 +4,6 @@ Visualization module for atmospheric science data (Aero Protocol Compliant).
 
 from typing import Any, Optional
 
-import matplotlib.pyplot as plt
 import xarray as xr
 
 from .utils_stats import _update_history
@@ -43,6 +42,11 @@ def plot_spatial_static(
     >>> import cartopy.crs as ccrs
     >>> plot_spatial_static(da, projection=ccrs.Robinson())
     """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        raise ImportError("plot_spatial_static requires matplotlib. Install with 'pip install monet-stats[viz]'.")
+
     import cartopy.crs as ccrs
     from cartopy.mpl.gridliner import LATITUDE_FORMATTER, LONGITUDE_FORMATTER
 
@@ -97,8 +101,13 @@ def plot_spatial_interactive(
     -----
     Uses rasterize=True by default for large grids (Aero Protocol Rule 3).
     """
-    import geoviews as gv  # noqa: F401
-    import hvplot.xarray  # noqa: F401
+    try:
+        import geoviews as gv  # noqa: F401
+        import hvplot.xarray  # noqa: F401
+    except ImportError:
+        raise ImportError(
+            "plot_spatial_interactive requires hvplot and geoviews. Install with 'pip install monet-stats[viz]'."
+        )
 
     # Standard Aero Protocol: Always rasterize large grids for interactivity
     plot = da.hvplot.quadmesh(
