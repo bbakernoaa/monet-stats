@@ -174,8 +174,6 @@ def apply_lazy_threshold(
     return data
 
 
-
-
 def vectorize_function(func: Callable, *args: Any, **kwargs: Any) -> Any:
     """
     Apply function in a vectorized manner (Aero Protocol).
@@ -246,7 +244,13 @@ def parallel_compute(
                 return func(data_arr, axis=axis)
 
             # Automatically chunk and parallelize via Dask
-            dask_arr = da.from_array(data_arr, chunks=chunk_size)
+            # Use 'auto' for multi-dimensional arrays to ensure efficient chunking
+            # while respecting the provided chunk_size as a rough guide for 1D.
+            if data_arr.ndim > 1:
+                dask_arr = da.from_array(data_arr, chunks="auto")
+            else:
+                dask_arr = da.from_array(data_arr, chunks=chunk_size)
+
             res = func(dask_arr, axis=axis)
             # If result is dask-backed, compute it for return
             if hasattr(res, "compute"):

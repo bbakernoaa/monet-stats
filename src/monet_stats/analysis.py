@@ -498,7 +498,7 @@ def fft_analysis(
     >>> psd = fft_analysis(da, dim="time", output="psd")
     """
 
-    def _fft_wrapper(x):
+    def _fft_wrapper(x: np.ndarray) -> np.ndarray:
         return np.fft.fft(x, axis=-1)
 
     # Core dimensions for apply_ufunc must be a single chunk if using dask
@@ -580,7 +580,7 @@ def power_spectrum(
     if hasattr(data.data, "chunks"):
         data = data.chunk({dim: -1})
 
-    def _welch_wrapper(x, fs, window, nperseg, **kwargs):
+    def _welch_wrapper(x: np.ndarray, fs: float, window: str, nperseg: int, **kwargs: Any) -> np.ndarray:
         f, psd = welch(x, fs=fs, window=window, nperseg=nperseg, axis=-1, **kwargs)
         return psd
 
