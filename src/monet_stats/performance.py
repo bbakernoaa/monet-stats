@@ -5,6 +5,7 @@ Performance optimization utilities for statistical computations.
 import warnings
 from typing import Any, Callable, Dict, Iterable, Optional, Union
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 
@@ -37,8 +38,8 @@ def get_chunk_recommendation(
     --------
     >>> import xarray as xr
     >>> import numpy as np
-    >>> da = xr.DataArray(np.random.rand(1000, 1000), dims=['x', 'y'])
-    >>> get_chunk_recommendation(da, target_mb=1.0)
+    >>> data_array = xr.DataArray(np.random.rand(1000, 1000), dims=['x', 'y'])
+    >>> get_chunk_recommendation(data_array, target_mb=1.0)
     {'x': 125, 'y': 1000}
     """
     if isinstance(data, xr.Dataset):
@@ -46,35 +47,45 @@ def get_chunk_recommendation(
             return {}
         # Use the first variable to estimate
         var_name = list(data.data_vars)[0]
-        da = data[var_name]
+        data_arr = data[var_name]
     else:
-        da = data
+        data_arr = data
 
-    itemsize = da.dtype.itemsize
-    total_elements = da.size
+    itemsize = data_arr.dtype.itemsize
+    total_elements = data_arr.size
 
     # Target elements per chunk
     target_elements = (target_mb * 1024 * 1024) / itemsize
 
     if target_elements >= total_elements:
-        return {str(d): s for d, s in da.sizes.items()}
+        return {str(d): s for d, s in data_arr.sizes.items()}
 
-    chunks = {str(d): s for d, s in da.sizes.items()}
+    chunks = {str(d): s for d, s in data_arr.sizes.items()}
 
     if chunk_dim is not None:
-        if chunk_dim not in da.dims:
+        if chunk_dim not in data_arr.dims:
             raise ValueError(f"Dimension {chunk_dim} not found in data.")
 
         # Calculate size of other dimensions
-        other_dims_size = total_elements / da.sizes[chunk_dim]
+        other_dims_size = total_elements / data_arr.sizes[chunk_dim]
         recommended_size = max(1, int(target_elements / other_dims_size))
-        chunks[chunk_dim] = min(recommended_size, da.sizes[chunk_dim])
+        chunks[chunk_dim] = min(recommended_size, data_arr.sizes[chunk_dim])
     else:
-        # Find the largest dimension to chunk
-        largest_dim = max(da.sizes, key=lambda d: da.sizes[d])
-        other_dims_size = total_elements / da.sizes[largest_dim]
-        recommended_size = max(1, int(target_elements / other_dims_size))
-        chunks[str(largest_dim)] = min(recommended_size, da.sizes[largest_dim])
+        # Multi-dimensional chunking: iteratively reduce largest dimensions
+        current_elements = float(total_elements)
+        # Sort dimensions by size descending
+        sorted_dims = sorted(data_arr.sizes.items(), key=lambda x: x[1], reverse=True)
+
+        for d, s in sorted_dims:
+            if current_elements <= target_elements:
+                break
+
+            # Calculate ideal size for this dimension to reach target elements
+            other_dims_size = current_elements / s
+            ideal_s = max(1, int(target_elements / other_dims_size))
+
+            chunks[str(d)] = min(ideal_s, s)
+            current_elements = (current_elements / s) * chunks[str(d)]
 
     return chunks
 
@@ -224,18 +235,16 @@ def parallel_compute(
         res = func(data_lazy, axis=axis)
         return _update_history(res, "parallel_compute")
     else:
-        # For numpy arrays, chunk if large
+        # For numpy arrays, eliminate explicit loops by converting to Dask
         data_arr = np.asanyarray(data)
         if data_arr.size > chunk_size:
-            chunks = chunk_array(data_arr, chunk_size)
-            results = [func(chunk, axis=axis) for chunk in chunks]
-            # Combine results based on function type
-            if isinstance(results[0], np.ndarray):
-                return np.concatenate(results)
-            else:
-                # For scalar results, weighted average based on chunk size
-                weights = [chunk.size for chunk in chunks]
-                return np.average(results, weights=weights)
+            # Automatically chunk and parallelize via Dask
+            dask_arr = da.from_array(data_arr, chunks=chunk_size)
+            res = func(dask_arr, axis=axis)
+            # If result is dask-backed, compute it for return
+            if hasattr(res, "compute"):
+                return res.compute()
+            return res
         else:
             return func(data_arr, axis=axis)
 

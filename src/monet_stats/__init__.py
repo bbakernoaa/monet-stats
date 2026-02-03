@@ -77,6 +77,18 @@ from .error_metrics import (
     WDMB_m,
     WDMdnB,
 )
+from .performance import (
+    apply_lazy_threshold,
+    chunk_array,
+    fast_mae,
+    fast_rmse,
+    get_chunk_recommendation,
+    memory_efficient_correlation,
+    optimize_for_size,
+    parallel_compute,
+    vectorize_function,
+)
+from .plotting import plot_spatial_interactive, plot_spatial_static
 from .relative_metrics import FB, FE, MPE, NMB, NMB_ABS, NMdnB
 from .spatial_ensemble_metrics import BSS, CRPS, EDS, SAL, ensemble_mean, ensemble_std, rank_histogram, spread_error
 from .spatial_skill_metrics import FSS, VETS
@@ -202,6 +214,19 @@ __all__ = [
     "rmse",
     "mae",
     "correlation",
+    # performance
+    "get_chunk_recommendation",
+    "apply_lazy_threshold",
+    "chunk_array",
+    "vectorize_function",
+    "parallel_compute",
+    "optimize_for_size",
+    "memory_efficient_correlation",
+    "fast_rmse",
+    "fast_mae",
+    # plotting
+    "plot_spatial_static",
+    "plot_spatial_interactive",
 ]
 
 

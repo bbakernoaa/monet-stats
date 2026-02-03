@@ -8,6 +8,7 @@ from typing import Any, Optional, Union
 import numpy as np
 import pandas as pd
 import xarray as xr
+from scipy.ndimage import convolve1d
 
 from .utils_stats import _update_history
 
@@ -156,22 +157,27 @@ def kz_filter(
         warnings.warn("KZ filter window size m should ideally be odd for symmetry.", stacklevel=2)
 
     if not isinstance(data, (xr.DataArray, xr.Dataset)):
-        # Handle numpy array by wrapping it in a DataArray to ensure consistency
-        is_numpy = True
-        # Create dummy dimensions
-        dims = [f"dim_{i}" for i in range(np.asanyarray(data).ndim)]
-        res = xr.DataArray(data, dims=dims)
-        target_dim = dims[axis]
-    else:
-        is_numpy = False
-        res = data
-        target_dim = dim
+        # Fast path for NumPy using single convolution
+        res_np = np.asanyarray(data, dtype=float)
 
+        # A KZ filter (m, k) is equivalent to a convolution with a kernel
+        # that is the k-fold convolution of a boxcar of width m.
+        boxcar = np.ones(m) / m
+        kernel = boxcar
+        for _ in range(k - 1):
+            kernel = np.convolve(kernel, boxcar)
+
+        # Use scipy.ndimage.convolve1d for multi-dimensional support and speed.
+        # mode='constant', cval=np.nan ensures that edges where the kernel
+        # overlaps with the boundary become NaN, matching Xarray's rolling behavior.
+        res = convolve1d(res_np, kernel, axis=axis, mode="constant", cval=np.nan)
+        return res
+
+    # Xarray path (handles Dask and Dataset/DataArray natively)
+    res = data
     for _ in range(k):
-        res = res.rolling({target_dim: m}, center=True).mean()
+        res = res.rolling({dim: m}, center=True).mean()
 
-    if is_numpy:
-        return res.values
     return _update_history(res, f"KZ filter (m={m}, k={k})")
 
 
