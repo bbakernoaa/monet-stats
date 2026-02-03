@@ -113,9 +113,37 @@ def test_kz_filter(lazy):
 
     np.testing.assert_allclose(res_xr.values, expected)
 
-    # Also test numpy path (which wraps in xarray internally now)
+    # Also test numpy path
     res_np = kz_filter(data, m=m, k=k)
     np.testing.assert_allclose(res_np, expected)
+
+
+def test_kz_filter_numpy_multidim():
+    """Test KZ filter on a multi-dimensional NumPy array."""
+    data = np.ones((5, 10))
+    data[:, 5:] = 2.0
+    # Apply along last axis
+    res = kz_filter(data, m=3, k=1, axis=-1)
+    assert res.shape == (5, 10)
+    # Interior values should be mean of [1,1,2] -> 1.333 or [1,2,2] -> 1.666 at boundary
+    assert np.isclose(res[0, 5], (1 + 2 + 2) / 3)
+    assert np.isnan(res[0, 0])
+    assert np.isnan(res[0, -1])
+
+
+def test_kz_filter_iterations():
+    """Test KZ filter with multiple iterations (k > 1)."""
+    data = np.zeros(11)
+    data[5] = 1.0
+    # k=2, m=3
+    # Iter 1: [0, 0, 0, 0, 1/3, 1/3, 1/3, 0, 0, 0, 0] (approx)
+    # Iter 2: convolution of boxcar(3) with boxcar(3) is triangle [1,2,3,2,1]/9
+    res = kz_filter(data, m=3, k=2)
+    assert np.isclose(res[5], 3 / 9)
+    assert np.isclose(res[4], 2 / 9)
+    assert np.isclose(res[3], 1 / 9)
+    assert np.isnan(res[0])
+    assert np.isnan(res[1])
 
 
 @pytest.mark.parametrize("lazy", [False, True])

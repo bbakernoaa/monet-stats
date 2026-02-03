@@ -89,6 +89,32 @@ def get_chunk_recommendation(
     return chunks
 
 
+def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
+    """
+    Split array into chunks for memory-efficient processing.
+
+    Parameters
+    ----------
+    arr : numpy.ndarray
+        Input array to chunk.
+    chunk_size : int, optional
+        Size of each chunk (number of elements).
+
+    Returns
+    -------
+    list
+        List of array chunks.
+    """
+    if arr.size == 0:
+        return []
+
+    num_elements = arr.size
+    chunks = []
+    for i in range(0, num_elements, chunk_size):
+        chunks.append(arr[i : i + chunk_size])  # noqa: E203
+    return chunks
+
+
 def apply_lazy_threshold(
     data: Union[xr.DataArray, xr.Dataset],
     threshold_mb: float = 500.0,
@@ -148,30 +174,6 @@ def apply_lazy_threshold(
     return data
 
 
-def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
-    """
-    Split array into chunks for memory-efficient processing.
-
-    Parameters
-    ----------
-    arr : numpy.ndarray
-        Input array to chunk.
-    chunk_size : int, optional
-        Size of each chunk (number of elements).
-
-    Returns
-    -------
-    list
-        List of array chunks.
-    """
-    if arr.size == 0:
-        return []
-
-    num_elements = arr.size
-    chunks = []
-    for i in range(0, num_elements, chunk_size):
-        chunks.append(arr[i : i + chunk_size])  # noqa: E203
-    return chunks
 
 
 def vectorize_function(func: Callable, *args: Any, **kwargs: Any) -> Any:

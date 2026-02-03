@@ -45,13 +45,6 @@ dask = [
     "dask",
     "distributed"
 ]
-viz = [
-    "matplotlib",
-    "cartopy",
-    "hvplot",
-    "geoviews",
-    "datashader"
-]
 test = [
     "pytest>=7.0.0",
     "pytest-cov>=3.0.0",
