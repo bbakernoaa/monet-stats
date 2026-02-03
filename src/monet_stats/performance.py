@@ -5,7 +5,6 @@ Performance optimization utilities for statistical computations.
 import warnings
 from typing import Any, Callable, Dict, Iterable, Optional, Union
 
-import dask.array as da
 import numpy as np
 import xarray as xr
 
@@ -238,6 +237,12 @@ def parallel_compute(
         # For numpy arrays, eliminate explicit loops by converting to Dask
         data_arr = np.asanyarray(data)
         if data_arr.size > chunk_size:
+            try:
+                import dask.array as da
+            except ImportError:
+                # Fallback to eager computation if Dask is not available
+                return func(data_arr, axis=axis)
+
             # Automatically chunk and parallelize via Dask
             dask_arr = da.from_array(data_arr, chunks=chunk_size)
             res = func(dask_arr, axis=axis)

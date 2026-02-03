@@ -2,12 +2,24 @@
 Tests for the plotting module.
 """
 
-import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import xarray as xr
-from holoviews.core import Dimensioned
+
+try:
+    import cartopy.crs as ccrs
+
+    HAS_CARTOPY = True
+except ImportError:
+    HAS_CARTOPY = False
+
+try:
+    from holoviews.core import Dimensioned
+
+    HAS_HV = True
+except ImportError:
+    HAS_HV = False
 
 from monet_stats.plotting import plot_spatial_interactive, plot_spatial_static
 
@@ -30,6 +42,8 @@ def sample_da():
 
 def test_plot_spatial_static(sample_da):
     """Test static spatial plot returns GeoAxes."""
+    if not HAS_CARTOPY:
+        pytest.skip("Cartopy not available")
     ax = plot_spatial_static(sample_da, projection=ccrs.PlateCarree())
     assert hasattr(ax, "coastlines")
     # Check that it's a GeoAxes
@@ -41,6 +55,8 @@ def test_plot_spatial_static(sample_da):
 
 def test_plot_spatial_interactive(sample_da):
     """Test interactive spatial plot returns HoloViews object."""
+    if not HAS_HV:
+        pytest.skip("HoloViews not available")
     plot = plot_spatial_interactive(sample_da)
     assert isinstance(plot, Dimensioned)
     # Check that geo is enabled in opts if possible to inspect

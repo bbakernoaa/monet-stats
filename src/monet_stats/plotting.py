@@ -4,22 +4,18 @@ Visualization suite following the Aero Protocol (Two-Track Rule).
 
 from typing import Any, Optional
 
-import cartopy.crs as ccrs
-import hvplot.xarray  # noqa: F401
-import matplotlib.pyplot as plt
 import xarray as xr
-from cartopy.mpl.geoaxes import GeoAxes
 
 from .utils_stats import _update_history
 
 
 def plot_spatial_static(
     da: xr.DataArray,
-    projection: Optional[ccrs.Projection] = None,
-    transform: Optional[ccrs.Projection] = None,
-    ax: Optional[GeoAxes] = None,
+    projection: Optional[Any] = None,
+    transform: Optional[Any] = None,
+    ax: Optional[Any] = None,
     **kwargs: Any,
-) -> GeoAxes:
+) -> Any:
     """
     Track A: Publication-quality static spatial plot (Aero Protocol).
 
@@ -31,23 +27,29 @@ def plot_spatial_static(
         The target projection for the plot. Default is ccrs.PlateCarree().
     transform : cartopy.crs.Projection, optional
         The data's own projection. Default is ccrs.PlateCarree().
-    ax : cartopy.mpl.geoaxes.GeoAxes, optional
-        Existing axes to plot on. If None, a new figure is created.
+    ax : Any, optional
+        Existing axes to plot on (should be a GeoAxes). If None, a new figure is created.
     **kwargs : Any
         Additional keyword arguments passed to xarray.plot.pcolormesh or contourf.
 
     Returns
     -------
-    cartopy.mpl.geoaxes.GeoAxes
-        The axes containing the plot.
+    Any
+        The axes containing the plot (matplotlib.axes.Axes).
 
     Examples
     --------
     >>> import cartopy.crs as ccrs
     >>> import xarray as xr
     >>> da = xr.DataArray(...)
-    >>> ax = plot_spatial_static(da, projection=ccrs.Robinson())
+    >>> ax = plot_spatial_static(da)
     """
+    try:
+        import cartopy.crs as ccrs
+        import matplotlib.pyplot as plt
+    except ImportError:
+        raise ImportError("plot_spatial_static requires matplotlib and cartopy.")
+
     if projection is None:
         projection = ccrs.PlateCarree()
     if transform is None:
@@ -60,8 +62,10 @@ def plot_spatial_static(
     # and pass the transform
     da.plot(ax=ax, transform=transform, **kwargs)
 
-    ax.coastlines()
-    ax.gridlines(draw_labels=True)
+    if hasattr(ax, "coastlines"):
+        ax.coastlines()
+    if hasattr(ax, "gridlines"):
+        ax.gridlines(draw_labels=True)
 
     _update_history(da, "plot_spatial_static")
     return ax
@@ -93,9 +97,14 @@ def plot_spatial_interactive(
 
     Returns
     -------
-    holoviews.core.Element
-        The interactive plot object.
+    Any
+        The interactive plot object (holoviews.core.Element).
     """
+    try:
+        import hvplot.xarray  # noqa: F401
+    except ImportError:
+        raise ImportError("plot_spatial_interactive requires hvplot.")
+
     # hvplot handles geo=True if lat/lon are found
     plot = da.hvplot.quadmesh(
         rasterize=rasterize,
