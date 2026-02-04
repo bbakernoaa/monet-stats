@@ -34,20 +34,40 @@ class TestPerformanceBenchmark:
         assert isinstance(obs_xr, xr.DataArray)
         assert not hasattr(obs_xr.data, "chunks")
 
-        obs_dask, _ = benchmark.generate_test_data(10, backend="dask")
-        assert isinstance(obs_dask, xr.DataArray)
-        assert hasattr(obs_dask.data, "chunks")
+        # Test dask backend if installed
+        try:
+            import dask.array as da  # noqa: F401
+
+            obs_dask, _ = benchmark.generate_test_data(10, backend="dask")
+            assert isinstance(obs_dask, xr.DataArray)
+            assert hasattr(obs_dask.data, "chunks")
+        except ImportError:
+            import pytest
+
+            pytest.skip("Dask not installed")
 
     def test_plot_performance(self) -> None:
         """Test that plot_performance runs without errors."""
         benchmark = PerformanceBenchmark()
         benchmark.run_all_benchmarks(sizes=[10], backends=["numpy"])
+
         # Track A
-        ax = benchmark.plot_performance(track="A")
-        assert ax is not None
+        try:
+            import matplotlib.pyplot as plt  # noqa: F401
+
+            ax = benchmark.plot_performance(track="A")
+            assert ax is not None
+        except ImportError:
+            pass  # Expected if matplotlib is not installed
+
         # Track B
-        plot = benchmark.plot_performance(track="B")
-        assert plot is not None
+        try:
+            import hvplot.pandas  # noqa: F401
+
+            plot = benchmark.plot_performance(track="B")
+            assert plot is not None
+        except ImportError:
+            pass  # Expected if hvplot is not installed
 
 
 class TestAccuracyVerification:

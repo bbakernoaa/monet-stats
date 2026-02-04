@@ -12,17 +12,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.9"
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          python-version: "3.9"
       - name: Install dependencies
         run: |
-          uv pip install --system -e .[test,dev,docs]
+          uv venv
+          . .venv/bin/activate
+          uv pip install -e .[test,dev,docs]
       - uses: pre-commit/action@v3.0.1
 
   test:
@@ -35,23 +34,25 @@ jobs:
     name: test (py${{ matrix.python-version }}, dask=${{ matrix.dask-enabled }})
     steps:
       - uses: actions/checkout@v6
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
           if [ "${{ matrix.dask-enabled }}" = "true" ]; then
-            uv pip install --system -e .[test,dev,docs,dask]
+            uv venv
+            . .venv/bin/activate
+            uv pip install -e .[test,dev,docs,dask,viz]
           else
-            uv pip install --system -e .[test,dev,docs]
+            uv venv
+            . .venv/bin/activate
+            uv pip install -e .[test,dev,docs]
           fi
       - name: Test with pytest
         run: |
+          . .venv/bin/activate
           pytest --cov=src/monet_stats --cov-report=xml --cov-report=term-missing --cov-fail-under=60
       # - name: Upload coverage to Codecov
       #   uses: codecov/codecov-action@v3
@@ -67,20 +68,20 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v6
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          python-version: "3.11"
       - name: Install dependencies
         run: |
-          uv pip install --system -e .[test,dev,docs,dask]
+          uv venv
+          . .venv/bin/activate
+          uv pip install -e .[test,dev,docs,dask]
       - name: Install build dependencies
         run: |
-          uv pip install --system build twine
+          . .venv/bin/activate
+          uv pip install build twine
       - name: Build package
         run: uv build
       - name: Check package
@@ -97,19 +98,20 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v6
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          python-version: "3.11"
       - name: Install dependencies
         run: |
-          uv pip install --system -e .[test,dev,docs,dask]
+          uv venv
+          . .venv/bin/activate
+          uv pip install -e .[test,dev,docs,dask]
       - name: Build documentation
-        run: mkdocs build
+        run: |
+          . .venv/bin/activate
+          mkdocs build
       - name: Upload documentation
         uses: actions/upload-artifact@v6
         with:
