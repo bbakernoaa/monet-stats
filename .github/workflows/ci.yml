@@ -16,11 +16,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - name: Set up Python
-        run: uv python install 3.9
+          python-version: "3.9"
       - name: Install dependencies
         run: |
-          uv pip install -e .[test,dev,docs]
+          uv pip install --system -e .[test,dev,docs]
       - uses: pre-commit/action@v3.0.1
 
   test:
@@ -37,14 +36,13 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
           if [ "${{ matrix.dask-enabled }}" = "true" ]; then
-            uv pip install -e .[test,dev,docs,dask]
+            uv pip install --system -e .[test,dev,docs,dask]
           else
-            uv pip install -e .[test,dev,docs]
+            uv pip install --system -e .[test,dev,docs]
           fi
       - name: Test with pytest
         run: |
@@ -67,14 +65,13 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - name: Set up Python
-        run: uv python install 3.11
+          python-version: "3.11"
       - name: Install dependencies
         run: |
-          uv pip install -e .[test,dev,docs,dask]
+          uv pip install --system -e .[test,dev,docs,dask]
       - name: Install build dependencies
         run: |
-          uv pip install build twine
+          uv pip install --system build twine
       - name: Build package
         run: uv build
       - name: Check package
@@ -95,11 +92,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - name: Set up Python
-        run: uv python install 3.11
+          python-version: "3.11"
       - name: Install dependencies
         run: |
-          uv pip install -e .[test,dev,docs,dask]
+          uv pip install --system -e .[test,dev,docs,dask]
       - name: Build documentation
         run: mkdocs build
       - name: Upload documentation
