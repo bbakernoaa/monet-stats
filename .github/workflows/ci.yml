@@ -40,9 +40,9 @@ jobs:
       - name: Install dependencies
         run: |
           if [ "${{ matrix.dask-enabled }}" = "true" ]; then
-            uv pip install --system -e .[test,dev,docs,dask,viz]
+            uv pip install --system -e .[test,dev,docs,dask]
           else
-            uv pip install --system -e .[test,dev,docs,viz]
+            uv pip install --system -e .[test,dev,docs]
           fi
       - name: Test with pytest
         run: |
@@ -71,7 +71,7 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: |
-          uv pip install --system -e .[test,dev,docs,dask,viz]
+          uv pip install --system -e .[test,dev,docs,dask]
       - name: Install build dependencies
         run: |
           uv pip install --system build twine
@@ -101,7 +101,7 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: |
-          uv pip install --system -e .[test,dev,docs,dask,viz]
+          uv pip install --system -e .[test,dev,docs,dask]
       - name: Build documentation
         run: mkdocs build
       - name: Upload documentation

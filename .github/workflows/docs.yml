@@ -33,7 +33,7 @@ jobs:
         enable-cache: true
     - name: Install dependencies
       run: |
-        uv pip install --system -e .[test,dev,docs,viz]
+        uv pip install --system -e .[test,dev,docs]
     - name: Build documentation
       run: |
         mkdocs build

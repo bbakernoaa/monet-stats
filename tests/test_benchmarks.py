@@ -46,29 +46,6 @@ class TestPerformanceBenchmark:
 
             pytest.skip("Dask not fully installed or available for chunking")
 
-    def test_plot_performance(self) -> None:
-        """Test that plot_performance runs without errors."""
-        benchmark = PerformanceBenchmark()
-        benchmark.run_all_benchmarks(sizes=[10], backends=["numpy"])
-
-        # Track A
-        try:
-            import matplotlib.pyplot as plt  # noqa: F401
-
-            _ = benchmark.plot_performance(track="A")
-            # If matplotlib is installed, result might still be None if data is invalid,
-            # but here it should be Axes. If matplotlib is not found, it prints and returns None.
-        except ImportError:
-            pass
-
-        # Track B
-        try:
-            import hvplot.pandas  # noqa: F401
-
-            _ = benchmark.plot_performance(track="B")
-        except ImportError:
-            pass
-
 
 class TestAccuracyVerification:
     """Test suite for AccuracyVerification class."""
