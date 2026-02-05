@@ -7,11 +7,10 @@ A comprehensive statistics and utility library for atmospheric sciences, optimiz
 
 ## Core Mission
 
-Architect scientific pipelines that balance four competing goals:
+Architect scientific pipelines that balance three competing goals:
 - **Speed**: Aggressive vectorization (Numpy/Xarray) and lazy evaluation (Dask).
 - **Maintainability**: Strictly typed code with NumPy-style docstrings.
 - **Provenance**: Automatically track data lineage (what happened to the data) via `attrs['history']`.
-- **Visualization**: A hybrid approach (Matplotlib for papers, HvPlot for interaction).
 
 ## Installation
 

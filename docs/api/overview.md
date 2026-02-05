@@ -211,7 +211,7 @@ obs = xr.open_dataset("obs_data.nc", chunks={"time": "auto", "lat": 100, "lon": 
 # Metrics stay lazy and don't trigger loading
 skill = ms.RMSE(obs.var, ds.var, axis="time")
 
-# Execution only happens on compute() or plotting
+# Execution only happens on compute()
 result = skill.compute()
 ```
 

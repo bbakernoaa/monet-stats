@@ -156,27 +156,44 @@ def kz_filter(
     if m % 2 == 0:
         warnings.warn("KZ filter window size m should ideally be odd for symmetry.", stacklevel=2)
 
+    # A KZ filter (m, k) is equivalent to a convolution with a kernel
+    # that is the k-fold convolution of a boxcar of width m.
+    boxcar = np.ones(m) / m
+    kernel = boxcar
+    for _ in range(k - 1):
+        kernel = np.convolve(kernel, boxcar)
+
     if not isinstance(data, (xr.DataArray, xr.Dataset)):
         # Fast path for NumPy using single convolution
         res_np = np.asanyarray(data, dtype=float)
-
-        # A KZ filter (m, k) is equivalent to a convolution with a kernel
-        # that is the k-fold convolution of a boxcar of width m.
-        boxcar = np.ones(m) / m
-        kernel = boxcar
-        for _ in range(k - 1):
-            kernel = np.convolve(kernel, boxcar)
-
         # Use scipy.ndimage.convolve1d for multi-dimensional support and speed.
         # mode='constant', cval=np.nan ensures that edges where the kernel
         # overlaps with the boundary become NaN, matching Xarray's rolling behavior.
-        res = convolve1d(res_np, kernel, axis=axis, mode="constant", cval=np.nan)
-        return res
+        return convolve1d(res_np, kernel, axis=axis, mode="constant", cval=np.nan)
 
-    # Xarray path (handles Dask and Dataset/DataArray natively)
-    res = data
-    for _ in range(k):
-        res = res.rolling({dim: m}, center=True).mean()
+    if isinstance(data, xr.Dataset):
+        # Apply to each variable in the dataset
+        res = data.map(kz_filter, m=m, k=k, dim=dim)
+        return _update_history(res, f"KZ filter (m={m}, k={k})")
+
+    # Xarray DataArray path (handles Dask natively via apply_ufunc)
+    def _kz_wrapper(x: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+        return convolve1d(x, kernel, axis=-1, mode="constant", cval=np.nan)
+
+    # Ensure dimension is in a single chunk for Dask-backed arrays
+    if hasattr(data.data, "chunks"):
+        data = data.chunk({dim: -1})
+
+    res = xr.apply_ufunc(
+        _kz_wrapper,
+        data,
+        input_core_dims=[[dim]],
+        output_core_dims=[[dim]],
+        kwargs={"kernel": kernel},
+        dask="parallelized",
+        output_dtypes=[float],
+        keep_attrs=True,
+    )
 
     return _update_history(res, f"KZ filter (m={m}, k={k})")
 
