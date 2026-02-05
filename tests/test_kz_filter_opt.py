@@ -5,7 +5,9 @@ Comprehensive unit tests for optimized KZ filter.
 import numpy as np
 import pytest
 import xarray as xr
+
 from monet_stats.analysis import kz_filter
+
 
 def test_kz_filter_accuracy():
     """Verify that the optimized convolution-based KZ filter matches rolling means."""
@@ -24,6 +26,7 @@ def test_kz_filter_accuracy():
 
     np.testing.assert_allclose(result.values, expected.values)
 
+
 def test_kz_filter_dask_lazy():
     """Verify that the optimized KZ filter preserves Dask laziness."""
     dask = pytest.importorskip("dask.array")
@@ -38,12 +41,10 @@ def test_kz_filter_dask_lazy():
     computed = result.compute()
     assert not np.all(np.isnan(computed.values[10:90]))
 
+
 def test_kz_filter_dataset():
     """Verify that KZ filter works on Datasets."""
-    ds = xr.Dataset({
-        "var1": (("time"), np.random.rand(50)),
-        "var2": (("time"), np.random.rand(50))
-    })
+    ds = xr.Dataset({"var1": (("time"), np.random.rand(50)), "var2": (("time"), np.random.rand(50))})
 
     result = kz_filter(ds, m=3, k=2, dim="time")
 
