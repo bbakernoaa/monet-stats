@@ -35,7 +35,7 @@ def FSS(
     window_size: int = 3,
     threshold: Optional[float] = None,
     dim: Optional[Union[str, Iterable[str]]] = None,
-    axis: Optional[Union[int, Iterable[int]]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Fractions Skill Score (FSS) (Aero Protocol).
@@ -86,7 +86,19 @@ def FSS(
 
         # Rolling mean for fractions
         # Use provided dimensions or default to all dimensions
-        roll_dims = dim if dim is not None else obs.dims
+        if dim is not None:
+            roll_dims = dim
+        elif axis is not None:
+            if isinstance(axis, str):
+                roll_dims = [axis]
+            elif isinstance(axis, int):
+                roll_dims = [obs.dims[axis]]
+            else:
+                # Iterable of int or str
+                roll_dims = [obs.dims[a] if isinstance(a, int) else a for a in axis]
+        else:
+            roll_dims = obs.dims
+
         if isinstance(roll_dims, str):
             roll_dims = [roll_dims]
 
@@ -126,7 +138,7 @@ def VETS(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
     dim: Optional[Union[str, Iterable[str]]] = None,
-    axis: Optional[Union[int, Iterable[int]]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Volumetric Equitable Threat Score (VETS) (Aero Protocol).
@@ -159,10 +171,13 @@ def VETS(
         if dim is not None:
             reduction_dim = dim
         elif axis is not None:
-            if isinstance(axis, int):
+            if isinstance(axis, str):
+                reduction_dim = axis
+            elif isinstance(axis, int):
                 reduction_dim = obs.dims[axis]
             else:
-                reduction_dim = [obs.dims[a] for a in axis]
+                # Iterable of int or str
+                reduction_dim = [obs.dims[a] if isinstance(a, int) else a for a in axis]
         else:
             reduction_dim = None  # Reduces over all dimensions
 
