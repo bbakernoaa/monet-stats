@@ -15,6 +15,7 @@ Monet Stats is organized into several functional modules:
 - **[Relative Metrics](relative-metrics.md)**: Normalized and relative error measures
 - **[Spatial & Ensemble Metrics](spatial-ensemble-metrics.md)**: Spatial verification and ensemble analysis
 - **[Utility Functions](utils-stats.md)**: Helper functions and data processing utilities
+- **[Visualization](visualize.md)**: Spatial plotting and data visualization (Aero Protocol)
 
 ## Import Conventions
 
@@ -314,6 +315,9 @@ The following sections provide auto-generated documentation for each core module
 
 ### Utility Functions
 ::: monet_stats.utils_stats
+
+### Visualization
+::: monet_stats.visualize
 
 ## Contributing to API Documentation
 

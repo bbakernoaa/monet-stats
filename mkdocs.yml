@@ -25,6 +25,7 @@ nav:
     - Relative Metrics: api/relative-metrics.md
     - Spatial & Ensemble Metrics: api/spatial-ensemble-metrics.md
     - Utility Functions: api/utils-stats.md
+    - Visualization: api/visualize.md
   - Math:
     - Overview: math/overview.md
   - Workflows:

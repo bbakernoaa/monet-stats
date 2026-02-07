@@ -7,6 +7,7 @@ from typing import Optional, Union
 import numpy as np
 import xarray as xr
 
+from .error_metrics import MAE, MedAE
 from .utils_stats import _update_history, circlebias, circlebias_m
 
 
@@ -190,12 +191,17 @@ def NMdnB(
         dim = axis
         if isinstance(axis, int):
             dim = obs.dims[axis]
-        res = (mod - obs).median(dim=dim) / obs.median(dim=dim) * 100.0
+        res = (
+            (mod - obs).quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
+            / obs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
+            * 100.0
+        )
         return _update_history(res, "Normalized Median Bias (NMdnB)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return np.ma.median(mod_arr - obs_arr, axis=axis) / np.ma.median(obs_arr, axis=axis) * 100.0
+        result = np.ma.median(mod_arr - obs_arr, axis=axis) / np.ma.median(obs_arr, axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def FB(
@@ -245,46 +251,12 @@ def ME(
     axis: Optional[Union[int, str]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
-    Mean Gross Error (model and obs unit)
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average magnitude of model errors, regardless of direction.
-    - Used in model evaluation to summarize overall error size.
-
-    Parameters
-    ----------
-    obs : xarray.DataArray or numpy.ndarray
-        Observed values.
-    mod : xarray.DataArray or numpy.ndarray
-        Model predicted values.
-    axis : int or str or None, optional
-        Axis or dimension along which to compute the statistic.
-
-    Returns
-    -------
-    xarray.DataArray or numpy.ndarray or float
-        Mean gross error value(s).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> obs = np.array([1, 2, 3, 4])
-    >>> mod = np.array([2, 2, 2, 2])
-    >>> ME(obs, mod)
-    1.0
+    Mean Gross Error (model and obs unit). Alias for MAE.
     """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
-        res = abs(mod - obs).mean(dim=dim)
+    res = MAE(obs, mod, axis=axis)
+    if isinstance(res, (xr.DataArray, xr.Dataset)):
         return _update_history(res, "Mean Gross Error (ME)")
-    else:
-        obs_arr = np.asanyarray(obs)
-        mod_arr = np.asanyarray(mod)
-        return np.mean(np.abs(mod_arr - obs_arr), axis=axis)
+    return res
 
 
 def MdnE(
@@ -293,46 +265,12 @@ def MdnE(
     axis: Optional[Union[int, str]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
-    Median Gross Error (model and obs unit)
-
-    Typical Use Cases
-    -----------------
-    - Evaluating the typical magnitude of model errors, robust to outliers.
-    - Used in model evaluation when error distributions are skewed or non-normal.
-
-    Parameters
-    ----------
-    obs : xarray.DataArray or numpy.ndarray
-        Observed values.
-    mod : xarray.DataArray or numpy.ndarray
-        Model predicted values.
-    axis : int or str or None, optional
-        Axis or dimension along which to compute the statistic.
-
-    Returns
-    -------
-    xarray.DataArray or numpy.ndarray or float
-        Median gross error value(s).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> obs = np.array([1, 2, 3, 4])
-    >>> mod = np.array([2, 2, 2, 2])
-    >>> MdnE(obs, mod)
-    1.0
+    Median Gross Error (model and obs unit). Alias for MedAE.
     """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
-        res = abs(mod - obs).median(dim=dim)
+    res = MedAE(obs, mod, axis=axis)
+    if isinstance(res, (xr.DataArray, xr.Dataset)):
         return _update_history(res, "Median Gross Error (MdnE)")
-    else:
-        obs_arr = np.ma.asanyarray(obs)
-        mod_arr = np.ma.asanyarray(mod)
-        return np.ma.median(np.ma.abs(mod_arr - obs_arr), axis=axis)
+    return res
 
 
 def WDME_m(
@@ -429,7 +367,8 @@ def WDME(
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return np.ma.mean(np.ma.abs(circlebias(mod_arr - obs_arr)), axis=axis)
+        result = np.ma.mean(np.ma.abs(circlebias(mod_arr - obs_arr)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def WDMdnE(
@@ -473,13 +412,14 @@ def WDMdnE(
         if isinstance(axis, int):
             dim = obs.dims[axis]
         cb = circlebias(mod - obs)
-        res = abs(cb).median(dim=dim)
+        res = abs(cb).quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
         return _update_history(res, "Wind Direction Median Gross Error (WDMdnE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
         cb = circlebias(mod_arr - obs_arr)
-        return np.ma.median(np.ma.abs(cb), axis=axis)
+        result = np.ma.median(np.ma.abs(cb), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NME_m(
@@ -668,12 +608,17 @@ def NMdnE(
         dim = axis
         if isinstance(axis, int):
             dim = obs.dims[axis]
-        res = abs(mod - obs).median(dim=dim) / obs.median(dim=dim) * 100
+        res = (
+            abs(mod - obs).quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
+            / obs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
+            * 100
+        )
         return _update_history(res, "Normalized Median Error (NMdnE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return np.ma.median(np.ma.abs(mod_arr - obs_arr), axis=axis) / np.ma.median(obs_arr, axis=axis) * 100
+        result = np.ma.median(np.ma.abs(mod_arr - obs_arr), axis=axis) / np.ma.median(obs_arr, axis=axis) * 100
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def FE(
@@ -891,7 +836,9 @@ def MdnNPB(
         mdim = axis
         if isinstance(axis, int):
             mdim = obs.dims[axis]
-        res = ((mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).median(dim=mdim) * 100.0
+        res = ((mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).quantile(q=0.5, dim=mdim).drop_vars(
+            "quantile", errors="ignore"
+        ) * 100.0
         return _update_history(res, "Median Normalized Peak Bias (MdnNPB)")
     else:
         obs_arr = np.ma.asanyarray(obs)
@@ -1009,7 +956,9 @@ def MdnNPE(
         mdim = axis
         if isinstance(axis, int):
             mdim = obs.dims[axis]
-        res = (abs(mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).median(dim=mdim) * 100.0
+        res = (abs(mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).quantile(q=0.5, dim=mdim).drop_vars(
+            "quantile", errors="ignore"
+        ) * 100.0
         return _update_history(res, "Median Normalized Peak Error (MdnNPE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
@@ -1129,7 +1078,11 @@ def NMdnPB(
         mdim = axis
         if isinstance(axis, int):
             mdim = obs.dims[axis]
-        res = (mod.max(dim=pdim) - obs.max(dim=pdim)).median(dim=mdim) / obs.max(dim=pdim).median(dim=mdim) * 100.0
+        res = (
+            (mod.max(dim=pdim) - obs.max(dim=pdim)).quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
+            / obs.max(dim=pdim).quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
+            * 100.0
+        )
         return _update_history(res, "Normalized Median Peak Bias (NMdnPB)")
     else:
         obs_arr = np.ma.asanyarray(obs)
@@ -1243,7 +1196,13 @@ def NMdnPE(
         mdim = axis
         if isinstance(axis, int):
             mdim = obs.dims[axis]
-        res = (abs(mod.max(dim=pdim) - obs.max(dim=pdim))).median(dim=mdim) / obs.max(dim=pdim).median(dim=mdim) * 100.0
+        res = (
+            (abs(mod.max(dim=pdim) - obs.max(dim=pdim)))
+            .quantile(q=0.5, dim=mdim)
+            .drop_vars("quantile", errors="ignore")
+            / obs.max(dim=pdim).quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
+            * 100.0
+        )
         return _update_history(res, "Normalized Median Peak Error (NMdnPE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
@@ -1505,7 +1464,9 @@ def MdnPE(
         dim = axis
         if isinstance(axis, int):
             dim = obs.dims[axis]
-        res = (abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)).median() * 100.0
+        res = (abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)).quantile(q=0.5).drop_vars(
+            "quantile", errors="ignore"
+        ) * 100.0
         return _update_history(res, "Median Peak Error (MdnPE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
