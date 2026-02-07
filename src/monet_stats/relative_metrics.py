@@ -191,8 +191,14 @@ def NMdnB(
         dim = axis
         if isinstance(axis, int):
             dim = obs.dims[axis]
+        if dim is None:
+            dim = list(obs.dims)
+        diff = mod - obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in dim})
+            obs = obs.chunk({d: -1 for d in dim})
         res = (
-            (mod - obs).quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
+            diff.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
             / obs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
             * 100.0
         )
@@ -367,8 +373,7 @@ def WDME(
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        result = np.ma.mean(np.ma.abs(circlebias(mod_arr - obs_arr)), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        return np.ma.mean(np.ma.abs(circlebias(mod_arr - obs_arr)), axis=axis)
 
 
 def WDMdnE(
@@ -411,8 +416,12 @@ def WDMdnE(
         dim = axis
         if isinstance(axis, int):
             dim = obs.dims[axis]
-        cb = circlebias(mod - obs)
-        res = abs(cb).quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
+        if dim is None:
+            dim = list(obs.dims)
+        cb = abs(circlebias(mod - obs))
+        if hasattr(cb.data, "chunks"):
+            cb = cb.chunk({d: -1 for d in dim})
+        res = cb.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
         return _update_history(res, "Wind Direction Median Gross Error (WDMdnE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
@@ -608,8 +617,14 @@ def NMdnE(
         dim = axis
         if isinstance(axis, int):
             dim = obs.dims[axis]
+        if dim is None:
+            dim = list(obs.dims)
+        diff_abs = abs(mod - obs)
+        if hasattr(diff_abs.data, "chunks"):
+            diff_abs = diff_abs.chunk({d: -1 for d in dim})
+            obs = obs.chunk({d: -1 for d in dim})
         res = (
-            abs(mod - obs).quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
+            diff_abs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
             / obs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
             * 100
         )
@@ -836,20 +851,24 @@ def MdnNPB(
         mdim = axis
         if isinstance(axis, int):
             mdim = obs.dims[axis]
-        res = ((mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).quantile(q=0.5, dim=mdim).drop_vars(
-            "quantile", errors="ignore"
-        ) * 100.0
+        _intermediate = (mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)
+        if mdim is None:
+            mdim = list(_intermediate.dims)
+        if hasattr(_intermediate.data, "chunks"):
+            _intermediate = _intermediate.chunk({d: -1 for d in mdim})
+        res = _intermediate.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore") * 100.0
         return _update_history(res, "Median Normalized Peak Bias (MdnNPB)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
+        result = (
             np.ma.median(
                 ((np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)) / np.ma.max(obs_arr, axis=paxis)),
                 axis=axis,
             )
             * 100.0
         )
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MNPE(
@@ -956,14 +975,17 @@ def MdnNPE(
         mdim = axis
         if isinstance(axis, int):
             mdim = obs.dims[axis]
-        res = (abs(mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).quantile(q=0.5, dim=mdim).drop_vars(
-            "quantile", errors="ignore"
-        ) * 100.0
+        _intermediate = abs(mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)
+        if mdim is None:
+            mdim = list(_intermediate.dims)
+        if hasattr(_intermediate.data, "chunks"):
+            _intermediate = _intermediate.chunk({d: -1 for d in mdim})
+        res = _intermediate.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore") * 100.0
         return _update_history(res, "Median Normalized Peak Error (MdnNPE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
+        result = (
             np.ma.median(
                 (
                     np.ma.abs(np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis))
@@ -973,6 +995,7 @@ def MdnNPE(
             )
             * 100.0
         )
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NMPB(
@@ -1078,19 +1101,27 @@ def NMdnPB(
         mdim = axis
         if isinstance(axis, int):
             mdim = obs.dims[axis]
+        _diff = mod.max(dim=pdim) - obs.max(dim=pdim)
+        _obs_max = obs.max(dim=pdim)
+        if mdim is None:
+            mdim = list(_diff.dims)
+        if hasattr(_diff.data, "chunks"):
+            _diff = _diff.chunk({d: -1 for d in mdim})
+            _obs_max = _obs_max.chunk({d: -1 for d in mdim})
         res = (
-            (mod.max(dim=pdim) - obs.max(dim=pdim)).quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
-            / obs.max(dim=pdim).quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
+            _diff.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
+            / _obs_max.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
             * 100.0
         )
         return _update_history(res, "Normalized Median Peak Bias (NMdnPB)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
+        result = (
             np.ma.median(np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis), axis=axis)
             / np.ma.median(np.ma.max(obs_arr, axis=paxis), axis=axis)
         ) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NMPE(
@@ -1196,24 +1227,30 @@ def NMdnPE(
         mdim = axis
         if isinstance(axis, int):
             mdim = obs.dims[axis]
+        _diff_abs = abs(mod.max(dim=pdim) - obs.max(dim=pdim))
+        _obs_max = obs.max(dim=pdim)
+        if mdim is None:
+            mdim = list(_diff_abs.dims)
+        if hasattr(_diff_abs.data, "chunks"):
+            _diff_abs = _diff_abs.chunk({d: -1 for d in mdim})
+            _obs_max = _obs_max.chunk({d: -1 for d in mdim})
         res = (
-            (abs(mod.max(dim=pdim) - obs.max(dim=pdim)))
-            .quantile(q=0.5, dim=mdim)
-            .drop_vars("quantile", errors="ignore")
-            / obs.max(dim=pdim).quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
+            _diff_abs.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
+            / _obs_max.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
             * 100.0
         )
         return _update_history(res, "Normalized Median Peak Error (NMdnPE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
+        result = (
             np.ma.median(
                 np.ma.abs(np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)),
                 axis=axis,
             )
             / np.ma.median(np.ma.max(obs_arr, axis=paxis), axis=axis)
         ) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def PSUTMNPB(
@@ -1464,14 +1501,16 @@ def MdnPE(
         dim = axis
         if isinstance(axis, int):
             dim = obs.dims[axis]
-        res = (abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)).quantile(q=0.5).drop_vars(
-            "quantile", errors="ignore"
-        ) * 100.0
+        _intermediate = abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)
+        mdim = list(_intermediate.dims)
+        if hasattr(_intermediate.data, "chunks"):
+            _intermediate = _intermediate.chunk({d: -1 for d in mdim})
+        res = _intermediate.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore") * 100.0
         return _update_history(res, "Median Peak Error (MdnPE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
+        result = (
             np.ma.median(
                 (
                     np.ma.abs(np.ma.max(mod_arr, axis=axis) - np.ma.max(obs_arr, axis=axis))
@@ -1481,3 +1520,4 @@ def MdnPE(
             )
             * 100.0
         )
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
