@@ -737,3 +737,40 @@ def seasonal_mean(
     weighted_data = monthly_data.groupby(f"{dim}.season").map(_weighted_seasonal_mean)
 
     return _update_history(weighted_data, "Seasonal mean (weighted by days in month)")
+
+
+def monthly_climatology(
+    data: Union[xr.DataArray, xr.Dataset],
+    dim: str = "time",
+    method: str = "mean",
+) -> Union[xr.DataArray, xr.Dataset]:
+    """
+    Compute monthly climatology (Aero Protocol).
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        Input data with a time-like coordinate.
+    dim : str, optional
+        Dimension along which to compute the climatology. Default is 'time'.
+    method : str, optional
+        Statistical method to apply ('mean', 'std', 'min', 'max', 'median').
+        Default is 'mean'.
+
+    Returns
+    -------
+    Union[xr.DataArray, xr.Dataset]
+        Monthly climatology (12 values, one for each month).
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> times = pd.date_range("2020-01-01", periods=366*2, freq="D")
+    >>> da = xr.DataArray(np.random.rand(732), coords={"time": times}, dims="time")
+    >>> m_climo = monthly_climatology(da)
+    """
+    # Shortcut to the general climatology function with freq='month'
+    res = climatology(data, freq="month", method=method, dim=dim)
+    return _update_history(res, f"Monthly climatology using {method}")

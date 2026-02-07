@@ -5,6 +5,7 @@ import xarray as xr
 
 from monet_stats.analysis import (
     mda1,
+    monthly_climatology,
     seasonal_mean,
     weighted_spatial_mean,
 )
@@ -40,8 +41,9 @@ def test_weighted_spatial_mean_pro(lazy):
     assert np.isclose(float(res_default), 2.0)
 
     # 2. Test with cell_area coordinate
-    cell_area = xr.DataArray(np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]),
-                             coords={"lat": lats, "lon": lons}, dims=("lat", "lon"))
+    cell_area = xr.DataArray(
+        np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]), coords={"lat": lats, "lon": lons}, dims=("lat", "lon")
+    )
     da_with_area = da.assign_coords(cell_area=cell_area)
     # mean should be (1+2+3)/3 = 2.0 (since all areas are 1)
     res_area = weighted_spatial_mean(da_with_area)
@@ -112,10 +114,10 @@ def test_seasonal_mean_pro(lazy):
     # Weighted seasonal mean = (31*1.0 + 31*1.0 + 29*2.0) / (31+31+29) = 120/91 approx 1.318
 
     res_m_unweighted = seasonal_mean(da_monthly, weighted=False)
-    assert np.isclose(res_m_unweighted.sel(season="DJF"), 4/3)
+    assert np.isclose(res_m_unweighted.sel(season="DJF"), 4 / 3)
 
     res_m_weighted = seasonal_mean(da_monthly, weighted=True)
-    assert np.isclose(res_m_weighted.sel(season="DJF"), 120/91)
+    assert np.isclose(res_m_weighted.sel(season="DJF"), 120 / 91)
 
 
 @pytest.mark.parametrize("lazy", [False, True])
@@ -123,10 +125,10 @@ def test_mda1_pro(lazy):
     if lazy and not HAS_DASK:
         pytest.skip("Dask not available")
 
-    times = pd.date_range("2020-01-01", periods=24*2, freq="h")
+    times = pd.date_range("2020-01-01", periods=24 * 2, freq="h")
     data = np.zeros(48)
-    data[10] = 5.0 # Day 1
-    data[30] = 10.0 # Day 2
+    data[10] = 5.0  # Day 1
+    data[30] = 10.0  # Day 2
     da = xr.DataArray(data, coords={"time": times}, dims="time")
 
     if lazy:
@@ -139,3 +141,27 @@ def test_mda1_pro(lazy):
     assert len(res) == 2
     assert res.values[0] == 5.0
     assert res.values[1] == 10.0
+
+
+@pytest.mark.parametrize("lazy", [False, True])
+def test_monthly_climatology_pro(lazy):
+    if lazy and not HAS_DASK:
+        pytest.skip("Dask not available")
+
+    # 2 years of daily data
+    times = pd.date_range("2020-01-01", periods=366 + 365, freq="D")
+    data = np.random.rand(len(times))
+    da = xr.DataArray(data, coords={"time": times}, dims="time")
+
+    if lazy:
+        da = da.chunk({"time": 100})
+
+    res = monthly_climatology(da)
+    if lazy:
+        res = res.compute()
+
+    assert "month" in res.coords
+    assert len(res.month) == 12
+    # Verify January mean
+    jan_mean = da.where(da.time.dt.month == 1, drop=True).mean().values
+    assert np.isclose(res.sel(month=1), jan_mean)
