@@ -231,13 +231,19 @@ def MdnNB(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = ((mod - obs) / obs).median(dim=dim, keep_attrs=True) * 100.0
+        if dim is None:
+            dim = list(obs.dims)
+        diff = (mod - obs) / obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
         # Update history
         history = f"MdnNB computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
+        result = np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MdnNE(
@@ -276,13 +282,19 @@ def MdnNE(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (abs(mod - obs) / obs).median(dim=dim, keep_attrs=True) * 100.0
+        if dim is None:
+            dim = list(obs.dims)
+        diff = abs(mod - obs) / obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
         # Update history
         history = f"MdnNE computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=axis) * 100.0
+        result = np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NMdnGE(
@@ -330,13 +342,21 @@ def NMdnGE(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (abs(mod - obs).median(dim=dim) / obs.mean(dim=dim)) * 100.0
+        if dim is None:
+            dim = list(obs.dims)
+        diff = abs(mod - obs)
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = (diff.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore") / obs.mean(dim=dim)) * 100.0
         # Update history
         history = f"NMdnGE computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.masked_invalid(np.ma.median(np.ma.abs(mod - obs), axis=axis) / np.ma.mean(obs, axis=axis)) * 100.0
+        result = (
+            np.ma.masked_invalid(np.ma.median(np.ma.abs(mod - obs), axis=axis) / np.ma.mean(obs, axis=axis)) * 100.0
+        )
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NO(
@@ -604,13 +624,19 @@ def MdnO(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (mod - obs).median(dim=dim, keep_attrs=True)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = mod - obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
         # Update history
         history = f"MdnO computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.median(np.subtract(mod, obs), axis=axis)
+        result = np.median(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MdnP(
@@ -643,13 +669,19 @@ def MdnP(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (mod - obs).median(dim=dim, keep_attrs=True)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = mod - obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
         # Update history
         history = f"MdnP computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.median(np.subtract(mod, obs), axis=axis)
+        result = np.median(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def RM(
@@ -721,14 +753,20 @@ def RMdn(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = np.sqrt(((obs - mod) ** 2).median(dim=dim, keep_attrs=True))
+        if dim is None:
+            dim = list(obs.dims)
+        diff_sq = (obs - mod) ** 2
+        if hasattr(diff_sq.data, "chunks"):
+            diff_sq = diff_sq.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = np.sqrt(diff_sq.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore"))
         # Update history
         history = f"RMdn computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
         squared_errors = (np.subtract(obs, mod)) ** 2
-        return np.sqrt(np.median(squared_errors, axis=axis))
+        result = np.sqrt(np.median(squared_errors, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MB(
@@ -767,7 +805,8 @@ def MB(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.mean(np.subtract(mod, obs), axis=axis)
+        result = np.ma.mean(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MdnB(
@@ -800,13 +839,19 @@ def MdnB(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (mod - obs).median(dim=dim, keep_attrs=True)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = mod - obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
         # Update history
         history = f"MdnB computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.median(np.subtract(mod, obs), axis=axis)
+        result = np.ma.median(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def WDMB_m(
@@ -847,7 +892,8 @@ def WDMB_m(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.mean(circlebias_m(np.subtract(mod, obs)), axis=axis)
+        result = np.ma.mean(circlebias_m(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def WDMB(
@@ -888,7 +934,8 @@ def WDMB(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.mean(circlebias(np.subtract(mod, obs)), axis=axis)
+        result = np.ma.mean(circlebias(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def WDMdnB(
@@ -920,13 +967,19 @@ def WDMdnB(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = circlebias(mod - obs).median(dim=dim, keep_attrs=True)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = circlebias(mod - obs)
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
         # Update history
         history = f"WDMdnB computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.median(circlebias(np.subtract(mod, obs)), axis=axis)
+        result = np.ma.median(circlebias(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MSE(
@@ -1025,7 +1078,8 @@ def MAE(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.abs(np.subtract(mod, obs)).mean(axis=axis)
+        result = np.ma.abs(np.subtract(mod, obs)).mean(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MedAE(
@@ -1072,13 +1126,19 @@ def MedAE(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = abs(mod - obs).median(dim=dim, keep_attrs=True)
+        if dim is None:
+            dim = list(obs.dims)
+        diff_abs = abs(mod - obs)
+        if hasattr(diff_abs.data, "chunks"):
+            diff_abs = diff_abs.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff_abs.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
         # Update history
         history = f"MedAE computed at {pd.Timestamp.now().isoformat()}"
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)
+        result = np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def CRMSE(
@@ -1189,7 +1249,8 @@ def MAPE(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return (100 * np.ma.abs(np.subtract(mod, obs)) / np.ma.abs(obs)).mean(axis=axis)
+        result = (100 * np.ma.abs(np.subtract(mod, obs)) / np.ma.abs(obs)).mean(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def sMAPE(
@@ -1243,7 +1304,8 @@ def sMAPE(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return (200 * np.ma.abs(np.subtract(mod, obs)) / (np.ma.abs(mod) + np.ma.abs(obs))).mean(axis=axis)
+        result = (200 * np.ma.abs(np.subtract(mod, obs)) / (np.ma.abs(mod) + np.ma.abs(obs))).mean(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NRMSE(
@@ -1484,7 +1546,8 @@ def RMSPE(
         result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
         return result
     else:
-        return 100 * np.ma.sqrt(np.ma.mean(((mod - obs) / obs) ** 2, axis=axis))
+        result = 100 * np.ma.sqrt(np.ma.mean(((mod - obs) / obs) ** 2, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MAPEm(
@@ -1529,7 +1592,8 @@ def MAPEm(
         # MAPE implementation for xarray already handles NaNs
         return MAPE(obs, mod, axis=axis)
     else:
-        return 100 * np.ma.mean(np.ma.abs((mod - obs) / obs), axis=axis)
+        result = 100 * np.ma.mean(np.ma.abs((mod - obs) / obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def sMAPEm(
@@ -1574,7 +1638,8 @@ def sMAPEm(
         # sMAPE implementation for xarray already handles NaNs
         return sMAPE(obs, mod, axis=axis)
     else:
-        return 200 * np.ma.mean(np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs)), axis=axis)
+        result = 200 * np.ma.mean(np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NSC(
@@ -1926,7 +1991,8 @@ def RMSE_m(
         # RMSE implementation for xarray already handles NaNs
         return RMSE(obs, mod, axis=axis)
     else:
-        return np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        result = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def IOA(
@@ -1984,7 +2050,7 @@ def IOA(
         denom = np.nansum((np.abs(mod - obs_mean) + np.abs(obs - obs_mean)) ** 2, axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (num / denom)
-        return result.item() if np.ndim(result) == 0 else result
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def IOA_m(
@@ -2033,7 +2099,7 @@ def IOA_m(
         denom = np.ma.sum((np.ma.abs(mod - obs_mean) + np.ma.abs(obs - obs_mean)) ** 2, axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (num / denom)
-        return result.item() if np.ndim(result) == 0 else result
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 # Add the missing functions from the specification

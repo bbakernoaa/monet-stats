@@ -46,22 +46,31 @@ from .correlation_metrics import (
 )
 from .efficiency_metrics import MAPE, MASE, NSE, PC, NSElog, NSEm, mNSE, rNSE
 from .error_metrics import (
+    COE,
+    CORR_INDEX,
+    CRMSE,
     IOA,
+    LOG_ERROR,
     MAE,
     MB,
     MNB,
     MNE,
     MO,
     MSE,
+    NMSE,
     NOP,
     NP,
     NRMSE,
     RMSE,
     STDO,
     STDP,
+    VOLUMETRIC_ERROR,
     WDMB,
     IOA_m,
     MAE_m,
+    MAE_norm,
+    MAPE_mod,
+    MASE_mod,
     MdnB,
     MdnNB,
     MdnNE,
@@ -74,8 +83,10 @@ from .error_metrics import (
     NSE_beta,
     RMdn,
     RMSE_m,
+    RMSE_norm,
     WDMB_m,
     WDMdnB,
+    bias_fraction,
 )
 from .performance import (
     apply_lazy_threshold,
@@ -129,15 +140,12 @@ __all__ = [
     "scores",
     # correlation_metrics
     "R2",
-    "RMSE",
     "WDRMSE_m",
     "WDRMSE",
     "RMSEs",
     "RMSEu",
     "d1",
     "E1",
-    "IOA_m",
-    "IOA",
     "WDIOA_m",
     "WDIOA",
     "AC",
@@ -149,6 +157,11 @@ __all__ = [
     "spearmanr",
     "kendalltau",
     # error_metrics
+    "COE",
+    "CORR_INDEX",
+    "CRMSE",
+    "LOG_ERROR",
+    "NMSE",
     "STDO",
     "STDP",
     "MNB",
@@ -172,10 +185,18 @@ __all__ = [
     "MAE_m",
     "MedAE",
     "MedAE_m",
+    "RMSE",
     "RMSE_m",
+    "IOA",
     "IOA_m",
     "NSE_alpha",
     "NSE_beta",
+    "MAPE_mod",
+    "MASE_mod",
+    "RMSE_norm",
+    "MAE_norm",
+    "bias_fraction",
+    "VOLUMETRIC_ERROR",
     # efficiency_metrics
     "NSE",
     "NSEm",
@@ -224,6 +245,8 @@ __all__ = [
     "memory_efficient_correlation",
     "fast_rmse",
     "fast_mae",
+    # visualize
+    "plot_spatial",
 ]
 
 
@@ -274,6 +297,13 @@ def stats(
         - FAR: False Alarm Rate (at threshold)
         - HSS: Heidke Skill Score (at threshold)
         - NSE: Nash-Sutcliffe Efficiency
+        - CRMSE: Centered Root Mean Square Error
+        - MdnB: Median Bias
+        - KGE: Kling-Gupta Efficiency
+        - R2: Coefficient of Determination
+        - CCC: Concordance Correlation Coefficient
+        - MNE: Mean Normalized Gross Error
+        - NMSE: Normalized Mean Square Error
 
     Examples
     --------
@@ -314,7 +344,14 @@ def stats(
         res["IOA"] = IOA(obs, mod)
         res["NMB"] = NMB(obs, mod)
         res["MNB"] = MNB(obs, mod)
+        res["MNE"] = MNE(obs, mod)
         res["NSE"] = NSE(obs, mod)
+        res["CRMSE"] = CRMSE(obs, mod)
+        res["MdnB"] = MdnB(obs, mod)
+        res["KGE"] = KGE(obs, mod)
+        res["R2"] = R2(obs, mod)
+        res["CCC"] = CCC(obs, mod)
+        res["NMSE"] = NMSE(obs, mod)
 
         try:
             res["POD"] = POD(obs, mod, threshold)
@@ -342,7 +379,14 @@ def stats(
             "IOA": IOA(obs, mod),
             "NMB": NMB(obs, mod),
             "MNB": MNB(obs, mod),
+            "MNE": MNE(obs, mod),
             "NSE": NSE(obs, mod),
+            "CRMSE": CRMSE(obs, mod),
+            "MdnB": MdnB(obs, mod),
+            "KGE": KGE(obs, mod),
+            "R2": R2(obs, mod),
+            "CCC": CCC(obs, mod),
+            "NMSE": NMSE(obs, mod),
         }
 
         # Contingency scores (optional if threshold is valid)

@@ -17,7 +17,29 @@ def test_stats_pandas():
     results = stats(df, threshold=3.0)
 
     # Check that all expected metrics are present
-    expected_metrics = ["N", "Obs", "Mod", "MB", "MAE", "RMSE", "R", "IOA", "NMB", "MNB", "NSE", "POD", "FAR", "HSS"]
+    expected_metrics = [
+        "N",
+        "Obs",
+        "Mod",
+        "MB",
+        "MAE",
+        "RMSE",
+        "R",
+        "IOA",
+        "NMB",
+        "MNB",
+        "NSE",
+        "POD",
+        "FAR",
+        "HSS",
+        "CRMSE",
+        "MdnB",
+        "KGE",
+        "R2",
+        "CCC",
+        "MNE",
+        "NMSE",
+    ]
     for metric in expected_metrics:
         assert metric in results
         assert not np.isnan(results[metric])
@@ -36,7 +58,29 @@ def test_stats_xarray():
     results = stats(ds, threshold=3.0)
 
     # Check that all expected metrics are present
-    expected_metrics = ["N", "Obs", "Mod", "MB", "MAE", "RMSE", "R", "IOA", "NMB", "MNB", "NSE", "POD", "FAR", "HSS"]
+    expected_metrics = [
+        "N",
+        "Obs",
+        "Mod",
+        "MB",
+        "MAE",
+        "RMSE",
+        "R",
+        "IOA",
+        "NMB",
+        "MNB",
+        "NSE",
+        "POD",
+        "FAR",
+        "HSS",
+        "CRMSE",
+        "MdnB",
+        "KGE",
+        "R2",
+        "CCC",
+        "MNE",
+        "NMSE",
+    ]
     for metric in expected_metrics:
         assert metric in results
         assert not np.isnan(results[metric])
@@ -57,7 +101,29 @@ def test_stats_xarray_dask():
     results = stats(ds, threshold=3.0)
 
     # Check that all expected metrics are present
-    expected_metrics = ["N", "Obs", "Mod", "MB", "MAE", "RMSE", "R", "IOA", "NMB", "MNB", "NSE", "POD", "FAR", "HSS"]
+    expected_metrics = [
+        "N",
+        "Obs",
+        "Mod",
+        "MB",
+        "MAE",
+        "RMSE",
+        "R",
+        "IOA",
+        "NMB",
+        "MNB",
+        "NSE",
+        "POD",
+        "FAR",
+        "HSS",
+        "CRMSE",
+        "MdnB",
+        "KGE",
+        "R2",
+        "CCC",
+        "MNE",
+        "NMSE",
+    ]
     for metric in expected_metrics:
         assert metric in results
         assert not np.isnan(results[metric])

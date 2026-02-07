@@ -87,10 +87,12 @@ def R2(
             dim = axis
 
         def _pearsonr2(a, b):
-            if np.var(a) == 0 or np.var(b) == 0:
+            a_flat = a.ravel()
+            b_flat = b.ravel()
+            if np.var(a_flat) == 0 or np.var(b_flat) == 0:
                 return 0.0
-            r_val, _ = pearsonr(a, b)
-            if np.isnan(r_val):
+            r_val, _ = pearsonr(a_flat, b_flat)
+            if np.isnan(r_val).any():
                 return 0.0
             return r_val**2
 
@@ -1037,10 +1039,12 @@ def pearsonr(
             dim = axis
 
         def _pearsonr_onlyr(a, b):
-            mask = ~np.isnan(a) & ~np.isnan(b)
-            if np.sum(mask) < 2 or np.var(a[mask]) == 0 or np.var(b[mask]) == 0:
+            a_flat = a.ravel()
+            b_flat = b.ravel()
+            mask = ~np.isnan(a_flat) & ~np.isnan(b_flat)
+            if np.sum(mask) < 2 or np.var(a_flat[mask]) == 0 or np.var(b_flat[mask]) == 0:
                 return np.nan
-            return _pearsonr(a[mask], b[mask])[0]
+            return _pearsonr(a_flat[mask], b_flat[mask])[0]
 
         result = xr.apply_ufunc(
             _pearsonr_onlyr,
@@ -1120,10 +1124,12 @@ def spearmanr(
             dim = axis
 
         def _spearmanr_onlyrho(a, b):
-            mask = ~np.isnan(a) & ~np.isnan(b)
+            a_flat = a.ravel()
+            b_flat = b.ravel()
+            mask = ~np.isnan(a_flat) & ~np.isnan(b_flat)
             if np.sum(mask) < 2:
                 return np.nan
-            return _spearmanr(a[mask], b[mask])[0]
+            return _spearmanr(a_flat[mask], b_flat[mask])[0]
 
         result = xr.apply_ufunc(
             _spearmanr_onlyrho,
@@ -1216,10 +1222,12 @@ def kendalltau(
             dim = axis
 
         def _kendalltau_onlytau(a, b):
-            mask = ~np.isnan(a) & ~np.isnan(b)
+            a_flat = a.ravel()
+            b_flat = b.ravel()
+            mask = ~np.isnan(a_flat) & ~np.isnan(b_flat)
             if np.sum(mask) < 2:
                 return np.nan
-            return _kendalltau(a[mask], b[mask])[0]
+            return _kendalltau(a_flat[mask], b_flat[mask])[0]
 
         result = xr.apply_ufunc(
             _kendalltau_onlytau,
