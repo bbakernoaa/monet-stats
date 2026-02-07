@@ -101,6 +101,7 @@ from .utils_stats import (
     matchmasks,
     rmse,
 )
+from .visualize import plot_spatial
 
 __all__ = [
     # analysis
