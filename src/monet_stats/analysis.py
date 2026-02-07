@@ -292,6 +292,38 @@ def rolling_mean_24h(
     return _update_history(res, "Rolling 24-hour mean")
 
 
+def mda1(
+    data: Union[xr.DataArray, xr.Dataset],
+    dim: str = "time",
+) -> Union[xr.DataArray, xr.Dataset]:
+    """
+    Compute Maximum Daily 1-hour Average (MDA1) (Aero Protocol).
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        Input data. Must have hourly frequency.
+    dim : str, optional
+        Dimension along which to compute. Default is 'time'.
+
+    Returns
+    -------
+    Union[xr.DataArray, xr.Dataset]
+        MDA1 values (one per day).
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> times = pd.date_range("2020-01-01", periods=24*5, freq="h")
+    >>> da = xr.DataArray(np.random.rand(120), coords={"time": times}, dims="time")
+    >>> mda1_vals = mda1(da)
+    """
+    res = data.resample({dim: "D"}).max()
+    return _update_history(res, "MDA1 (Maximum Daily 1-hour Average)")
+
+
 def mda8(
     data: Union[xr.DataArray, xr.Dataset],
     dim: str = "time",
@@ -441,20 +473,25 @@ def weighted_spatial_mean(
     data: Union[xr.DataArray, xr.Dataset],
     lat_dim: str = "lat",
     lon_dim: str = "lon",
+    weights: Optional[Union[xr.DataArray, np.ndarray]] = None,
 ) -> Union[xr.DataArray, xr.Dataset]:
     """
-    Compute area-weighted spatial mean for lat/lon grids (Aero Protocol).
+    Compute area-weighted spatial mean (Aero Protocol).
 
-    Assumes a regular lat/lon grid where weights are proportional to cos(lat).
+    Supports automatic detection of 'cell_area', custom weights, or falls
+    back to cosine-latitude weighting for regular grids.
 
     Parameters
     ----------
     data : xarray.DataArray or xarray.Dataset
-        Input data with latitude and longitude coordinates.
+        Input data with spatial coordinates.
     lat_dim : str, optional
         Name of the latitude dimension. Default is 'lat'.
     lon_dim : str, optional
-        Name of the longitude longitude. Default is 'lon'.
+        Name of the longitude dimension. Default is 'lon'.
+    weights : xarray.DataArray or numpy.ndarray, optional
+        Custom weights for the mean. If None, it tries to find 'cell_area'
+        in the data or computes cos(lat) weights.
 
     Returns
     -------
@@ -472,11 +509,36 @@ def weighted_spatial_mean(
     ...                   dims=("lat", "lon"))
     >>> spatial_mean = weighted_spatial_mean(da)
     """
-    weights = np.cos(np.deg2rad(data[lat_dim]))
+    if weights is None:
+        if "cell_area" in data.coords:
+            weights = data.coords["cell_area"]
+        elif isinstance(data, xr.Dataset) and "cell_area" in data.data_vars:
+            weights = data["cell_area"]
+        else:
+            # Fall back to cosine of latitude
+            weights = np.cos(np.deg2rad(data[lat_dim]))
+
+    if not isinstance(weights, xr.DataArray):
+        # Determine weights dimensions by matching the end of data dimensions
+        # This handles cases where data is (time, lat, lon) and weights is (lat, lon)
+        w_ndim = np.ndim(weights)
+        if w_ndim == 0:
+            weights = xr.DataArray(weights)
+        else:
+            w_dims = data.dims[-w_ndim:]
+            weights = xr.DataArray(weights, dims=w_dims)
+
     weights.name = "weights"
     weighted_data = data.weighted(weights)
-    res = weighted_data.mean(dim=(lat_dim, lon_dim))
-    return _update_history(res, "Weighted spatial mean")
+
+    # Reduction over spatial dimensions
+    spatial_dims = [d for d in [lat_dim, lon_dim] if d in data.dims]
+    if not spatial_dims:
+        # If specified dims are not present, reduce over all shared dims with weights
+        spatial_dims = [d for d in data.dims if d in weights.dims]
+
+    res = weighted_data.mean(dim=spatial_dims)
+    return _update_history(res, "Weighted spatial mean (area-weighted)")
 
 
 def fft_analysis(
@@ -624,3 +686,54 @@ def power_spectrum(
     res = res.assign_coords(frequency=freqs)
 
     return _update_history(res, "Power spectrum (Welch method)")
+
+
+def seasonal_mean(
+    data: Union[xr.DataArray, xr.Dataset],
+    dim: str = "time",
+    weighted: bool = True,
+) -> Union[xr.DataArray, xr.Dataset]:
+    """
+    Compute seasonal mean (DJF, MAM, JJA, SON) (Aero Protocol).
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        Input data with a time-like coordinate.
+    dim : str, optional
+        Dimension along which to compute the seasonal mean. Default is 'time'.
+    weighted : bool, optional
+        If True, weight the mean by the number of days in each month for
+        improved scientific accuracy. Default is True.
+
+    Returns
+    -------
+    Union[xr.DataArray, xr.Dataset]
+        Seasonal means.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> times = pd.date_range("2020-01-01", periods=366, freq="D")
+    >>> da = xr.DataArray(np.random.rand(366), coords={"time": times}, dims="time")
+    >>> s_mean = seasonal_mean(da)
+    """
+    if not weighted:
+        return climatology(data, freq="season", method="mean", dim=dim)
+
+    # To handle both daily and monthly data correctly, we first reduce to monthly
+    # means (which are already representative of their months) and then apply
+    # seasonal weighting based on month length.
+    monthly_data = data.resample({dim: "MS"}).mean(dim=dim)
+
+    def _weighted_seasonal_mean(group: Union[xr.DataArray, xr.Dataset]) -> Union[xr.DataArray, xr.Dataset]:
+        """Helper to apply weighted mean to each seasonal group."""
+        month_length = group[dim].dt.days_in_month
+        return group.weighted(month_length.fillna(0)).mean(dim=dim)
+
+    # Use xarray.weighted for robust NaN handling
+    weighted_data = monthly_data.groupby(f"{dim}.season").map(_weighted_seasonal_mean)
+
+    return _update_history(weighted_data, "Seasonal mean (weighted by days in month)")
