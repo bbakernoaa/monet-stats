@@ -10,7 +10,7 @@ import xarray as xr
 from . import analysis
 
 
-@xr.register_dataarray_accessor("monet_stats")
+@xr.register_dataarray_accessor("monet")
 class MonetDataArrayAccessor:
     """
     Accessor for xarray.DataArray to provide MONET statistical methods.
@@ -388,7 +388,7 @@ class MonetDataArrayAccessor:
         )
 
 
-@xr.register_dataset_accessor("monet_stats")
+@xr.register_dataset_accessor("monet")
 class MonetDatasetAccessor:
     """
     Accessor for xarray.Dataset to provide MONET statistical methods.
