@@ -168,6 +168,22 @@ print(f"XArray result with coordinates:\n{r2_da}")
 print(f"Operation history:\n{r2_da.attrs['history']}")
 ```
 
+### Xarray Accessor (Pangeo Integration)
+
+For the best experience in the Pangeo ecosystem, use the `.monet_stats` accessor. This allows for cleaner code and method chaining while automatically handling metadata and laziness.
+
+```python
+# Compute climatology directly on the DataArray
+climo = obs_da.monet_stats.climatology(freq="month")
+
+# Calculate summary statistics on a Dataset
+ds = xr.Dataset({"Obs": obs_da, "Mod": mod_da})
+stats_dict = ds.monet_stats.stats()
+
+# Chain operations
+spatial_mean = obs_da.monet_stats.resample_data(freq="D").monet_stats.weighted_spatial_mean()
+```
+
 ### Lazy Evaluation with Dask
 
 For datasets larger than RAM, `monet-stats` leverages Dask for lazy evaluation and parallel processing.

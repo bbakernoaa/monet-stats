@@ -52,6 +52,15 @@ from monet_stats.contingency_metrics import HSS, ETS
 skill = HSS(obs, mod, minval=50.0)
 ```
 
+### Xarray Accessor
+
+Chain operations directly on Xarray objects using the `.monet_stats` namespace:
+
+```python
+# Compute monthly climatology and area-weighted mean in one go
+result = obs.monet_stats.climatology(freq='month').monet_stats.weighted_spatial_mean()
+```
+
 ## Documentation
 
 Full API documentation and tutorials are available at:

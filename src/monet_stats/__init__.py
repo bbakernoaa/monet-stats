@@ -15,6 +15,7 @@ from .analysis import (
     exceedance_count,
     fft_analysis,
     kz_filter,
+    mda1,
     mda8,
     peak_timing,
     percentile,
@@ -122,6 +123,7 @@ __all__ = [
     "diurnal_cycle",
     "rolling_mean_8h",
     "rolling_mean_24h",
+    "mda1",
     "mda8",
     "exceedance_count",
     "percentile",
@@ -248,6 +250,9 @@ __all__ = [
     # visualize
     "plot_spatial",
 ]
+
+# Register xarray accessors
+from . import accessor as accessor
 
 
 def stats(
