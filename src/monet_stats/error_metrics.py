@@ -5,10 +5,9 @@ Error Metrics for Model Evaluation
 from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 
-from .utils_stats import circlebias, circlebias_m, matchmasks
+from .utils_stats import _update_history, circlebias, circlebias_m, matchmasks
 
 ############################################################
 # 1. Basic Error Metrics
@@ -57,14 +56,12 @@ def STDO(
         else:
             dim = axis
         result = errors.std(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"STDO computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "STDO")
 
     # Fallback to numpy-compatible logic
     errors = np.subtract(obs, mod)
-    return np.std(errors, axis=axis)
+    result = np.std(errors, axis=axis)
+    return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def STDP(
@@ -109,14 +106,12 @@ def STDP(
         else:
             dim = axis
         result = errors.std(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"STDP computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "STDP")
 
     # Fallback to numpy-compatible logic
     errors = np.subtract(mod, obs)
-    return np.std(errors, axis=axis)
+    result = np.std(errors, axis=axis)
+    return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MNB(
@@ -140,6 +135,14 @@ def MNB(
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
         Mean normalized bias (percent).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([1.1, 2.2, 3.3])
+    >>> MNB(obs, mod)
+    10.0
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
@@ -149,12 +152,10 @@ def MNB(
         else:
             dim = axis
         result = ((mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
-        # Update history
-        history = f"MNB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MNB")
     else:
-        return np.ma.masked_invalid((mod - obs) / obs).mean(axis=axis) * 100.0
+        result = np.ma.masked_invalid((mod - obs) / obs).mean(axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MNE(
@@ -178,6 +179,14 @@ def MNE(
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
         Mean normalized gross error (percent).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([1.1, 1.8, 3.3])
+    >>> MNE(obs, mod)
+    10.0
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
@@ -187,12 +196,10 @@ def MNE(
         else:
             dim = axis
         result = (abs(mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
-        # Update history
-        history = f"MNE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MNE")
     else:
-        return np.ma.masked_invalid(np.ma.abs(mod - obs) / obs).mean(axis=axis) * 100.0
+        result = np.ma.masked_invalid(np.ma.abs(mod - obs) / obs).mean(axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MdnNB(
@@ -231,13 +238,16 @@ def MdnNB(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = ((mod - obs) / obs).median(dim=dim, keep_attrs=True) * 100.0
-        # Update history
-        history = f"MdnNB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        if dim is None:
+            dim = list(obs.dims)
+        diff = (mod - obs) / obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
+        return _update_history(result, "MdnNB")
     else:
-        return np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
+        result = np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MdnNE(
@@ -276,13 +286,16 @@ def MdnNE(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (abs(mod - obs) / obs).median(dim=dim, keep_attrs=True) * 100.0
-        # Update history
-        history = f"MdnNE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        if dim is None:
+            dim = list(obs.dims)
+        diff = abs(mod - obs) / obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
+        return _update_history(result, "MdnNE")
     else:
-        return np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=axis) * 100.0
+        result = np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NMdnGE(
@@ -330,13 +343,18 @@ def NMdnGE(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (abs(mod - obs).median(dim=dim) / obs.mean(dim=dim)) * 100.0
-        # Update history
-        history = f"NMdnGE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        if dim is None:
+            dim = list(obs.dims)
+        diff = abs(mod - obs)
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = (diff.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore") / obs.mean(dim=dim)) * 100.0
+        return _update_history(result, "NMdnGE")
     else:
-        return np.ma.masked_invalid(np.ma.median(np.ma.abs(mod - obs), axis=axis) / np.ma.mean(obs, axis=axis)) * 100.0
+        result = (
+            np.ma.masked_invalid(np.ma.median(np.ma.abs(mod - obs), axis=axis) / np.ma.mean(obs, axis=axis)) * 100.0
+        )
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NO(
@@ -374,7 +392,8 @@ def NO(
             dim = axis
         return obs.count(dim=dim)
     else:
-        return (~np.ma.getmaskarray(obs)).sum(axis=axis)
+        result = (~np.ma.getmaskarray(obs)).sum(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NOP(
@@ -420,7 +439,8 @@ def NOP(
         return mask.sum(dim=dim)
     else:
         obsc, modc = matchmasks(obs, mod)
-        return (~np.ma.getmaskarray(obsc)).sum(axis=axis)
+        result = (~np.ma.getmaskarray(obsc)).sum(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NP(
@@ -459,7 +479,8 @@ def NP(
             dim = axis
         return mod.count(dim=dim)
     else:
-        return (~np.ma.getmaskarray(mod)).sum(axis=axis)
+        result = (~np.ma.getmaskarray(mod)).sum(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MO(
@@ -507,12 +528,10 @@ def MO(
         else:
             dim = axis
         result = (mod - obs).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MO computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MO")
     else:
-        return np.mean(np.subtract(mod, obs), axis=axis)
+        result = np.mean(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MP(
@@ -551,12 +570,10 @@ def MP(
         else:
             dim = axis
         result = mod.mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MP computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MP")
     else:
-        return np.mean(mod, axis=axis)
+        result = np.mean(mod, axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MdnO(
@@ -604,13 +621,16 @@ def MdnO(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (mod - obs).median(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MdnO computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        if dim is None:
+            dim = list(obs.dims)
+        diff = mod - obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        return _update_history(result, "MdnO")
     else:
-        return np.median(np.subtract(mod, obs), axis=axis)
+        result = np.median(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MdnP(
@@ -643,13 +663,16 @@ def MdnP(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (mod - obs).median(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MdnP computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        if dim is None:
+            dim = list(obs.dims)
+        diff = mod - obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        return _update_history(result, "MdnP")
     else:
-        return np.median(np.subtract(mod, obs), axis=axis)
+        result = np.median(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def RM(
@@ -683,12 +706,10 @@ def RM(
         else:
             dim = axis
         result = np.sqrt(((obs - mod) ** 2).mean(dim=dim, keep_attrs=True))
-        # Update history
-        history = f"RM computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "RM")
     else:
-        return np.sqrt(np.mean((np.subtract(obs, mod)) ** 2, axis=axis))
+        result = np.sqrt(np.mean((np.subtract(obs, mod)) ** 2, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def RMdn(
@@ -721,14 +742,17 @@ def RMdn(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = np.sqrt(((obs - mod) ** 2).median(dim=dim, keep_attrs=True))
-        # Update history
-        history = f"RMdn computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        if dim is None:
+            dim = list(obs.dims)
+        diff_sq = (obs - mod) ** 2
+        if hasattr(diff_sq.data, "chunks"):
+            diff_sq = diff_sq.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = np.sqrt(diff_sq.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore"))
+        return _update_history(result, "RMdn")
     else:
         squared_errors = (np.subtract(obs, mod)) ** 2
-        return np.sqrt(np.median(squared_errors, axis=axis))
+        result = np.sqrt(np.median(squared_errors, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MB(
@@ -762,12 +786,10 @@ def MB(
         else:
             dim = axis
         result = (mod - obs).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MB")
     else:
-        return np.ma.mean(np.subtract(mod, obs), axis=axis)
+        result = np.ma.mean(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MdnB(
@@ -800,13 +822,16 @@ def MdnB(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = (mod - obs).median(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MdnB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        if dim is None:
+            dim = list(obs.dims)
+        diff = mod - obs
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        return _update_history(result, "MdnB")
     else:
-        return np.ma.median(np.subtract(mod, obs), axis=axis)
+        result = np.ma.median(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def WDMB_m(
@@ -842,12 +867,10 @@ def WDMB_m(
         else:
             dim = axis
         result = circlebias_m(mod - obs).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"WDMB_m computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "WDMB_m")
     else:
-        return np.ma.mean(circlebias_m(np.subtract(mod, obs)), axis=axis)
+        result = np.ma.mean(circlebias_m(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def WDMB(
@@ -883,12 +906,10 @@ def WDMB(
         else:
             dim = axis
         result = circlebias(mod - obs).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"WDMB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "WDMB")
     else:
-        return np.ma.mean(circlebias(np.subtract(mod, obs)), axis=axis)
+        result = np.ma.mean(circlebias(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def WDMdnB(
@@ -920,13 +941,62 @@ def WDMdnB(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = circlebias(mod - obs).median(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"WDMdnB computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        if dim is None:
+            dim = list(obs.dims)
+        diff = circlebias(mod - obs)
+        if hasattr(diff.data, "chunks"):
+            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        return _update_history(result, "WDMdnB")
     else:
-        return np.ma.median(circlebias(np.subtract(mod, obs)), axis=axis)
+        result = np.ma.median(circlebias(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def MSE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Mean Squared Error (MSE).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the error.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean squared error.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import MSE
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([2, 2, 4])
+    >>> MSE(obs, mod)
+    0.6666666666666666
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        # Handle axis vs dim
+        if axis is not None and isinstance(axis, int):
+            dim = obs.dims[axis]
+        else:
+            dim = axis
+
+        result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "MSE")
+    else:
+        result = np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def MAE(
@@ -974,12 +1044,10 @@ def MAE(
         else:
             dim = axis
         result = abs(mod - obs).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MAE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MAE")
     else:
-        return np.ma.abs(np.subtract(mod, obs)).mean(axis=axis)
+        result = np.ma.abs(np.subtract(mod, obs)).mean(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MedAE(
@@ -1026,13 +1094,16 @@ def MedAE(
             dim = obs.dims[axis]
         else:
             dim = axis
-        result = abs(mod - obs).median(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MedAE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        if dim is None:
+            dim = list(obs.dims)
+        diff_abs = abs(mod - obs)
+        if hasattr(diff_abs.data, "chunks"):
+            diff_abs = diff_abs.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+        result = diff_abs.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        return _update_history(result, "MedAE")
     else:
-        return np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)
+        result = np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def CRMSE(
@@ -1082,14 +1153,12 @@ def CRMSE(
         o_ = obs - obs.mean(dim=dim)
         m_ = mod - mod.mean(dim=dim)
         result = ((m_ - o_) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"CRMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "CRMSE")
     else:
         o_ = np.subtract(obs, np.mean(obs, axis=axis, keepdims=True))
         m_ = np.subtract(mod, np.mean(mod, axis=axis, keepdims=True))
-        return (np.ma.abs(m_ - o_) ** 2).mean(axis=axis) ** 0.5
+        result = (np.ma.abs(m_ - o_) ** 2).mean(axis=axis) ** 0.5
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MAPE(
@@ -1138,12 +1207,10 @@ def MAPE(
         else:
             dim = axis
         result = (100 * abs(mod - obs) / abs(obs)).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MAPE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MAPE")
     else:
-        return (100 * np.ma.abs(np.subtract(mod, obs)) / np.ma.abs(obs)).mean(axis=axis)
+        result = (100 * np.ma.abs(np.subtract(mod, obs)) / np.ma.abs(obs)).mean(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def sMAPE(
@@ -1192,12 +1259,10 @@ def sMAPE(
         else:
             dim = axis
         result = (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"sMAPE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "sMAPE")
     else:
-        return (200 * np.ma.abs(np.subtract(mod, obs)) / (np.ma.abs(mod) + np.ma.abs(obs))).mean(axis=axis)
+        result = (200 * np.ma.abs(np.subtract(mod, obs)) / (np.ma.abs(mod) + np.ma.abs(obs))).mean(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NRMSE(
@@ -1249,10 +1314,7 @@ def NRMSE(
         rmse = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         obs_range = obs.max(dim=dim) - obs.min(dim=dim)
         result = xr.where(obs_range == 0, 0, rmse / obs_range)
-        # Update history
-        history = f"NRMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NRMSE")
     else:
         rmse = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
         obs_range = np.ma.max(obs, axis=axis) - np.ma.min(obs, axis=axis)
@@ -1318,10 +1380,7 @@ def MASE(
 
         model_error = abs(mod - obs).mean(dim=dim, keep_attrs=True)
         result = model_error / naive_error
-        # Update history
-        history = f"MASE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MASE")
     else:
         # Calculate naive forecast error (using previous observation)
         if axis is not None:
@@ -1331,7 +1390,8 @@ def MASE(
             naive_diff = np.diff(obs)
             naive_error = np.mean(np.abs(naive_diff))
         model_error = np.mean(np.abs(np.subtract(mod, obs)), axis=axis)
-        return model_error / naive_error
+        result = model_error / naive_error
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MASEm(
@@ -1384,7 +1444,8 @@ def MASEm(
             naive_diff = np.ma.diff(obs)
             naive_error = np.ma.mean(np.ma.abs(naive_diff))
         model_error = np.ma.mean(np.ma.abs(np.subtract(mod, obs)), axis=axis)
-        return model_error / naive_error
+        result = model_error / naive_error
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def RMSPE(
@@ -1433,12 +1494,10 @@ def RMSPE(
         else:
             dim = axis
         result = (100 * ((mod - obs) / obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"RMSPE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "RMSPE")
     else:
-        return 100 * np.ma.sqrt(np.ma.mean(((mod - obs) / obs) ** 2, axis=axis))
+        result = 100 * np.ma.sqrt(np.ma.mean(((mod - obs) / obs) ** 2, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MAPEm(
@@ -1483,7 +1542,8 @@ def MAPEm(
         # MAPE implementation for xarray already handles NaNs
         return MAPE(obs, mod, axis=axis)
     else:
-        return 100 * np.ma.mean(np.ma.abs((mod - obs) / obs), axis=axis)
+        result = 100 * np.ma.mean(np.ma.abs((mod - obs) / obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def sMAPEm(
@@ -1528,7 +1588,8 @@ def sMAPEm(
         # sMAPE implementation for xarray already handles NaNs
         return sMAPE(obs, mod, axis=axis)
     else:
-        return 200 * np.ma.mean(np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs)), axis=axis)
+        result = 200 * np.ma.mean(np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NSC(
@@ -1579,15 +1640,13 @@ def NSC(
         numerator = ((obs - mod) ** 2).sum(dim=dim)
         denominator = ((obs - obs_mean) ** 2).sum(dim=dim)
         result = 1.0 - (numerator / denominator)
-        # Update history
-        history = f"NSC computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NSC")
     else:
         obs_mean = np.mean(obs, axis=axis, keepdims=True)
         numerator = np.sum((obs - mod) ** 2, axis=axis)
         denominator = np.sum((obs - obs_mean) ** 2, axis=axis)
-        return 1.0 - (numerator / denominator)
+        result = 1.0 - (numerator / denominator)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NSE_alpha(
@@ -1635,12 +1694,10 @@ def NSE_alpha(
         else:
             dim = axis
         result = mod.std(dim=dim) / obs.std(dim=dim)
-        # Update history
-        history = f"NSE_alpha computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NSE_alpha")
     else:
-        return np.std(mod, axis=axis) / np.std(obs, axis=axis)
+        result = np.std(mod, axis=axis) / np.std(obs, axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def NSE_beta(
@@ -1688,12 +1745,10 @@ def NSE_beta(
         else:
             dim = axis
         result = mod.mean(dim=dim) / obs.mean(dim=dim)
-        # Update history
-        history = f"NSE_beta computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NSE_beta")
     else:
-        return np.mean(mod, axis=axis) / np.mean(obs, axis=axis)
+        result = np.mean(mod, axis=axis) / np.mean(obs, axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MAE_m(
@@ -1738,7 +1793,8 @@ def MAE_m(
         # MAE implementation for xarray already handles NaNs
         return MAE(obs, mod, axis=axis)
     else:
-        return np.ma.mean(np.ma.abs(np.subtract(mod, obs)), axis=axis)
+        result = np.ma.mean(np.ma.abs(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MedAE_m(
@@ -1783,7 +1839,8 @@ def MedAE_m(
         # MedAE implementation for xarray already handles NaNs
         return MedAE(obs, mod, axis=axis)
     else:
-        return np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)
+        result = np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def RMSE(
@@ -1831,12 +1888,10 @@ def RMSE(
         else:
             dim = axis
         result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"RMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "RMSE")
     else:
-        return np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        result = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def RMSE_m(
@@ -1882,7 +1937,8 @@ def RMSE_m(
         # RMSE implementation for xarray already handles NaNs
         return RMSE(obs, mod, axis=axis)
     else:
-        return np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        result = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def IOA(
@@ -1933,15 +1989,14 @@ def IOA(
         num = ((obs - mod) ** 2).sum(dim=dim)
         denom = ((abs(mod - obs_mean) + abs(obs - obs_mean)) ** 2).sum(dim=dim)
         result = 1.0 - (num / denom)
-        # Update history
-        history = f"IOA computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "IOA")
     else:
-        obs_mean = np.mean(obs, axis=axis, keepdims=True)
-        num = np.sum((obs - mod) ** 2, axis=axis)
-        denom = np.sum((np.abs(mod - obs_mean) + np.abs(obs - obs_mean)) ** 2, axis=axis)
-        return 1.0 - (num / denom)
+        obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
+        num = np.nansum((obs - mod) ** 2, axis=axis)
+        denom = np.nansum((np.abs(mod - obs_mean) + np.abs(obs - obs_mean)) ** 2, axis=axis)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def IOA_m(
@@ -1988,7 +2043,9 @@ def IOA_m(
         obs_mean = np.ma.mean(obs, axis=axis, keepdims=True)
         num = np.ma.sum((obs - mod) ** 2, axis=axis)
         denom = np.ma.sum((np.ma.abs(mod - obs_mean) + np.ma.abs(obs - obs_mean)) ** 2, axis=axis)
-        return 1.0 - (num / denom)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 # Add the missing functions from the specification
@@ -2032,14 +2089,12 @@ def MAPE_mod(
         # Add epsilon to avoid division by zero
         obs_safe = xr.where(abs(obs) < epsilon, epsilon, obs)
         result = (100 * abs(mod - obs) / abs(obs_safe)).mean(dim=dim, keep_attrs=True)
-        # Update history
-        history = f"MAPE_mod computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MAPE_mod")
     else:
         # Add epsilon to avoid division by zero
         obs_safe = np.where(np.abs(obs) < epsilon, epsilon, obs)
-        return (100 * np.abs(np.subtract(mod, obs)) / np.abs(obs_safe)).mean(axis=axis)
+        result = (100 * np.abs(np.subtract(mod, obs)) / np.abs(obs_safe)).mean(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MASE_mod(
@@ -2083,10 +2138,7 @@ def MASE_mod(
         model_error = abs(mod - obs).mean(dim=dim, keep_attrs=True)
         # Avoid division by zero
         result = xr.where(naive_error == 0, model_error, model_error / naive_error)
-        # Update history
-        history = f"MASE_mod computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MASE_mod")
     else:
         # Calculate naive forecast error (using previous observation)
         if axis is not None:
@@ -2138,10 +2190,7 @@ def RMSE_norm(
         obs_range = obs_max - obs_min
         # Avoid division by zero
         result = xr.where(obs_range == 0, rmse, rmse / obs_range)
-        # Update history
-        history = f"RMSE_norm computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "RMSE_norm")
     else:
         rmse = np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
         obs_min = np.min(obs, axis=axis)
@@ -2189,10 +2238,7 @@ def MAE_norm(
         obs_range = obs_max - obs_min
         # Avoid division by zero
         result = xr.where(obs_range == 0, mae, mae / obs_range)
-        # Update history
-        history = f"MAE_norm computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "MAE_norm")
     else:
         mae = np.mean(np.abs(np.subtract(mod, obs)), axis=axis)
         obs_min = np.min(obs, axis=axis)
@@ -2238,10 +2284,7 @@ def bias_fraction(
         total_error = np.sqrt(((mod - obs) ** 2).mean(dim=dim, keep_attrs=True))
         # Avoid division by zero
         result = xr.where(total_error == 0, 0, (bias**2) / (total_error**2))
-        # Update history
-        history = f"bias_fraction computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "bias_fraction")
     else:
         bias = np.mean(np.subtract(mod, obs), axis=axis)
         total_error = np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
@@ -2302,10 +2345,7 @@ def NMSE(
         obs_var = obs.var(dim=dim)
         # Handle case where variance is 0 (perfect agreement)
         result = xr.where(obs_var == 0, 0, mse / obs_var)
-        # Update history
-        history = f"NMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "NMSE")
     else:
         mse = np.mean((np.subtract(mod, obs)) ** 2, axis=axis)
         obs_var = np.var(obs, axis=axis)
@@ -2367,10 +2407,7 @@ def LOG_ERROR(
         obs_log = np.log(obs_safe)
         mod_log = np.log(mod_safe)
         result = ((mod_log - obs_log) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"LOG_ERROR computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "LOG_ERROR")
     else:
         # Use abs to handle potential negative values, then add epsilon
         obs_safe = np.abs(obs) + epsilon
@@ -2541,14 +2578,12 @@ def VOLUMETRIC_ERROR(
         obs_sum = obs.sum(dim=dim)
         mod_sum = mod.sum(dim=dim)
         result = abs(mod_sum - obs_sum) / abs(obs_sum)
-        # Update history
-        history = f"VOLUMETRIC_ERROR computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "VOLUMETRIC_ERROR")
     else:
         obs_sum = np.sum(obs, axis=axis)
         mod_sum = np.sum(mod, axis=axis)
-        return np.abs(mod_sum - obs_sum) / np.abs(obs_sum)
+        result = np.abs(mod_sum - obs_sum) / np.abs(obs_sum)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def CORR_INDEX(
@@ -2597,10 +2632,7 @@ def CORR_INDEX(
             dim = axis
         # Using xarray's built-in correlation function
         result = xr.corr(obs, mod, dim=dim)
-        # Update history
-        history = f"CORR_INDEX computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "CORR_INDEX")
     else:
         # Fallback to numpy-compatible logic
         obs = np.asarray(obs)
@@ -2608,7 +2640,8 @@ def CORR_INDEX(
         if axis is None:
             from scipy.stats import pearsonr
 
-            return pearsonr(obs.flatten(), mod.flatten())[0]
+            result = pearsonr(obs.flatten(), mod.flatten())[0]
+            return result.item() if hasattr(result, "item") else float(result)
         else:
             # Manual vectorized correlation over axis for robustness across scipy versions
             obs_mean = np.mean(obs, axis=axis, keepdims=True)
@@ -2617,4 +2650,5 @@ def CORR_INDEX(
             mod_std = mod - mod_mean
             num = np.sum(obs_std * mod_std, axis=axis)
             den = np.sqrt(np.sum(obs_std**2, axis=axis) * np.sum(mod_std**2, axis=axis))
-            return num / den
+            result = num / den
+            return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result

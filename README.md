@@ -7,11 +7,10 @@ A comprehensive statistics and utility library for atmospheric sciences, optimiz
 
 ## Core Mission
 
-Architect scientific pipelines that balance four competing goals:
+Architect scientific pipelines that balance three competing goals:
 - **Speed**: Aggressive vectorization (Numpy/Xarray) and lazy evaluation (Dask).
 - **Maintainability**: Strictly typed code with NumPy-style docstrings.
 - **Provenance**: Automatically track data lineage (what happened to the data) via `attrs['history']`.
-- **Visualization**: A hybrid approach (Matplotlib for papers, HvPlot for interaction).
 
 ## Installation
 
@@ -51,6 +50,15 @@ from monet_stats.contingency_metrics import HSS, ETS
 
 # Evaluate Heidke Skill Score at a specific threshold
 skill = HSS(obs, mod, minval=50.0)
+```
+
+### Xarray Accessor
+
+Chain operations directly on Xarray objects using the `.monet_stats` namespace:
+
+```python
+# Compute monthly climatology and area-weighted mean in one go
+result = obs.monet_stats.climatology(freq='month').monet_stats.weighted_spatial_mean()
 ```
 
 ## Documentation

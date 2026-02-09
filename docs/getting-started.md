@@ -168,6 +168,22 @@ print(f"XArray result with coordinates:\n{r2_da}")
 print(f"Operation history:\n{r2_da.attrs['history']}")
 ```
 
+### Xarray Accessor (Pangeo Integration)
+
+For the best experience in the Pangeo ecosystem, use the `.monet_stats` accessor. This allows for cleaner code and method chaining while automatically handling metadata and laziness.
+
+```python
+# Compute climatology directly on the DataArray
+climo = obs_da.monet_stats.climatology(freq="month")
+
+# Calculate summary statistics on a Dataset
+ds = xr.Dataset({"Obs": obs_da, "Mod": mod_da})
+stats_dict = ds.monet_stats.stats()
+
+# Chain operations
+spatial_mean = obs_da.monet_stats.resample_data(freq="D").monet_stats.weighted_spatial_mean()
+```
+
 ### Lazy Evaluation with Dask
 
 For datasets larger than RAM, `monet-stats` leverages Dask for lazy evaluation and parallel processing.
@@ -183,9 +199,8 @@ obs = xr.open_dataset("large_observations.nc", chunks={"time": 100, "lat": 100, 
 # Compute metric lazily (returns a Dask-backed DataArray)
 rmse_lazy = ms.RMSE(obs.temperature, ds.temperature, axis="time")
 
-# The computation only happens when you explicitly call .compute() or .plot()
+# The computation only happens when you explicitly call .compute()
 rmse_map = rmse_lazy.compute()
-rmse_map.plot()
 ```
 
 ## Categorical Event Analysis
@@ -383,27 +398,6 @@ mod_with_nan = np.array([15.8, 16.2, np.nan, 13.4, 17.8, np.nan, 19.8])
 # Monet Stats automatically handles NaN values
 rmse_clean = ms.RMSE(obs_with_nan, mod_with_nan)
 print(f"\nRMSE with NaN handling: {rmse_clean:.3f}")
-```
-
-## Visualization Integration
-
-```python
-import matplotlib.pyplot as plt
-
-# Scatter plot with perfect correlation line
-plt.figure(figsize=(8, 6))
-plt.scatter(observed_temps, model_temps, alpha=0.6, s=50)
-plt.plot([observed_temps.min(), observed_temps.max()],
-         [observed_temps.min(), observed_temps.max()],
-         'r--', lw=2, label='Perfect correlation')
-
-plt.xlabel('Observed Temperature (°C)')
-plt.ylabel('Modeled Temperature (°C)')
-plt.title(f'Temperature Forecast Verification (R² = {ms.R2(observed_temps, model_temps):.3f})')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.show()
 ```
 
 ## Next Steps

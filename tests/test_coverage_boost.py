@@ -3,9 +3,6 @@ Tests specifically designed to boost coverage for the Aero Protocol refactor.
 Targets numpy fallbacks with axis, missing dependency handling, and edge cases.
 """
 
-import builtins
-import sys
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -147,7 +144,6 @@ from monet_stats.spatial_ensemble_metrics import (
     spread_error,
 )
 from monet_stats.spatial_skill_metrics import FSS, VETS
-from monet_stats.visualize import plot_spatial
 
 try:
     import dask.array as da  # noqa: F401
@@ -183,31 +179,6 @@ def sample_pair_da():
     obs = xr.DataArray(obs_data, coords={"lat": lat, "lon": lon}, dims=("lat", "lon"), name="Obs")
     mod = xr.DataArray(mod_data, coords={"lat": lat, "lon": lon}, dims=("lat", "lon"), name="Mod")
     return obs, mod
-
-
-def test_plot_spatial_hvplot_missing(sample_da, monkeypatch):
-    """Boost coverage: Test Track B missing hvplot."""
-    real_import = builtins.__import__
-
-    def mock_import(name, *args, **kwargs):
-        if name in ["hvplot", "hvplot.xarray"]:
-            raise ImportError(f"No module named '{name}'")
-        return real_import(name, *args, **kwargs)
-
-    saved_modules = {k: sys.modules.get(k) for k in ["hvplot", "hvplot.xarray"]}
-    for k in saved_modules:
-        if k in sys.modules:
-            del sys.modules[k]
-
-    monkeypatch.setattr(builtins, "__import__", mock_import)
-
-    try:
-        with pytest.raises(ImportError, match=r"Track B \(hvplot\) requires 'hvplot'"):
-            plot_spatial(sample_da, method="hvplot")
-    finally:
-        for k, v in saved_modules.items():
-            if v:
-                sys.modules[k] = v
 
 
 def test_correlation_numpy_axis():
