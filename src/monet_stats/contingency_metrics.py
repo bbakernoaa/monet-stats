@@ -793,6 +793,34 @@ def POD_max_threshold(
     Find the threshold that maximizes the Probability of Detection (POD) over a range.
 
     Vectorized implementation (Aero Protocol).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    minval_range : float
+        Minimum value of threshold range to test.
+    maxval_range : float
+        Maximum value of threshold range to test.
+    step_size : float, optional
+        Step size for testing thresholds. Default is 1.0.
+
+    Returns
+    -------
+    optimal_threshold : float
+        Threshold value that maximizes POD.
+    max_pod : float
+        Maximum POD value achieved.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.array([1, 2, 3, 4, 5])
+    >>> mod = np.array([1.5, 2.5, 3.5, 4.5, 5.5])
+    >>> POD_max_threshold(obs, mod, 1, 5, 0.5)
+    (1.0, 1.0)
     """
     thresholds = np.arange(minval_range, maxval_range, step_size)
     a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
@@ -822,6 +850,34 @@ def FAR_min_threshold(
     Find the threshold that minimizes the False Alarm Rate (FAR) over a range.
 
     Vectorized implementation (Aero Protocol).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    minval_range : float
+        Minimum value of threshold range to test.
+    maxval_range : float
+        Maximum value of threshold range to test.
+    step_size : float, optional
+        Step size for testing thresholds. Default is 1.0.
+
+    Returns
+    -------
+    optimal_threshold : float
+        Threshold value that minimizes FAR.
+    min_far : float
+        Minimum FAR value achieved.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.array([1, 2, 3, 4, 5])
+    >>> mod = np.array([1.5, 2.5, 3.5, 4.5, 5.5])
+    >>> FAR_min_threshold(obs, mod, 1, 5, 0.5)
+    (1.5, 0.0)
     """
     thresholds = np.arange(minval_range, maxval_range, step_size)
     a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
