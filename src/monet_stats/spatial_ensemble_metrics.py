@@ -277,6 +277,13 @@ def _sal_numpy(
     -------
     S, A, L : float
         Structure, Amplitude, and Location components.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.random.rand(10, 10)
+    >>> mod = np.random.rand(10, 10)
+    >>> _sal_numpy(obs, mod)
     """
     import scipy.ndimage as ndi
 
@@ -336,7 +343,11 @@ def SAL(
     threshold: Optional[float] = None,
     lat_dim: str = "lat",
     lon_dim: str = "lon",
-) -> Union[Tuple[xr.DataArray, xr.DataArray, xr.DataArray], Tuple[np.ndarray, np.ndarray, np.ndarray], Tuple[float, float, float]]:
+) -> Union[
+    Tuple[xr.DataArray, xr.DataArray, xr.DataArray],
+    Tuple[np.ndarray, np.ndarray, np.ndarray],
+    Tuple[float, float, float],
+]:
     """
     Structure-Amplitude-Location (SAL) score for spatial verification (Aero Protocol).
 
@@ -370,7 +381,6 @@ def SAL(
     >>> mod = xr.DataArray(np.random.rand(10, 10, 10), dims=['time', 'lat', 'lon'])
     >>> S, A, L = SAL(obs, mod)
     """
-
     is_xr = isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray)
 
     if is_xr:
@@ -402,6 +412,13 @@ def SAL(
         -------
         Tuple[float, float, float]
             S, A, L components.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> o = np.random.rand(10, 10)
+        >>> m = np.random.rand(10, 10)
+        >>> _sal_wrapper(o, m, 0.5)
         """
         return _sal_numpy(o, m, t)
 

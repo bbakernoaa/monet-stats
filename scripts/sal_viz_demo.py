@@ -1,8 +1,10 @@
-import xarray as xr
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import xarray as xr
+
 from monet_stats.spatial_ensemble_metrics import SAL
 from monet_stats.visualize import plot_spatial
+
 
 # 1. Create synthetic spatial data with objects
 def create_data():
@@ -16,14 +18,15 @@ def create_data():
     # Mod: shifted and slightly smaller object
     mod_data[40:55, 45:60] = 4.0
 
-    obs = xr.DataArray(obs_data, coords={'lat': lat, 'lon': lon}, dims=['lat', 'lon'])
-    mod = xr.DataArray(mod_data, coords={'lat': lat, 'lon': lon}, dims=['lat', 'lon'])
+    obs = xr.DataArray(obs_data, coords={"lat": lat, "lon": lon}, dims=["lat", "lon"])
+    mod = xr.DataArray(mod_data, coords={"lat": lat, "lon": lon}, dims=["lat", "lon"])
 
     # Add a time dimension to demonstrate vectorization
-    obs_3d = xr.concat([obs, obs], dim='time').assign_coords(time=[0, 1])
-    mod_3d = xr.concat([mod, mod*0.8], dim='time').assign_coords(time=[0, 1])
+    obs_3d = xr.concat([obs, obs], dim="time").assign_coords(time=[0, 1])
+    mod_3d = xr.concat([mod, mod * 0.8], dim="time").assign_coords(time=[0, 1])
 
     return obs_3d, mod_3d
+
 
 obs, mod = create_data()
 
