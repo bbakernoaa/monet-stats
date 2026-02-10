@@ -256,99 +256,173 @@ def BSS(
     return 1 - (bs / bs_ref)
 
 
-def SAL(
-    obs: Union[xr.DataArray, np.ndarray],
-    mod: Union[xr.DataArray, np.ndarray],
+def _sal_numpy(
+    obs_2d: np.ndarray,
+    mod_2d: np.ndarray,
     threshold: Optional[float] = None,
 ) -> Tuple[float, float, float]:
     """
-    Structure-Amplitude-Location (SAL) score for spatial verification.
-
-    Note: This metric currently triggers computation for Xarray/Dask inputs
-    as it relies on scipy.ndimage for object identification.
+    Core NumPy implementation of SAL for a 2D field.
 
     Parameters
     ----------
-    obs : xarray.DataArray or numpy.ndarray
+    obs_2d : numpy.ndarray
         Observed 2D field.
-    mod : xarray.DataArray or numpy.ndarray
+    mod_2d : numpy.ndarray
         Model 2D field.
     threshold : float, optional
-        Threshold for object identification. If None, uses mean of obs.
+        Threshold for object identification.
 
     Returns
     -------
-    S : float
-        Structure component (-2 to 2, 0 is best).
-    A : float
-        Amplitude component (-2 to 2, 0 is best).
-    L : float
-        Location component (0 to 2, 0 is best).
+    S, A, L : float
+        Structure, Amplitude, and Location components.
     """
     import scipy.ndimage as ndi
 
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        # We explicitly compute for now because SAL is inherently non-local
-        # and hard to dask-ify without complex overlapping.
-        obs_np = obs.values
-        mod_np = mod.values
-    else:
-        obs_np = np.asarray(obs)
-        mod_np = np.asarray(mod)
-
     if threshold is None:
-        threshold = np.nanmean(obs_np)
+        threshold = np.nanmean(obs_2d)
 
     # Amplitude
-    denom_a = np.nanmean(mod_np) + np.nanmean(obs_np)
-    A = 2 * (np.nanmean(mod_np) - np.nanmean(obs_np)) / denom_a if denom_a != 0 else 0.0
+    m_mod = np.nanmean(mod_2d)
+    m_obs = np.nanmean(obs_2d)
+    denom_a = m_mod + m_obs
+    A = 2 * (m_mod - m_obs) / denom_a if denom_a != 0 else 0.0
 
     # Structure
     def structure(X):
-        labeled, n = ndi.label(threshold <= X)
-        if n == 0:
+        mask = threshold <= X
+        if not np.any(mask):
             return 0.0, 0.0
+        labeled, n = ndi.label(mask)
         masses = ndi.sum(X, labeled, index=np.arange(1, n + 1))
         max_mass = np.max(masses)
         total_mass = np.sum(masses)
         return max_mass, total_mass
 
-    max_mod, sum_mod = structure(mod_np)
-    max_obs, sum_obs = structure(obs_np)
+    max_mod, sum_mod = structure(mod_2d)
+    max_obs, sum_obs = structure(obs_2d)
     denom_s = (max_mod / sum_mod + max_obs / sum_obs) if sum_mod > 0 and sum_obs > 0 else 0
     S = 2 * (max_mod / sum_mod - max_obs / sum_obs) / denom_s if denom_s != 0 else 0.0
 
     # Location
-    def centroid(X):
-        labeled, n = ndi.label(threshold <= X)
-        if n == 0:
-            return np.array([np.nan, np.nan])
+    def centroid_and_spread(X):
+        mask = threshold <= X
+        if not np.any(mask):
+            return np.array([0.0, 0.0]), 0.0, 0.0
+        labeled, n = ndi.label(mask)
         centers = np.array(ndi.center_of_mass(X, labeled, index=np.arange(1, n + 1)))
         masses = ndi.sum(X, labeled, index=np.arange(1, n + 1))
-        weighted = np.average(centers, axis=0, weights=masses)
-        return weighted
-
-    c_mod = centroid(mod_np)
-    c_obs = centroid(obs_np)
-    dist = np.linalg.norm(c_mod - c_obs)
-    max_dist = np.sqrt(obs_np.shape[0] ** 2 + obs_np.shape[1] ** 2)
-    L1 = dist / max_dist if max_dist != 0 else 0.0
-
-    # Spread of objects
-    def spread(X):
-        labeled, n = ndi.label(threshold <= X)
-        if n == 0:
-            return 0.0
-        centers = np.array(ndi.center_of_mass(X, labeled, index=np.arange(1, n + 1)))
-        masses = ndi.sum(X, labeled, index=np.arange(1, n + 1))
+        # Total mass-weighted center of the field's objects
         c = np.average(centers, axis=0, weights=masses)
-        return np.average(np.linalg.norm(centers - c, axis=1), weights=masses)
+        # Spread
+        r = np.average(np.linalg.norm(centers - c, axis=1), weights=masses)
+        return c, masses, r
 
-    r_mod = spread(mod_np)
-    r_obs = spread(obs_np)
+    c_mod, _, r_mod = centroid_and_spread(mod_2d)
+    c_obs, _, r_obs = centroid_and_spread(obs_2d)
+
+    dist = np.linalg.norm(c_mod - c_obs)
+    max_dist = np.sqrt(obs_2d.shape[0] ** 2 + obs_2d.shape[1] ** 2)
+    L1 = dist / max_dist if max_dist != 0 else 0.0
     L2 = abs(r_mod - r_obs) / max_dist if max_dist != 0 else 0.0
     L = L1 + L2
-    return S, A, L
+    return float(S), float(A), float(L)
+
+
+def SAL(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    threshold: Optional[float] = None,
+    lat_dim: str = "lat",
+    lon_dim: str = "lon",
+) -> Union[Tuple[xr.DataArray, xr.DataArray, xr.DataArray], Tuple[np.ndarray, np.ndarray, np.ndarray], Tuple[float, float, float]]:
+    """
+    Structure-Amplitude-Location (SAL) score for spatial verification (Aero Protocol).
+
+    This implementation is vectorized over non-spatial dimensions using `xarray.apply_ufunc`
+    and supports lazy evaluation for dimensions other than the spatial ones.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed field. Should be 2D (lat, lon) or multi-dimensional.
+    mod : xarray.DataArray or numpy.ndarray
+        Model field.
+    threshold : float, optional
+        Threshold for object identification. If None, uses mean of observations
+        per slice (Lazy-friendly).
+    lat_dim : str, optional
+        Name of the latitude dimension. Default is 'lat'.
+    lon_dim : str, optional
+        Name of the longitude dimension. Default is 'lon'.
+
+    Returns
+    -------
+    S, A, L : xarray.DataArray, numpy.ndarray, or float
+        Structure, Amplitude, and Location components.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> obs = xr.DataArray(np.random.rand(10, 10, 10), dims=['time', 'lat', 'lon'])
+    >>> mod = xr.DataArray(np.random.rand(10, 10, 10), dims=['time', 'lat', 'lon'])
+    >>> S, A, L = SAL(obs, mod)
+    """
+
+    is_xr = isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray)
+
+    if is_xr:
+        obs, mod = xr.align(obs, mod, join="inner")
+        # Determine spatial dimensions
+        if lat_dim not in obs.dims or lon_dim not in obs.dims:
+            # Fallback to last two dimensions if lat/lon not found
+            spatial_dims = [obs.dims[-2], obs.dims[-1]]
+        else:
+            spatial_dims = [lat_dim, lon_dim]
+    else:
+        # For numpy, assume last two dimensions are spatial
+        spatial_dims = [-2, -1]
+
+    def _sal_wrapper(o: np.ndarray, m: np.ndarray, t: Optional[float]) -> Tuple[float, float, float]:
+        """
+        Wrapper for _sal_numpy to be used with xarray.apply_ufunc.
+
+        Parameters
+        ----------
+        o : numpy.ndarray
+            Observed field slice.
+        m : numpy.ndarray
+            Model field slice.
+        t : float, optional
+            Threshold.
+
+        Returns
+        -------
+        Tuple[float, float, float]
+            S, A, L components.
+        """
+        return _sal_numpy(o, m, t)
+
+    res_s, res_a, res_l = xr.apply_ufunc(
+        _sal_wrapper,
+        obs,
+        mod,
+        threshold,
+        input_core_dims=[spatial_dims, spatial_dims, []],
+        output_core_dims=[[], [], []],
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=[float, float, float],
+    )
+
+    if is_xr:
+        res_s = _update_history(res_s, "SAL: Structure component")
+        res_a = _update_history(res_a, "SAL: Amplitude component")
+        res_l = _update_history(res_l, "SAL: Location component")
+
+    return res_s, res_a, res_l
 
 
 def ensemble_mean(
