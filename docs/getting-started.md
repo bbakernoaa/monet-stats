@@ -182,6 +182,13 @@ stats_dict = ds.monet_stats.stats()
 
 # Chain operations
 spatial_mean = obs_da.monet_stats.resample_data(freq="D").monet_stats.weighted_spatial_mean()
+
+# Perform verification directly on the DataArray
+rmse = mod_da.monet_stats.rmse(obs_da, dim="time")
+
+# Get a comprehensive bundle of metrics as a Dataset
+metrics = mod_da.monet_stats.verify(obs_da, dim="time")
+print(metrics.MAE.values)
 ```
 
 ### Lazy Evaluation with Dask
