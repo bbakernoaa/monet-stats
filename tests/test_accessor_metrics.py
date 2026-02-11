@@ -1,5 +1,5 @@
-import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
 
 from monet_stats.correlation_metrics import CCC, KGE, R2, pearsonr
@@ -95,6 +95,7 @@ def test_accessor_verify_bundle():
 
 
 def test_accessor_dask_lazy():
+    da = pytest.importorskip("dask.array")
     obs_data = da.from_array(np.random.rand(100), chunks=50)
     mod_data = da.from_array(np.random.rand(100), chunks=50)
 
