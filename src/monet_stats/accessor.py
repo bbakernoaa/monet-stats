@@ -708,39 +708,6 @@ class MonetDataArrayAccessor:
             **kwargs,
         )
 
-    def performance_diagram(
-        self,
-        pod: Union[xr.DataArray, np.ndarray],
-        ax: Optional[Any] = None,
-        title: Optional[str] = "Performance Diagram",
-        label: Optional[str] = None,
-        **kwargs: Any,
-    ) -> Any:
-        """
-        Plot a Performance Diagram using this DataArray as Success Ratio (SR).
-
-        Parameters
-        ----------
-        pod : xarray.DataArray or numpy.ndarray
-            Probability of Detection.
-        ax : matplotlib.axes.Axes, optional
-            Existing axes.
-        title : str, optional
-            Plot title.
-        label : str, optional
-            Label for legend.
-        **kwargs : Any
-            Additional keyword arguments passed to plot_performance_diagram.
-
-        Returns
-        -------
-        Any
-            The axes object.
-        """
-        from .visualize import plot_performance_diagram
-
-        return plot_performance_diagram(self._obj, pod, ax=ax, title=title, label=label, **kwargs)
-
 
 @xr.register_dataset_accessor("monet_stats")
 class MonetDatasetAccessor:
@@ -1061,41 +1028,3 @@ class MonetDatasetAccessor:
             Monthly climatology.
         """
         return analysis.monthly_climatology(self._obj, dim=dim, method=method)
-
-    def performance_diagram(
-        self,
-        sr_name: str = "SR",
-        pod_name: str = "POD",
-        ax: Optional[Any] = None,
-        title: Optional[str] = "Performance Diagram",
-        label: Optional[str] = None,
-        **kwargs: Any,
-    ) -> Any:
-        """
-        Plot a Performance Diagram using variables from this Dataset.
-
-        Parameters
-        ----------
-        sr_name : str, optional
-            Name of Success Ratio variable. Default is 'SR'.
-        pod_name : str, optional
-            Name of Probability of Detection variable. Default is 'POD'.
-        ax : matplotlib.axes.Axes, optional
-            Existing axes.
-        title : str, optional
-            Plot title.
-        label : str, optional
-            Label for legend.
-        **kwargs : Any
-            Additional keyword arguments.
-
-        Returns
-        -------
-        Any
-            The axes object.
-        """
-        from .visualize import plot_performance_diagram
-
-        sr = self._obj[sr_name]
-        pod = self._obj[pod_name]
-        return plot_performance_diagram(sr, pod, ax=ax, title=title, label=label, **kwargs)

@@ -2,7 +2,7 @@
 Spatial and Ensemble Metrics for Atmospheric Sciences (Aero Protocol Compliant)
 """
 
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Iterable, Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -14,9 +14,11 @@ def EDS(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
     threshold: float,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, Iterable[int]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
-    Extreme Dependency Score (EDS) for rare event detection.
+    Extreme Dependency Score (EDS) for rare event detection (Aero Protocol).
 
     Typical Use Cases
     -----------------
@@ -31,10 +33,15 @@ def EDS(
         Model field.
     threshold : float
         Event threshold to define the extreme event.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the score (xarray only).
+        If None, reduces over all dimensions.
+    axis : int or iterable of int, optional
+        Axis or axes along which to compute the score (numpy only).
 
     Returns
     -------
-    xarray.DataArray or numpy.ndarray or float
+    xarray.DataArray, numpy.ndarray, or float
         Extreme Dependency Score.
 
     Examples
@@ -49,33 +56,44 @@ def EDS(
         obs, mod = xr.align(obs, mod, join="inner")
         obs_bin = obs >= threshold
         mod_bin = mod >= threshold
-        hits = (obs_bin & mod_bin).sum()
-        n_obs = obs_bin.sum()
-        n_mod = mod_bin.sum()
-        n = obs.size
 
-        # Use xr.where for lazy evaluation
-        p = n_obs / n
-        q = n_mod / n
+        mask = obs.notnull() & mod.notnull()
+        obs_bin = obs_bin & mask
+        mod_bin = mod_bin & mask
 
-        # We need to handle the log carefully for dask
-        eds = np.log(hits / n) / np.log(p * q)
-        # Handle cases where hits=0 or n_obs/n_mod=0 which would result in inf/nan
-        # EDS is undefined if p=0 or q=0 or hits=0
-        res = xr.where((hits > 0) & (p > 0) & (q > 0), eds, np.nan)
-        return _update_history(res, "Extreme Dependency Score (EDS)")
+        hits = (obs_bin & mod_bin).sum(dim=dim)
+        n_obs = obs_bin.sum(dim=dim)
+        n_mod = mod_bin.sum(dim=dim)
+        n = mask.sum(dim=dim)
 
-    obs_bin = np.asarray(obs) >= threshold
-    mod_bin = np.asarray(mod) >= threshold
-    hits = np.logical_and(obs_bin, mod_bin).sum()
-    n_obs = obs_bin.sum()
-    n_mod = mod_bin.sum()
-    n = np.size(obs)
-    if hits == 0 or n_obs == 0 or n_mod == 0:
-        return np.nan
-    p = n_obs / n
-    q = n_mod / n
-    return np.log(hits / n) / np.log(p * q)
+        # EDS = log(hits/n) / log(n_obs*n_mod / n^2)
+        # Avoid log(0) and division by zero
+        # p = n_obs / n, q = n_mod / n
+        with np.errstate(divide="ignore", invalid="ignore"):
+            eds = xr.where(
+                (hits > 0) & (n_obs > 0) & (n_mod > 0), np.log(hits / n) / np.log((n_obs / n) * (n_mod / n)), np.nan
+            )
+
+        return _update_history(eds, "Extreme Dependency Score (EDS)")
+
+    # NumPy path
+    obs_arr = np.asarray(obs)
+    mod_arr = np.asarray(mod)
+    mask = ~np.isnan(obs_arr) & ~np.isnan(mod_arr)
+
+    obs_bin = (obs_arr >= threshold) & mask
+    mod_bin = (mod_arr >= threshold) & mask
+
+    hits = np.sum(obs_bin & mod_bin, axis=axis)
+    n_obs = np.sum(obs_bin, axis=axis)
+    n_mod = np.sum(mod_bin, axis=axis)
+    n = np.sum(mask, axis=axis)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        res = np.where(
+            (hits > 0) & (n_obs > 0) & (n_mod > 0), np.log(hits / n) / np.log((n_obs / n) * (n_mod / n)), np.nan
+        )
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def CRPS(
@@ -150,10 +168,12 @@ def CRPS(
 def spread_error(
     ensemble: Union[xr.DataArray, np.ndarray],
     obs: Union[xr.DataArray, np.ndarray],
-    axis: Union[int, str] = 0,
+    ens_dim: Union[int, str] = 0,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, Iterable[int]]] = None,
 ) -> Tuple[Any, Any]:
     """
-    Spread-Error Relationship for ensemble forecasts.
+    Spread-Error Relationship for ensemble forecasts (Aero Protocol).
 
     Typical Use Cases
     -----------------
@@ -177,38 +197,48 @@ def spread_error(
         Mean absolute error of ensemble mean vs. obs.
     """
     if isinstance(ensemble, xr.DataArray) and isinstance(obs, xr.DataArray):
-        if isinstance(axis, int):
-            dim = ensemble.dims[axis]
-        else:
-            dim = axis
+        # Resolve ensemble dimension
+        e_dim = ens_dim
+        if isinstance(ens_dim, int):
+            e_dim = ensemble.dims[ens_dim]
 
-        spread = ensemble.std(dim=dim)
-        ens_mean = ensemble.mean(dim=dim)
-        error = abs(ens_mean - obs)
+        spread_field = ensemble.std(dim=e_dim)
+        ens_mean_field = ensemble.mean(dim=e_dim)
+        error_field = abs(ens_mean_field - obs)
 
-        # We return means over all remaining dimensions as well?
-        # The original implementation returned np.mean(spread), np.mean(error)
-        # which are scalars.
-        m_spread = spread.mean()
-        m_error = error.mean()
+        # Average over specified dimensions (or all remaining)
+        m_spread = spread_field.mean(dim=dim)
+        m_error = error_field.mean(dim=dim)
 
         return _update_history(m_spread, "Mean Ensemble Spread"), _update_history(m_error, "Mean Ensemble Error")
 
+    # NumPy path
     ens = np.asarray(ensemble)
     observation = np.asarray(obs)
-    spread = np.std(ens, axis=axis)
-    ens_mean = np.mean(ens, axis=axis)
-    error = np.abs(ens_mean - observation)
-    return np.mean(spread), np.mean(error)
+
+    # Calculate spread and ensemble mean
+    spread_f = np.std(ens, axis=ens_dim)
+    ens_m_f = np.mean(ens, axis=ens_dim)
+    error_f = np.abs(ens_m_f - observation)
+
+    # Average over specified axes
+    m_spread = np.nanmean(spread_f, axis=axis)
+    m_error = np.nanmean(error_f, axis=axis)
+
+    if np.ndim(m_spread) == 0:
+        return float(m_spread), float(m_error)
+    return m_spread, m_error
 
 
 def BSS(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
     threshold: float,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, Iterable[int]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
-    Brier Skill Score (BSS) for probabilistic forecasts.
+    Brier Skill Score (BSS) for probabilistic forecasts (Aero Protocol).
 
     Typical Use Cases
     -----------------
@@ -223,10 +253,14 @@ def BSS(
         Forecast probabilities (0 to 1) or continuous values (will be binarized).
     threshold : float
         Threshold for converting values to binary events.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the score (xarray only).
+    axis : int or iterable of int, optional
+        Axis or axes along which to compute the score (numpy only).
 
     Returns
     -------
-    xarray.DataArray or numpy.ndarray or float
+    xarray.DataArray, numpy.ndarray, or float
         Brier Skill Score.
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
@@ -235,11 +269,11 @@ def BSS(
         o_bin = (obs >= threshold).astype(float)
         m_prob = (mod >= threshold).astype(float)
 
-        bs = ((m_prob - o_bin) ** 2).mean()
-        obs_clim = o_bin.mean()
-        bs_ref = ((obs_clim - o_bin) ** 2).mean()
+        bs = ((m_prob - o_bin) ** 2).mean(dim=dim)
+        obs_clim = o_bin.mean(dim=dim)
+        bs_ref = ((obs_clim - o_bin) ** 2).mean(dim=dim)
 
-        res = xr.where(bs_ref != 0, 1 - (bs / bs_ref), 0.0)
+        res = xr.where(bs_ref != 0, 1.0 - (bs / bs_ref), 0.0)
         return _update_history(res, "Brier Skill Score (BSS)")
 
     o = np.asarray(obs)
@@ -247,13 +281,19 @@ def BSS(
     o_bin = (o >= threshold).astype(float)
     m_prob = (m >= threshold).astype(float)
 
-    bs = np.mean((m_prob - o_bin) ** 2)
-    obs_clim = np.mean(o_bin)
-    bs_ref = np.mean((obs_clim - o_bin) ** 2)
+    bs = np.nanmean((m_prob - o_bin) ** 2, axis=axis)
+    obs_clim = np.nanmean(o_bin, axis=axis)
+    if axis is not None:
+        # Keep dimensions for subtraction
+        obs_clim_kd = np.nanmean(o_bin, axis=axis, keepdims=True)
+    else:
+        obs_clim_kd = obs_clim
 
-    if bs_ref == 0:
-        return 0.0
-    return 1 - (bs / bs_ref)
+    bs_ref = np.nanmean((obs_clim_kd - o_bin) ** 2, axis=axis)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        res = np.where(bs_ref != 0, 1.0 - (bs / bs_ref), 0.0)
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def _sal_numpy(
