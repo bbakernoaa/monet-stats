@@ -168,9 +168,9 @@ def CRPS(
 def spread_error(
     ensemble: Union[xr.DataArray, np.ndarray],
     obs: Union[xr.DataArray, np.ndarray],
-    ens_dim: Union[int, str] = 0,
+    axis: Union[int, str] = 0,
     dim: Optional[Union[str, Iterable[str]]] = None,
-    axis: Optional[Union[int, Iterable[int]]] = None,
+    reduce_axis: Optional[Union[int, Iterable[int]]] = None,
 ) -> Tuple[Any, Any]:
     """
     Spread-Error Relationship for ensemble forecasts (Aero Protocol).
@@ -188,19 +188,24 @@ def spread_error(
         Observed values.
     axis : int or str, optional
         Axis or dimension corresponding to ensemble members. Default is 0.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the mean spread and error (xarray only).
+        If None, reduces over all dimensions.
+    reduce_axis : int or iterable of int, optional
+        Axis or axes along which to compute the mean spread and error (numpy only).
 
     Returns
     -------
-    mean_spread : float or xarray.DataArray
+    mean_spread : float, numpy.ndarray, or xarray.DataArray
         Mean ensemble spread.
-    mean_error : float or xarray.DataArray
+    mean_error : float, numpy.ndarray, or xarray.DataArray
         Mean absolute error of ensemble mean vs. obs.
     """
     if isinstance(ensemble, xr.DataArray) and isinstance(obs, xr.DataArray):
         # Resolve ensemble dimension
-        e_dim = ens_dim
-        if isinstance(ens_dim, int):
-            e_dim = ensemble.dims[ens_dim]
+        e_dim = axis
+        if isinstance(axis, int):
+            e_dim = ensemble.dims[axis]
 
         spread_field = ensemble.std(dim=e_dim)
         ens_mean_field = ensemble.mean(dim=e_dim)
@@ -217,13 +222,13 @@ def spread_error(
     observation = np.asarray(obs)
 
     # Calculate spread and ensemble mean
-    spread_f = np.std(ens, axis=ens_dim)
-    ens_m_f = np.mean(ens, axis=ens_dim)
+    spread_f = np.std(ens, axis=axis)
+    ens_m_f = np.mean(ens, axis=axis)
     error_f = np.abs(ens_m_f - observation)
 
     # Average over specified axes
-    m_spread = np.nanmean(spread_f, axis=axis)
-    m_error = np.nanmean(error_f, axis=axis)
+    m_spread = np.nanmean(spread_f, axis=reduce_axis)
+    m_error = np.nanmean(error_f, axis=reduce_axis)
 
     if np.ndim(m_spread) == 0:
         return float(m_spread), float(m_error)

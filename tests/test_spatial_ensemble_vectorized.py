@@ -12,7 +12,7 @@ def test_eds_vectorized():
 
     # 1. Global reduction
     res_global = EDS(obs, mod, threshold=0.5)
-    assert np.isscalar(res_global.values) or res_global.ndim == 0
+    assert res_global.ndim == 0
 
     # 2. Reduction over space (should have 'time' dimension)
     res_time = EDS(obs, mod, threshold=0.5, dim="space")
@@ -43,16 +43,31 @@ def test_spread_error_vectorized():
     obs = xr.DataArray(np.random.rand(10, 10), dims=["time", "space"])
 
     # 1. Global reduction
-    m_spread, m_error = spread_error(ens, obs, ens_dim="ens")
+    # Passing axis as positional should go to 'axis' (ensemble dim)
+    m_spread, m_error = spread_error(ens, obs, "ens")
     assert m_spread.ndim == 0
     assert m_error.ndim == 0
 
     # 2. Reduction over space (should have 'time' dimension)
-    m_spread_t, m_error_t = spread_error(ens, obs, ens_dim="ens", dim="space")
+    m_spread_t, m_error_t = spread_error(ens, obs, axis="ens", dim="space")
     assert "time" in m_spread_t.dims
     assert m_spread_t.shape == (10,)
     assert "time" in m_error_t.dims
     assert m_error_t.shape == (10,)
+
+
+def test_spread_error_backward_compat():
+    # Mimic the failing CI test
+    obs = np.random.rand(5, 5)
+    ens = np.random.rand(10, 5, 5)
+
+    # In old code, axis=0 meant ensemble axis.
+    # In my new code, axis=0 also means ensemble axis.
+    # And since reduce_axis is None, it should reduce over all other axes.
+    s, e = spread_error(ens, obs, axis=0)
+    assert np.shape(s) == ()
+    assert np.shape(e) == ()
+    assert isinstance(s, float)
 
 
 def test_numpy_paths():
@@ -70,5 +85,6 @@ def test_numpy_paths():
     # spread_error
     ens = np.random.rand(5, 4)
     obs_1d = np.random.rand(4)
-    m_spread, m_error = spread_error(ens, obs_1d, ens_dim=0)
+    # axis=0 is ensemble dimension. reduce_axis=None means full reduction.
+    m_spread, m_error = spread_error(ens, obs_1d, axis=0)
     assert isinstance(m_spread, float)
