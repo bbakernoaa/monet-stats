@@ -10,7 +10,9 @@ import xarray as xr
 
 # Explicit imports for all public API symbols (for lint compliance)
 from .analysis import (
+    anomalies,
     climatology,
+    detrend,
     diurnal_cycle,
     exceedance_count,
     fft_analysis,
@@ -119,6 +121,8 @@ __all__ = [
     # analysis
     "resample_data",
     "climatology",
+    "anomalies",
+    "detrend",
     "kz_filter",
     "diurnal_cycle",
     "rolling_mean_8h",

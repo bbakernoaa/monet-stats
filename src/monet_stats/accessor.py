@@ -342,6 +342,43 @@ class MonetDataArrayAccessor:
         """
         return analysis.monthly_climatology(self._obj, dim=dim, method=method)
 
+    def anomalies(self, freq: str = "month", dim: str = "time") -> xr.DataArray:
+        """
+        Compute anomalies by subtracting the climatology.
+
+        Parameters
+        ----------
+        freq : str, optional
+            Climatology frequency ('season', 'month', 'dayofyear', 'hour').
+            Default is 'month'.
+        dim : str, optional
+            Dimension along which to compute the anomalies. Default is 'time'.
+
+        Returns
+        -------
+        xarray.DataArray
+            Anomalies.
+        """
+        return analysis.anomalies(self._obj, freq=freq, dim=dim)
+
+    def detrend(self, method: str = "linear", dim: str = "time") -> xr.DataArray:
+        """
+        Remove trend from data.
+
+        Parameters
+        ----------
+        method : str, optional
+            Detrending method ('linear', 'constant'). Default is 'linear'.
+        dim : str, optional
+            Dimension along which to detrend. Default is 'time'.
+
+        Returns
+        -------
+        xarray.DataArray
+            Detrended data.
+        """
+        return analysis.detrend(self._obj, method=method, dim=dim)
+
     def mae(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute Mean Absolute Error (MAE).
@@ -1028,3 +1065,40 @@ class MonetDatasetAccessor:
             Monthly climatology.
         """
         return analysis.monthly_climatology(self._obj, dim=dim, method=method)
+
+    def anomalies(self, freq: str = "month", dim: str = "time") -> xr.Dataset:
+        """
+        Compute anomalies by subtracting the climatology.
+
+        Parameters
+        ----------
+        freq : str, optional
+            Climatology frequency ('season', 'month', 'dayofyear', 'hour').
+            Default is 'month'.
+        dim : str, optional
+            Dimension along which to compute the anomalies. Default is 'time'.
+
+        Returns
+        -------
+        xarray.Dataset
+            Anomalies.
+        """
+        return analysis.anomalies(self._obj, freq=freq, dim=dim)
+
+    def detrend(self, method: str = "linear", dim: str = "time") -> xr.Dataset:
+        """
+        Remove trend from data.
+
+        Parameters
+        ----------
+        method : str, optional
+            Detrending method ('linear', 'constant'). Default is 'linear'.
+        dim : str, optional
+            Dimension along which to detrend. Default is 'time'.
+
+        Returns
+        -------
+        xarray.Dataset
+            Detrended data.
+        """
+        return analysis.detrend(self._obj, method=method, dim=dim)
