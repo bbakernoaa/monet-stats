@@ -18,9 +18,7 @@ def test_anomalies():
     cycle = np.sin(2 * np.pi * times.dayofyear / 365.25)
     data = cycle + np.random.normal(0, 0.01, len(times))
 
-    da = xr.DataArray(
-        data, coords={"time": times}, dims="time", name="test", attrs={"history": "initial"}
-    )
+    da = xr.DataArray(data, coords={"time": times}, dims="time", name="test", attrs={"history": "initial"})
 
     # Monthly anomalies
     anom = anomalies(da, freq="month")
@@ -40,9 +38,7 @@ def test_detrend_linear():
     trend = 0.5 * np.arange(100)
     data = trend + np.random.normal(0, 0.01, 100)
 
-    da = xr.DataArray(
-        data, coords={"time": times}, dims="time", name="test", attrs={"history": "initial"}
-    )
+    da = xr.DataArray(data, coords={"time": times}, dims="time", name="test", attrs={"history": "initial"})
 
     detrended = detrend(da, method="linear")
 

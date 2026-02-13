@@ -214,9 +214,7 @@ def plot_diurnal_cycle(
         try:
             import hvplot.xarray  # noqa: F401
         except ImportError:
-            raise ImportError(
-                "Track B (hvplot) requires 'hvplot'. Install it with 'pip install monet-stats[viz]'."
-            )
+            raise ImportError("Track B (hvplot) requires 'hvplot'. Install it with 'pip install monet-stats[viz]'.")
 
         plot = plot_da.hvplot(x="hour", title=title, xticks=list(range(24)), **kwargs)
 
