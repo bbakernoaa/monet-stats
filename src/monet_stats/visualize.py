@@ -132,3 +132,98 @@ def plot_spatial(
 
     else:
         raise ValueError(f"Unknown plotting method: {method}. Must be 'matplotlib' or 'hvplot'.")
+
+
+def plot_diurnal_cycle(
+    da: xr.DataArray,
+    method: str = "matplotlib",
+    dim: str = "time",
+    title: Optional[str] = None,
+    **kwargs: Any,
+) -> Any:
+    """
+    Plot the diurnal cycle (average hourly profile) (Aero Protocol).
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        The data to plot. Must have a time-like coordinate or be already
+        processed by `diurnal_cycle()`.
+    method : str, optional
+        The plotting track to use:
+        - 'matplotlib' (Track A): Static publication quality.
+        - 'hvplot' (Track B): Interactive exploration.
+        Default is 'matplotlib'.
+    dim : str, optional
+        Dimension along which to compute the cycle if not already computed.
+        Default is 'time'.
+    title : str, optional
+        Title for the plot.
+    **kwargs : Any
+        Additional keyword arguments passed to the plotting function.
+
+    Returns
+    -------
+    Any
+        The plot object (matplotlib.axes.Axes or holoviews.element.Element).
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> times = pd.date_range("2020-01-01", periods=24*10, freq="h")
+    >>> da = xr.DataArray(np.random.rand(240), coords={"time": times}, dims="time")
+    >>> ax = plot_diurnal_cycle(da, method='matplotlib', title="Average Diurnal Cycle")
+    """
+    # If the data doesn't have 24 points or an 'hour' coordinate,
+    # assume we need to compute the diurnal cycle first.
+    plot_da = da
+    if "hour" not in da.coords and da.sizes.get(dim, 0) != 24:
+        from .analysis import diurnal_cycle
+
+        plot_da = diurnal_cycle(da, dim=dim)
+
+    if method == "matplotlib":
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise ImportError(
+                "Track A (matplotlib) requires 'matplotlib'. Install it with 'pip install monet-stats[viz]'."
+            )
+
+        if "ax" not in kwargs:
+            _, ax = plt.subplots(figsize=kwargs.pop("figsize", (10, 6)))
+            kwargs["ax"] = ax
+        else:
+            ax = kwargs["ax"]
+
+        plot = plot_da.plot(**kwargs)
+        ax.set_xticks(range(24))
+        ax.set_xlabel("Hour of Day")
+
+        if title:
+            ax.set_title(title)
+
+        _update_history(da, "Plotted diurnal cycle using Track A (matplotlib)")
+        if plot_da is not da:
+            _update_history(plot_da, "Plotted diurnal cycle using Track A (matplotlib)")
+        return ax
+
+    elif method == "hvplot":
+        try:
+            import hvplot.xarray  # noqa: F401
+        except ImportError:
+            raise ImportError(
+                "Track B (hvplot) requires 'hvplot'. Install it with 'pip install monet-stats[viz]'."
+            )
+
+        plot = plot_da.hvplot(x="hour", title=title, xticks=list(range(24)), **kwargs)
+
+        _update_history(da, "Plotted diurnal cycle using Track B (hvplot)")
+        if plot_da is not da:
+            _update_history(plot_da, "Plotted diurnal cycle using Track B (hvplot)")
+        return plot
+
+    else:
+        raise ValueError(f"Unknown plotting method: {method}. Must be 'matplotlib' or 'hvplot'.")

@@ -774,3 +774,108 @@ def monthly_climatology(
     # Shortcut to the general climatology function with freq='month'
     res = climatology(data, freq="month", method=method, dim=dim)
     return _update_history(res, f"Monthly climatology using {method}")
+
+
+def anomalies(
+    data: Union[xr.DataArray, xr.Dataset],
+    freq: str = "month",
+    dim: str = "time",
+) -> Union[xr.DataArray, xr.Dataset]:
+    """
+    Compute anomalies by subtracting the climatology (Aero Protocol).
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        Input data with a time-like coordinate.
+    freq : str, optional
+        Climatology frequency ('season', 'month', 'dayofyear', 'hour').
+        Default is 'month'.
+    dim : str, optional
+        Dimension along which to compute the anomalies. Default is 'time'.
+
+    Returns
+    -------
+    Union[xr.DataArray, xr.Dataset]
+        Anomalies (data - climatology).
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> times = pd.date_range("2020-01-01", periods=366*2, freq="D")
+    >>> da = xr.DataArray(np.random.rand(732), coords={"time": times}, dims="time")
+    >>> monthly_anom = anomalies(da, freq="month")
+    """
+    group = f"{dim}.{freq}"
+    # Compute climatology (this reduces the 'dim' dimension)
+    climo = climatology(data, freq=freq, method="mean", dim=dim)
+
+    # Subtract climatology using groupby broadcasting
+    # data.groupby(group) - climo aligns the 'freq' coordinate automatically
+    res = data.groupby(group) - climo
+
+    return _update_history(res, f"Anomalies ({freq})")
+
+
+def detrend(
+    data: Union[xr.DataArray, xr.Dataset],
+    method: str = "linear",
+    dim: str = "time",
+) -> Union[xr.DataArray, xr.Dataset]:
+    """
+    Remove trend from data (Aero Protocol).
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        Input data.
+    method : str, optional
+        Detrending method ('linear', 'constant').
+        - 'linear': least-squares linear detrend.
+        - 'constant': subtract mean.
+        Default is 'linear'.
+    dim : str, optional
+        Dimension along which to detrend. Default is 'time'.
+
+    Returns
+    -------
+    Union[xr.DataArray, xr.Dataset]
+        Detrended data.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> da = xr.DataArray(np.arange(10) + np.random.randn(10), dims="time")
+    >>> detrended = detrend(da, method="linear")
+    """
+    if method == "constant":
+        res = data - data.mean(dim=dim)
+        return _update_history(res, "Detrended (constant)")
+
+    if method == "linear":
+        from scipy.signal import detrend as scipy_detrend
+
+        if isinstance(data, xr.Dataset):
+            res = data.map(detrend, method=method, dim=dim)
+            return _update_history(res, "Detrended (linear)")
+
+        # Core dimensions for apply_ufunc must be a single chunk if using dask
+        if hasattr(data.data, "chunks"):
+            data = data.chunk({dim: -1})
+
+        res = xr.apply_ufunc(
+            scipy_detrend,
+            data,
+            input_core_dims=[[dim]],
+            output_core_dims=[[dim]],
+            kwargs={"axis": -1},
+            dask="parallelized",
+            output_dtypes=[data.dtype],
+            keep_attrs=True,
+        )
+        return _update_history(res, "Detrended (linear)")
+
+    raise ValueError(f"Unknown detrending method: {method}")

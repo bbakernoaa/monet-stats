@@ -342,6 +342,43 @@ class MonetDataArrayAccessor:
         """
         return analysis.monthly_climatology(self._obj, dim=dim, method=method)
 
+    def anomalies(self, freq: str = "month", dim: str = "time") -> xr.DataArray:
+        """
+        Compute anomalies by subtracting the climatology.
+
+        Parameters
+        ----------
+        freq : str, optional
+            Climatology frequency ('season', 'month', 'dayofyear', 'hour').
+            Default is 'month'.
+        dim : str, optional
+            Dimension along which to compute the anomalies. Default is 'time'.
+
+        Returns
+        -------
+        xarray.DataArray
+            Anomalies.
+        """
+        return analysis.anomalies(self._obj, freq=freq, dim=dim)
+
+    def detrend(self, method: str = "linear", dim: str = "time") -> xr.DataArray:
+        """
+        Remove trend from data.
+
+        Parameters
+        ----------
+        method : str, optional
+            Detrending method ('linear', 'constant'). Default is 'linear'.
+        dim : str, optional
+            Dimension along which to detrend. Default is 'time'.
+
+        Returns
+        -------
+        xarray.DataArray
+            Detrended data.
+        """
+        return analysis.detrend(self._obj, method=method, dim=dim)
+
     def mae(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute Mean Absolute Error (MAE).
@@ -708,6 +745,37 @@ class MonetDataArrayAccessor:
             **kwargs,
         )
 
+    def plot_diurnal_cycle(
+        self,
+        method: str = "matplotlib",
+        dim: str = "time",
+        title: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot the diurnal cycle (average hourly profile).
+
+        Parameters
+        ----------
+        method : str, optional
+            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
+            Default is 'matplotlib'.
+        dim : str, optional
+            Dimension along which to compute the cycle. Default is 'time'.
+        title : str, optional
+            Plot title.
+        **kwargs : Any
+            Additional keyword arguments.
+
+        Returns
+        -------
+        Any
+            The plot object.
+        """
+        from .visualize import plot_diurnal_cycle
+
+        return plot_diurnal_cycle(self._obj, method=method, dim=dim, title=title, **kwargs)
+
 
 @xr.register_dataset_accessor("monet_stats")
 class MonetDatasetAccessor:
@@ -1028,3 +1096,40 @@ class MonetDatasetAccessor:
             Monthly climatology.
         """
         return analysis.monthly_climatology(self._obj, dim=dim, method=method)
+
+    def anomalies(self, freq: str = "month", dim: str = "time") -> xr.Dataset:
+        """
+        Compute anomalies by subtracting the climatology.
+
+        Parameters
+        ----------
+        freq : str, optional
+            Climatology frequency ('season', 'month', 'dayofyear', 'hour').
+            Default is 'month'.
+        dim : str, optional
+            Dimension along which to compute the anomalies. Default is 'time'.
+
+        Returns
+        -------
+        xarray.Dataset
+            Anomalies.
+        """
+        return analysis.anomalies(self._obj, freq=freq, dim=dim)
+
+    def detrend(self, method: str = "linear", dim: str = "time") -> xr.Dataset:
+        """
+        Remove trend from data.
+
+        Parameters
+        ----------
+        method : str, optional
+            Detrending method ('linear', 'constant'). Default is 'linear'.
+        dim : str, optional
+            Dimension along which to detrend. Default is 'time'.
+
+        Returns
+        -------
+        xarray.Dataset
+            Detrended data.
+        """
+        return analysis.detrend(self._obj, method=method, dim=dim)
