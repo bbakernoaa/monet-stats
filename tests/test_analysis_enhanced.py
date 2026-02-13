@@ -96,22 +96,6 @@ def test_dataset_accessor():
     assert "Detrended (linear)" in detr.attrs["history"]
 
 
-def test_plot_diurnal_cycle_logic():
-    """Test the diurnal cycle plotting logic (Track A)."""
-    plt = pytest.importorskip("matplotlib.pyplot")
-
-    times = pd.date_range("2020-01-01", periods=100, freq="h")
-    da = xr.DataArray(
-        np.random.rand(100), coords={"time": times}, dims="time", name="test", attrs={"history": "initial"}
-    )
-
-    ax = da.monet_stats.plot_diurnal_cycle(method="matplotlib", title="Test Diurnal")
-    assert isinstance(ax, plt.Axes)
-    assert ax.get_title() == "Test Diurnal"
-    assert "Plotted diurnal cycle using Track A" in da.attrs["history"]
-    plt.close()
-
-
 def test_detrend_invalid_method():
     """Test that an invalid detrending method raises ValueError."""
     da = xr.DataArray([1, 2, 3], dims="time")

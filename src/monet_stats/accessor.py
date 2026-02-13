@@ -745,37 +745,6 @@ class MonetDataArrayAccessor:
             **kwargs,
         )
 
-    def plot_diurnal_cycle(
-        self,
-        method: str = "matplotlib",
-        dim: str = "time",
-        title: Optional[str] = None,
-        **kwargs: Any,
-    ) -> Any:
-        """
-        Plot the diurnal cycle (average hourly profile).
-
-        Parameters
-        ----------
-        method : str, optional
-            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
-            Default is 'matplotlib'.
-        dim : str, optional
-            Dimension along which to compute the cycle. Default is 'time'.
-        title : str, optional
-            Plot title.
-        **kwargs : Any
-            Additional keyword arguments.
-
-        Returns
-        -------
-        Any
-            The plot object.
-        """
-        from .visualize import plot_diurnal_cycle
-
-        return plot_diurnal_cycle(self._obj, method=method, dim=dim, title=title, **kwargs)
-
 
 @xr.register_dataset_accessor("monet_stats")
 class MonetDatasetAccessor:
