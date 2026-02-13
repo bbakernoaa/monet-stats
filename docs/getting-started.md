@@ -335,6 +335,24 @@ For smoother spectral estimates, use Welch's method.
 psd_smooth = ms.power_spectrum(obs_da, dim="time", fs=1.0, nperseg=256)
 ```
 
+### 7. Anomalies
+
+Compute anomalies by subtracting the climatology (monthly, seasonal, or daily).
+
+```python
+# Compute monthly anomalies directly using the accessor
+monthly_anom = obs_da.monet_stats.anomalies(freq="month")
+```
+
+### 8. Detrending
+
+Remove linear or constant trends from your data.
+
+```python
+# Remove a linear trend from a DataArray
+detrended_data = obs_da.monet_stats.detrend(method="linear")
+```
+
 ## Wind Direction Analysis
 
 ### Specialized Wind Metrics
