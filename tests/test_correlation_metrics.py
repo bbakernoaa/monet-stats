@@ -559,3 +559,59 @@ class TestCorrelationMetricsXarray:
         result = KGE(self.obs_xr, self.mod_xr)
         assert isinstance(result, xr.DataArray)
         assert np.isclose(result, 0.9, atol=0.1)
+
+    def test_spearmanr_vectorized_nan(self):
+        """Verify Spearman correlation with mismatched NaNs in multi-dimensional array."""
+        # (time, lat, lon) = (10, 2, 2)
+        obs = np.random.rand(10, 2, 2)
+        mod = np.random.rand(10, 2, 2)
+
+        # Introduce NaNs
+        obs[0, 0, 0] = np.nan
+        mod[1, 0, 1] = np.nan
+
+        # Compute along time axis (0)
+        res = spearmanr(obs, mod, axis=0)
+
+        assert res.shape == (2, 2)
+        assert not np.isnan(res[0, 0])
+        assert not np.isnan(res[0, 1])
+
+        # Manual check for [0, 0]
+        from scipy.stats import spearmanr as scipy_spearman
+
+        mask00 = ~np.isnan(obs[:, 0, 0]) & ~np.isnan(mod[:, 0, 0])
+        expected00 = scipy_spearman(obs[mask00, 0, 0], mod[mask00, 0, 0]).statistic
+        assert np.allclose(res[0, 0], expected00)
+
+    def test_kendalltau_vectorized_nan(self):
+        """Verify Kendall Tau correlation with mismatched NaNs in multi-dimensional array."""
+        obs = np.random.rand(10, 2, 2)
+        mod = np.random.rand(10, 2, 2)
+        obs[0, 0, 0] = np.nan
+        mod[1, 0, 1] = np.nan
+
+        res = kendalltau(obs, mod, axis=0)
+
+        assert res.shape == (2, 2)
+
+        from scipy.stats import kendalltau as scipy_kendall
+
+        mask00 = ~np.isnan(obs[:, 0, 0]) & ~np.isnan(mod[:, 0, 0])
+        expected00 = scipy_kendall(obs[mask00, 0, 0], mod[mask00, 0, 0]).statistic
+        assert np.allclose(res[0, 0], expected00)
+
+    def test_pearsonr_vectorized_nan(self):
+        """Verify Pearson correlation with mismatched NaNs in multi-dimensional array."""
+        obs = np.random.rand(10, 2, 2)
+        mod = np.random.rand(10, 2, 2)
+        obs[0, 0, 0] = np.nan
+        mod[1, 0, 1] = np.nan
+
+        res = pearsonr(obs, mod, axis=0)
+
+        from scipy.stats import pearsonr as scipy_pearson
+
+        mask00 = ~np.isnan(obs[:, 0, 0]) & ~np.isnan(mod[:, 0, 0])
+        expected00 = scipy_pearson(obs[mask00, 0, 0], mod[mask00, 0, 0])[0]
+        assert np.allclose(res[0, 0], expected00)
