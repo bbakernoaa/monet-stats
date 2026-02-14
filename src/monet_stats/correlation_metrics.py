@@ -1095,7 +1095,13 @@ def pearsonr(
             r_val, _ = _pearsonr(obsc, modc)
             return r_val if not np.isnan(r_val) else 0.0
         else:
-            # For numpy with axis, use manual vectorized correlation
+            # For numpy with axis, use manual vectorized correlation with pairwise deletion
+            obs = np.asanyarray(obs)
+            mod = np.asanyarray(mod)
+            mask = np.isnan(obs) | np.isnan(mod)
+            obs = np.where(mask, np.nan, obs)
+            mod = np.where(mask, np.nan, mod)
+
             obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
             mod_mean = np.nanmean(mod, axis=axis, keepdims=True)
             obs_std = obs - obs_mean
@@ -1113,7 +1119,7 @@ def spearmanr(
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Spearman rank correlation coefficient.
+    Spearman rank correlation coefficient (Aero Protocol: Vectorized).
 
     Parameters
     ----------
@@ -1138,8 +1144,7 @@ def spearmanr(
     >>> spearmanr(obs, mod)
     0.8660254037844387
     """
-    from scipy.stats import spearmanr as _spearmanr
-
+    # Handle Xarray/NumPy alignment and dimension resolution
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         if axis is None:
@@ -1148,58 +1153,61 @@ def spearmanr(
             dim = obs.dims[axis]
         else:
             dim = axis
+    else:
+        dim = axis
 
-        def _spearmanr_onlyrho(a, b):
-            a_flat = a.ravel()
-            b_flat = b.ravel()
-            mask = ~np.isnan(a_flat) & ~np.isnan(b_flat)
-            if np.sum(mask) < 2:
-                return np.nan
-            return _spearmanr(a_flat[mask], b_flat[mask])[0]
+    if axis is None:
+        obsc, modc = matchedcompressed(obs, mod)
+        if len(obsc) < 2:
+            return np.nan
+        from scipy.stats import spearmanr as _spearmanr
 
-        result = xr.apply_ufunc(
-            _spearmanr_onlyrho,
+        return _spearmanr(obsc, modc)[0]
+
+    # Spearman is Pearson on ranks. Use rankdata along the axis.
+    from scipy.stats import rankdata
+
+    # Apply pairwise masking to ensure ranks are computed on the same set of points
+    mask = np.isnan(obs) | np.isnan(mod)
+    obs = xr.where(mask, np.nan, obs) if isinstance(obs, xr.DataArray) else np.where(mask, np.nan, obs)
+    mod = xr.where(mask, np.nan, mod) if isinstance(mod, xr.DataArray) else np.where(mask, np.nan, mod)
+
+    def _rank_wrapper(data, axis):
+        # Handle all-NaN slices to avoid Scipy warnings or errors
+        if np.all(np.isnan(data)):
+            return np.full(data.shape, np.nan)
+        return rankdata(data, axis=axis, nan_policy="omit")
+
+    # Use apply_ufunc for rankdata to support both NumPy and Xarray/Dask
+    if isinstance(obs, xr.DataArray):
+        icd = [dim] if isinstance(dim, (str, int)) else list(dim)
+        obs_ranked = xr.apply_ufunc(
+            _rank_wrapper,
             obs,
-            mod,
-            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
-            output_core_dims=[[]],
-            vectorize=True,
+            input_core_dims=[icd],
+            output_core_dims=[icd],
+            kwargs={"axis": -1},
             dask="parallelized",
             dask_gufunc_kwargs={"allow_rechunk": True},
             output_dtypes=[float],
+            keep_attrs=True,
         )
-        return _update_history(result, "spearmanr")
+        mod_ranked = xr.apply_ufunc(
+            _rank_wrapper,
+            mod,
+            input_core_dims=[icd],
+            output_core_dims=[icd],
+            kwargs={"axis": -1},
+            dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
+            output_dtypes=[float],
+            keep_attrs=True,
+        )
+        return pearsonr(obs_ranked, mod_ranked, axis=dim)
     else:
-        if axis is None:
-            obsc, modc = matchedcompressed(obs, mod)
-            if len(obsc) < 2:
-                return np.nan
-            return _spearmanr(obsc, modc)[0]
-        else:
-            # Fallback for numpy with axis: manual loop over other axes
-            obs = np.asarray(obs)
-            mod = np.asarray(mod)
-            if axis < 0:
-                axis = obs.ndim + axis
-
-            # Move axis to last position
-            obs_moved = np.moveaxis(obs, axis, -1)
-            mod_moved = np.moveaxis(mod, axis, -1)
-
-            # Reshape all other axes into one
-            other_shape = obs_moved.shape[:-1]
-            obs_flat = obs_moved.reshape(-1, obs_moved.shape[-1])
-            mod_flat = mod_moved.reshape(-1, mod_moved.shape[-1])
-
-            results = []
-            for i in range(len(obs_flat)):
-                mask = ~np.isnan(obs_flat[i]) & ~np.isnan(mod_flat[i])
-                if np.sum(mask) < 2:
-                    results.append(np.nan)
-                else:
-                    results.append(_spearmanr(obs_flat[i][mask], mod_flat[i][mask])[0])
-
-            return np.array(results).reshape(other_shape)
+        obs_ranked = _rank_wrapper(obs, axis=axis)
+        mod_ranked = _rank_wrapper(mod, axis=axis)
+        return pearsonr(obs_ranked, mod_ranked, axis=axis)
 
 
 def kendalltau(
@@ -1208,7 +1216,7 @@ def kendalltau(
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Kendall rank correlation coefficient.
+    Kendall tau correlation coefficient (Aero Protocol: Standardized).
 
     Parameters
     ----------
@@ -1235,8 +1243,23 @@ def kendalltau(
     """
     from scipy.stats import kendalltau as _kendalltau
 
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
+    # Standardize to DataArray to leverage Xarray's apply_ufunc vectorization
+    is_numpy = not isinstance(obs, xr.DataArray)
+    if is_numpy:
+        obs = xr.DataArray(obs)
+        mod = xr.DataArray(mod)
+        if axis is not None:
+            if isinstance(axis, int):
+                dim = obs.dims[axis]
+            elif isinstance(axis, Iterable) and not isinstance(axis, str):
+                dim = [obs.dims[i] for i in axis]
+            else:
+                dim = axis
+        else:
+            dim = obs.dims
+    else:
+        if isinstance(mod, xr.DataArray):
+            obs, mod = xr.align(obs, mod, join="inner")
         if axis is None:
             dim = obs.dims
         elif isinstance(axis, int):
@@ -1244,55 +1267,37 @@ def kendalltau(
         else:
             dim = axis
 
-        def _kendalltau_onlytau(a, b):
-            a_flat = a.ravel()
-            b_flat = b.ravel()
-            mask = ~np.isnan(a_flat) & ~np.isnan(b_flat)
-            if np.sum(mask) < 2:
-                return np.nan
-            return _kendalltau(a_flat[mask], b_flat[mask])[0]
+    if axis is None:
+        obsc, modc = matchedcompressed(obs, mod)
+        if len(obsc) < 2:
+            return np.nan
+        return _kendalltau(obsc, modc)[0]
 
-        result = xr.apply_ufunc(
-            _kendalltau_onlytau,
-            obs,
-            mod,
-            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
-            output_core_dims=[[]],
-            vectorize=True,
-            dask="parallelized",
-            dask_gufunc_kwargs={"allow_rechunk": True},
-            output_dtypes=[float],
-        )
-        return _update_history(result, "kendalltau")
-    else:
-        if axis is None:
-            obsc, modc = matchedcompressed(obs, mod)
-            if len(obsc) < 2:
-                return np.nan
-            return _kendalltau(obsc, modc)[0]
-        else:
-            # Fallback for numpy with axis: manual loop over other axes
-            obs = np.asarray(obs)
-            mod = np.asarray(mod)
-            if axis < 0:
-                axis = obs.ndim + axis
+    def _kendalltau_onlytau(a, b):
+        a_flat = a.ravel()
+        b_flat = b.ravel()
+        mask = ~np.isnan(a_flat) & ~np.isnan(b_flat)
+        if np.sum(mask) < 2:
+            return np.nan
+        return _kendalltau(a_flat[mask], b_flat[mask])[0]
 
-            obs_moved = np.moveaxis(obs, axis, -1)
-            mod_moved = np.moveaxis(mod, axis, -1)
+    # Use apply_ufunc to eliminate manual loops and support Dask
+    icd = [dim] if isinstance(dim, (str, int)) else list(dim)
+    result = xr.apply_ufunc(
+        _kendalltau_onlytau,
+        obs,
+        mod,
+        input_core_dims=[icd] * 2,
+        output_core_dims=[[]],
+        vectorize=True,
+        dask="parallelized",
+        dask_gufunc_kwargs={"allow_rechunk": True},
+        output_dtypes=[float],
+    )
 
-            other_shape = obs_moved.shape[:-1]
-            obs_flat = obs_moved.reshape(-1, obs_moved.shape[-1])
-            mod_flat = mod_moved.reshape(-1, mod_moved.shape[-1])
-
-            results = []
-            for i in range(len(obs_flat)):
-                mask = ~np.isnan(obs_flat[i]) & ~np.isnan(mod_flat[i])
-                if np.sum(mask) < 2:
-                    results.append(np.nan)
-                else:
-                    results.append(_kendalltau(obs_flat[i][mask], mod_flat[i][mask])[0])
-
-            return np.array(results).reshape(other_shape)
+    if is_numpy:
+        return result.values
+    return _update_history(result, "kendalltau")
 
 
 def CCC(
