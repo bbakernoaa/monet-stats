@@ -745,6 +745,43 @@ class MonetDataArrayAccessor:
             **kwargs,
         )
 
+    def plot_diurnal_cycle(
+        self,
+        method: str = "matplotlib",
+        title: Optional[str] = None,
+        color: str = "tab:blue",
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot the diurnal cycle profile following the Aero Protocol's Two-Track Rule.
+
+        Parameters
+        ----------
+        method : str, optional
+            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
+            Default is 'matplotlib'.
+        title : str, optional
+            Plot title.
+        color : str, optional
+            Color for the line. Default is 'tab:blue'.
+        **kwargs : Any
+            Additional keyword arguments passed to the underlying plotting function.
+
+        Returns
+        -------
+        Any
+            The plot object (matplotlib.axes.Axes or holoviews.element.Element).
+        """
+        from .visualize import plot_diurnal_cycle
+
+        return plot_diurnal_cycle(
+            self._obj,
+            method=method,
+            title=title,
+            color=color,
+            **kwargs,
+        )
+
 
 @xr.register_dataset_accessor("monet_stats")
 class MonetDatasetAccessor:

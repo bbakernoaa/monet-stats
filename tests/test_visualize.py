@@ -3,10 +3,11 @@ Unit tests for the visualization module (Aero Protocol).
 """
 
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 
-from monet_stats.visualize import plot_spatial
+from monet_stats.visualize import plot_diurnal_cycle, plot_spatial
 
 
 @pytest.fixture
@@ -104,3 +105,59 @@ def test_plot_spatial_matplotlib_missing(sample_da, monkeypatch):
             sys.modules["cartopy"] = saved_cartopy
         if saved_cartopy_crs:
             sys.modules["cartopy.crs"] = saved_cartopy_crs
+
+
+def test_plot_diurnal_cycle_matplotlib():
+    """Test Track A (matplotlib) for diurnal cycle."""
+    plt = pytest.importorskip("matplotlib.pyplot")
+
+    # Create hourly data
+    times = pd.date_range("2020-01-01", periods=24 * 2, freq="h")
+    da = xr.DataArray(np.random.rand(48), coords={"time": times}, dims="time", name="test")
+
+    ax = plot_diurnal_cycle(da, method="matplotlib", title="Diurnal Test")
+
+    assert isinstance(ax, plt.Axes)
+    assert ax.get_title() == "Diurnal Test"
+    assert "Plotted diurnal cycle using Track A" in da.attrs["history"]
+    plt.close()
+
+
+def test_plot_diurnal_cycle_hvplot():
+    """Test Track B (hvplot) for diurnal cycle."""
+    hv = pytest.importorskip("holoviews")
+    pytest.importorskip("hvplot.xarray")
+
+    times = pd.date_range("2020-01-01", periods=24 * 2, freq="h")
+    da = xr.DataArray(np.random.rand(48), coords={"time": times}, dims="time", name="test")
+
+    plot = plot_diurnal_cycle(da, method="hvplot")
+    assert isinstance(plot, (hv.Element, hv.DynamicMap))
+    assert "Plotted diurnal cycle using Track B" in da.attrs["history"]
+
+
+def test_plot_diurnal_cycle_already_computed():
+    """Test plotting when diurnal cycle is already computed (has 'hour' dim)."""
+    plt = pytest.importorskip("matplotlib.pyplot")
+
+    da = xr.DataArray(np.random.rand(24), coords={"hour": range(24)}, dims="hour", name="test")
+
+    ax = plot_diurnal_cycle(da, method="matplotlib")
+    assert isinstance(ax, plt.Axes)
+    assert "Plotted diurnal cycle using Track A" in da.attrs["history"]
+    plt.close()
+
+
+def test_plot_diurnal_cycle_multi_dim():
+    """Test plotting with extra dimensions (automatic reduction)."""
+    plt = pytest.importorskip("matplotlib.pyplot")
+
+    # (hour, lat, lon)
+    da = xr.DataArray(
+        np.random.rand(24, 5, 5), coords={"hour": range(24), "lat": range(5), "lon": range(5)}, dims=("hour", "lat", "lon")
+    )
+
+    ax = plot_diurnal_cycle(da, method="matplotlib")
+    assert isinstance(ax, plt.Axes)
+    assert "Plotted diurnal cycle using Track A" in da.attrs["history"]
+    plt.close()
