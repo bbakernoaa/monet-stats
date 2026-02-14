@@ -154,7 +154,9 @@ def test_plot_diurnal_cycle_multi_dim():
 
     # (hour, lat, lon)
     da = xr.DataArray(
-        np.random.rand(24, 5, 5), coords={"hour": range(24), "lat": range(5), "lon": range(5)}, dims=("hour", "lat", "lon")
+        np.random.rand(24, 5, 5),
+        coords={"hour": range(24), "lat": range(5), "lon": range(5)},
+        dims=("hour", "lat", "lon"),
     )
 
     ax = plot_diurnal_cycle(da, method="matplotlib")

@@ -200,7 +200,7 @@ def plot_diurnal_cycle(
             import matplotlib.pyplot as plt
         except ImportError:
             raise ImportError(
-                "Track A (matplotlib) requires 'matplotlib'. " "Install it with 'pip install monet-stats[viz]'."
+                "Track A (matplotlib) requires 'matplotlib'. Install it with 'pip install monet-stats[viz]'."
             )
 
         if "ax" not in kwargs:
@@ -224,9 +224,7 @@ def plot_diurnal_cycle(
         try:
             import hvplot.xarray  # noqa: F401
         except ImportError:
-            raise ImportError(
-                "Track B (hvplot) requires 'hvplot'. Install it with 'pip install monet-stats[viz]'."
-            )
+            raise ImportError("Track B (hvplot) requires 'hvplot'. Install it with 'pip install monet-stats[viz]'.")
 
         plot = da.hvplot.line(
             x="hour",
