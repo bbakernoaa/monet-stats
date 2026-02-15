@@ -3,10 +3,11 @@ Unit tests for the visualization module (Aero Protocol).
 """
 
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 
-from monet_stats.visualize import plot_spatial
+from monet_stats.visualize import plot_diurnal_cycle, plot_spatial
 
 
 @pytest.fixture
@@ -104,3 +105,48 @@ def test_plot_spatial_matplotlib_missing(sample_da, monkeypatch):
             sys.modules["cartopy"] = saved_cartopy
         if saved_cartopy_crs:
             sys.modules["cartopy.crs"] = saved_cartopy_crs
+
+
+def test_plot_diurnal_cycle_matplotlib():
+    """Test diurnal cycle plot with matplotlib."""
+    plt = pytest.importorskip("matplotlib.pyplot")
+
+    # Create 2 days of hourly data
+    times = pd.date_range("2020-01-01", periods=48, freq="h")
+    data = np.random.rand(48)
+    da = xr.DataArray(data, coords={"time": times}, dims="time", name="test_data", attrs={"history": "initial"})
+
+    ax = plot_diurnal_cycle(da, method="matplotlib", title="Diurnal Test")
+
+    assert isinstance(ax, plt.Axes)
+    assert ax.get_title() == "Diurnal Test"
+    assert ax.get_xlabel() == "Hour of Day"
+    assert "Plotted diurnal cycle using Track A" in da.attrs["history"]
+    plt.close()
+
+
+def test_plot_diurnal_cycle_hvplot():
+    """Test diurnal cycle plot with hvplot."""
+    hv = pytest.importorskip("holoviews")
+    pytest.importorskip("hvplot.xarray")
+
+    # Create 2 days of hourly data
+    times = pd.date_range("2020-01-01", periods=48, freq="h")
+    data = np.random.rand(48)
+    da = xr.DataArray(data, coords={"time": times}, dims="time", name="test_data", attrs={"history": "initial"})
+
+    plot = plot_diurnal_cycle(da, method="hvplot")
+    assert isinstance(plot, (hv.Element, hv.DynamicMap))
+    assert "Plotted diurnal cycle using Track B" in da.attrs["history"]
+
+
+def test_accessor_plot_diurnal_cycle():
+    """Test that the accessor correctly calls the plotting function."""
+    plt = pytest.importorskip("matplotlib.pyplot")
+
+    times = pd.date_range("2020-01-01", periods=48, freq="h")
+    da = xr.DataArray(np.random.rand(48), coords={"time": times}, dims="time", name="test")
+
+    ax = da.monet_stats.plot_diurnal_cycle(method="matplotlib")
+    assert isinstance(ax, plt.Axes)
+    plt.close()

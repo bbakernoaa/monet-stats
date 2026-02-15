@@ -245,45 +245,23 @@ def detrend_data(
     """
     obs, mod = align_arrays(obs, mod)
 
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        from .analysis import detrend as analysis_detrend
+
+        if dim is None:
+            dim = obs.dims[axis]
+        obs_detrended = analysis_detrend(obs, method=method, dim=dim)
+        mod_detrended = analysis_detrend(mod, method=method, dim=dim)
+        return obs_detrended, mod_detrended
+
     if method == "linear":
         from scipy.signal import detrend
 
-        if isinstance(obs, xr.DataArray):
-            if dim is None:
-                dim = obs.dims[axis]
-
-            # Core dimensions for apply_ufunc must be a single chunk if using dask
-            if hasattr(obs.data, "chunks"):
-                obs = obs.chunk({dim: -1})
-            if hasattr(mod.data, "chunks"):
-                mod = mod.chunk({dim: -1})
-
-            # Use xr.apply_ufunc for laziness and dask support
-            obs_detrended = xr.apply_ufunc(
-                detrend,
-                obs,
-                input_core_dims=[[dim]],
-                output_core_dims=[[dim]],
-                kwargs={"axis": -1},
-                dask="parallelized",
-                output_dtypes=[obs.dtype],
-            )
-            mod_detrended = xr.apply_ufunc(
-                detrend,
-                mod,
-                input_core_dims=[[dim]],
-                output_core_dims=[[dim]],
-                kwargs={"axis": -1},
-                dask="parallelized",
-                output_dtypes=[mod.dtype],
-            )
-        else:
-            obs_detrended = detrend(obs, axis=axis)
-            mod_detrended = detrend(mod, axis=axis)
-
+        obs_detrended = detrend(obs, axis=axis)
+        mod_detrended = detrend(mod, axis=axis)
     elif method == "constant":
-        obs_detrended = obs - obs.mean()
-        mod_detrended = mod - mod.mean()
+        obs_detrended = obs - np.nanmean(obs, axis=axis, keepdims=True)
+        mod_detrended = mod - np.nanmean(mod, axis=axis, keepdims=True)
     else:
         raise ValueError(f"Unknown detrending method: {method}")
 

@@ -132,3 +132,104 @@ def plot_spatial(
 
     else:
         raise ValueError(f"Unknown plotting method: {method}. Must be 'matplotlib' or 'hvplot'.")
+
+
+def plot_diurnal_cycle(
+    da: xr.DataArray,
+    method: str = "matplotlib",
+    stat: str = "mean",
+    dim: str = "time",
+    title: Optional[str] = None,
+    **kwargs: Any,
+) -> Any:
+    """
+    Plot diurnal cycle following the Aero Protocol's Two-Track Rule.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        The input data with a time-like coordinate to compute the cycle from.
+    method : str, optional
+        The plotting track to use:
+        - 'matplotlib' (Track A): Static publication quality.
+        - 'hvplot' (Track B): Interactive exploration.
+        Default is 'matplotlib'.
+    stat : str, optional
+        The statistical method to compute the cycle ('mean', 'median', 'std').
+        Default is 'mean'.
+    dim : str, optional
+        The dimension along which to compute the cycle. Default is 'time'.
+    title : str, optional
+        Title for the plot.
+    **kwargs : Any
+        Additional keyword arguments passed to the underlying plotting function.
+
+    Returns
+    -------
+    Any
+        The plot object (matplotlib.axes.Axes or holoviews.element.Element).
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> times = pd.date_range("2020-01-01", periods=24*10, freq="h")
+    >>> da = xr.DataArray(np.random.rand(240), coords={"time": times}, dims="time")
+    >>> # Track A (Static)
+    >>> ax = plot_diurnal_cycle(da, method='matplotlib')
+    """
+    from .analysis import diurnal_cycle
+
+    # Ensure metadata is preserved for plot labels
+    original_attrs = da.attrs.copy()
+    original_name = da.name
+
+    cycle = diurnal_cycle(da, method=stat, dim=dim)
+
+    # Restore name and units if they were lost during reduction
+    if not cycle.name:
+        cycle.name = original_name
+    for attr in ["units", "long_name"]:
+        if attr in original_attrs and attr not in cycle.attrs:
+            cycle.attrs[attr] = original_attrs[attr]
+
+    if method == "matplotlib":
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise ImportError(
+                "Track A (matplotlib) requires 'matplotlib'. Install it with 'pip install monet-stats[viz]'."
+            )
+
+        if "ax" not in kwargs:
+            fig, ax = plt.subplots(figsize=kwargs.pop("figsize", (8, 5)))
+            kwargs["ax"] = ax
+        else:
+            ax = kwargs["ax"]
+
+        cycle.plot(**kwargs)
+        ax.set_xticks(range(0, 24, 3))
+        ax.set_xlabel("Hour of Day")
+
+        if title:
+            ax.set_title(title)
+        elif not ax.get_title():
+            ax.set_title(f"Diurnal Cycle ({stat})")
+
+        _update_history(da, f"Plotted diurnal cycle using Track A (matplotlib, stat={stat})")
+        return ax
+
+    elif method == "hvplot":
+        try:
+            import hvplot.xarray  # noqa: F401
+        except ImportError:
+            raise ImportError("Track B (hvplot) requires 'hvplot'. Install it with 'pip install monet-stats[viz]'.")
+
+        plot = cycle.hvplot.line(x="hour", title=title or f"Diurnal Cycle ({stat})", **kwargs)
+
+        _update_history(da, f"Plotted diurnal cycle using Track B (hvplot, stat={stat})")
+        return plot
+
+    else:
+        raise ValueError(f"Unknown plotting method: {method}. Must be 'matplotlib' or 'hvplot'.")

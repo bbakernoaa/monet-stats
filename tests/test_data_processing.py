@@ -162,7 +162,7 @@ class TestDataProcessing:
         assert "Normalization (zscore)" in obs_norm.attrs["history"]
 
         obs_detrend, _ = detrend_data(obs, mod, method="linear")
-        assert "Detrending (linear)" in obs_detrend.attrs["history"]
+        assert "Detrended (linear)" in obs_detrend.attrs["history"]
 
         obs_anom, _ = compute_anomalies(obs, mod)
         assert "Anomaly computation" in obs_anom.attrs["history"]

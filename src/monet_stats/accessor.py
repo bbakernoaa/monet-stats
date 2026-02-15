@@ -102,6 +102,47 @@ class MonetDataArrayAccessor:
         """
         return analysis.diurnal_cycle(self._obj, method=method, dim=dim)
 
+    def plot_diurnal_cycle(
+        self,
+        method: str = "matplotlib",
+        stat: str = "mean",
+        dim: str = "time",
+        title: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot diurnal cycle.
+
+        Parameters
+        ----------
+        method : str, optional
+            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
+            Default is 'matplotlib'.
+        stat : str, optional
+            Statistical method ('mean', 'median', 'std'). Default is 'mean'.
+        dim : str, optional
+            Dimension along which to compute the cycle. Default is 'time'.
+        title : str, optional
+            Plot title.
+        **kwargs : Any
+            Additional keyword arguments.
+
+        Returns
+        -------
+        Any
+            The plot object.
+        """
+        from .visualize import plot_diurnal_cycle
+
+        return plot_diurnal_cycle(
+            self._obj,
+            method=method,
+            stat=stat,
+            dim=dim,
+            title=title,
+            **kwargs,
+        )
+
     def rolling_mean_8h(self, dim: str = "time", min_periods: int = 6, center: bool = True) -> xr.DataArray:
         """
         Compute rolling 8-hour mean.
@@ -168,7 +209,7 @@ class MonetDataArrayAccessor:
             Dimension along which to compute. Default is 'time'.
         min_periods : int, optional
             Minimum number of observations for the 8-hour rolling mean. Default is 6.
-        center : bool, optional
+            center : bool, optional
             Whether to center the 8-hour rolling window. Default is False.
 
         Returns
@@ -875,6 +916,47 @@ class MonetDatasetAccessor:
         """
         return analysis.diurnal_cycle(self._obj, method=method, dim=dim)
 
+    def plot_diurnal_cycle(
+        self,
+        method: str = "matplotlib",
+        stat: str = "mean",
+        dim: str = "time",
+        title: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot diurnal cycle for all variables in the Dataset.
+
+        Parameters
+        ----------
+        method : str, optional
+            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
+            Default is 'matplotlib'.
+        stat : str, optional
+            Statistical method. Default is 'mean'.
+        dim : str, optional
+            Dimension along which to compute. Default is 'time'.
+        title : str, optional
+            Plot title.
+        **kwargs : Any
+            Additional keyword arguments.
+
+        Returns
+        -------
+        Any
+            The plot object.
+        """
+        from .visualize import plot_diurnal_cycle
+
+        return plot_diurnal_cycle(
+            self._obj,
+            method=method,
+            stat=stat,
+            dim=dim,
+            title=title,
+            **kwargs,
+        )
+
     def rolling_mean_8h(self, dim: str = "time", min_periods: int = 6, center: bool = True) -> xr.Dataset:
         """
         Compute rolling 8-hour mean.
@@ -882,7 +964,7 @@ class MonetDatasetAccessor:
         Parameters
         ----------
         dim : str, optional
-            Dimension along which to compute. Default is 'time'.
+            Dimension along which to compute the mean. Default is 'time'.
         min_periods : int, optional
             Minimum number of observations. Default is 6.
         center : bool, optional
@@ -902,7 +984,7 @@ class MonetDatasetAccessor:
         Parameters
         ----------
         dim : str, optional
-            Dimension along which to compute. Default is 'time'.
+            Dimension along which to compute the mean. Default is 'time'.
         min_periods : int, optional
             Minimum number of observations. Default is 18.
         center : bool, optional
@@ -940,7 +1022,7 @@ class MonetDatasetAccessor:
         dim : str, optional
             Dimension along which to compute. Default is 'time'.
         min_periods : int, optional
-            Minimum number of observations. Default is 6.
+            Minimum number of observations for the 8-hour rolling mean. Default is 6.
         center : bool, optional
             Whether to center the window. Default is False.
 
@@ -1037,7 +1119,7 @@ class MonetDatasetAccessor:
         Parameters
         ----------
         dim : str, optional
-            Dimension along which to compute. Default is 'time'.
+            Dimension along which to compute the time. Default is 'time'.
         weighted : bool, optional
             Weight by days in month. Default is True.
 
@@ -1055,7 +1137,7 @@ class MonetDatasetAccessor:
         Parameters
         ----------
         dim : str, optional
-            Dimension along which to compute. Default is 'time'.
+            Dimension along which to compute the climatology. Default is 'time'.
         method : str, optional
             Statistical method. Default is 'mean'.
 
