@@ -134,6 +134,141 @@ def plot_spatial(
         raise ValueError(f"Unknown plotting method: {method}. Must be 'matplotlib' or 'hvplot'.")
 
 
+def plot_timeseries(
+    da: xr.DataArray,
+    method: str = "matplotlib",
+    dim: str = "time",
+    title: Optional[str] = None,
+    **kwargs: Any,
+) -> Any:
+    """
+    Plot a timeseries following the Aero Protocol's Two-Track Rule.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        The timeseries data to plot.
+    method : str, optional
+        The plotting track to use: 'matplotlib' or 'hvplot'.
+    dim : str, optional
+        The time dimension. Default is 'time'.
+    title : str, optional
+        Title for the plot.
+    **kwargs : Any
+        Additional keyword arguments.
+
+    Returns
+    -------
+    Any
+        The plot object.
+    """
+    if method == "matplotlib":
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise ImportError("Track A requires 'matplotlib'.")
+
+        if "ax" not in kwargs:
+            fig, ax = plt.subplots(figsize=kwargs.pop("figsize", (10, 4)))
+            kwargs["ax"] = ax
+        else:
+            ax = kwargs["ax"]
+
+        da.plot(**kwargs)
+        if title:
+            ax.set_title(title)
+
+        _update_history(da, "Plotted timeseries using Track A (matplotlib)")
+        return ax
+
+    elif method == "hvplot":
+        try:
+            import hvplot.xarray  # noqa: F401
+        except ImportError:
+            raise ImportError("Track B requires 'hvplot'.")
+
+        plot = da.hvplot.line(x=dim, title=title, **kwargs)
+        _update_history(da, "Plotted timeseries using Track B (hvplot)")
+        return plot
+    else:
+        raise ValueError(f"Unknown plotting method: {method}")
+
+
+def plot_power_spectrum(
+    da: xr.DataArray,
+    method: str = "matplotlib",
+    title: Optional[str] = None,
+    **kwargs: Any,
+) -> Any:
+    """
+    Plot power spectrum following the Aero Protocol's Two-Track Rule.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        The power spectral density data (result of power_spectrum).
+        Must have a 'frequency' dimension.
+    method : str, optional
+        The plotting track to use: 'matplotlib' or 'hvplot'.
+    title : str, optional
+        Title for the plot.
+    **kwargs : Any
+        Additional keyword arguments.
+
+    Returns
+    -------
+    Any
+        The plot object.
+    """
+    if "frequency" not in da.dims:
+        raise ValueError("Data must have a 'frequency' dimension. Use analysis.power_spectrum first.")
+
+    if method == "matplotlib":
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise ImportError("Track A requires 'matplotlib'.")
+
+        if "ax" not in kwargs:
+            fig, ax = plt.subplots(figsize=kwargs.pop("figsize", (8, 5)))
+            kwargs["ax"] = ax
+        else:
+            ax = kwargs["ax"]
+
+        # Default to log-log plot for power spectrum
+        xscale = kwargs.pop("xscale", "log")
+        yscale = kwargs.pop("yscale", "log")
+
+        da.plot(**kwargs)
+        ax.set_xscale(xscale)
+        ax.set_yscale(yscale)
+        ax.set_xlabel("Frequency")
+        ax.set_ylabel("Power Spectral Density")
+
+        if title:
+            ax.set_title(title)
+        elif not ax.get_title():
+            ax.set_title("Power Spectrum")
+
+        _update_history(da, "Plotted power spectrum using Track A (matplotlib)")
+        return ax
+
+    elif method == "hvplot":
+        try:
+            import hvplot.xarray  # noqa: F401
+        except ImportError:
+            raise ImportError("Track B requires 'hvplot'.")
+
+        logx = kwargs.pop("logx", True)
+        logy = kwargs.pop("logy", True)
+
+        plot = da.hvplot.line(x="frequency", title=title or "Power Spectrum", logx=logx, logy=logy, **kwargs)
+        _update_history(da, "Plotted power spectrum using Track B (hvplot)")
+        return plot
+    else:
+        raise ValueError(f"Unknown plotting method: {method}")
+
+
 def plot_diurnal_cycle(
     da: xr.DataArray,
     method: str = "matplotlib",

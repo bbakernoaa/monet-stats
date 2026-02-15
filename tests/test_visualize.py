@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from monet_stats.visualize import plot_diurnal_cycle, plot_spatial
+from monet_stats.visualize import plot_diurnal_cycle, plot_power_spectrum, plot_spatial, plot_timeseries
 
 
 @pytest.fixture
@@ -148,5 +148,23 @@ def test_accessor_plot_diurnal_cycle():
     da = xr.DataArray(np.random.rand(48), coords={"time": times}, dims="time", name="test")
 
     ax = da.monet_stats.plot_diurnal_cycle(method="matplotlib")
+    assert isinstance(ax, plt.Axes)
+    plt.close()
+
+
+def test_plot_timeseries_matplotlib():
+    """Test timeseries plot with matplotlib."""
+    plt = pytest.importorskip("matplotlib.pyplot")
+    da = xr.DataArray(np.random.rand(10), dims="time", coords={"time": np.arange(10)})
+    ax = plot_timeseries(da, method="matplotlib")
+    assert isinstance(ax, plt.Axes)
+    plt.close()
+
+
+def test_plot_power_spectrum_matplotlib():
+    """Test power spectrum plot with matplotlib."""
+    plt = pytest.importorskip("matplotlib.pyplot")
+    da = xr.DataArray(np.random.rand(10), dims="frequency", coords={"frequency": np.linspace(0, 1, 10)})
+    ax = plot_power_spectrum(da, method="matplotlib")
     assert isinstance(ax, plt.Axes)
     plt.close()

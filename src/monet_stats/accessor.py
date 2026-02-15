@@ -143,6 +143,76 @@ class MonetDataArrayAccessor:
             **kwargs,
         )
 
+    def plot_timeseries(
+        self,
+        method: str = "matplotlib",
+        dim: str = "time",
+        title: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot timeseries.
+
+        Parameters
+        ----------
+        method : str, optional
+            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
+            Default is 'matplotlib'.
+        dim : str, optional
+            Time dimension. Default is 'time'.
+        title : str, optional
+            Plot title.
+        **kwargs : Any
+            Additional keyword arguments.
+
+        Returns
+        -------
+        Any
+            The plot object.
+        """
+        from .visualize import plot_timeseries
+
+        return plot_timeseries(
+            self._obj,
+            method=method,
+            dim=dim,
+            title=title,
+            **kwargs,
+        )
+
+    def plot_power_spectrum(
+        self,
+        method: str = "matplotlib",
+        title: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot power spectrum.
+
+        Parameters
+        ----------
+        method : str, optional
+            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
+            Default is 'matplotlib'.
+        title : str, optional
+            Plot title.
+        **kwargs : Any
+            Additional keyword arguments.
+
+        Returns
+        -------
+        Any
+            The plot object.
+        """
+        from .visualize import plot_power_spectrum
+
+        return plot_power_spectrum(
+            self._obj,
+            method=method,
+            title=title,
+            **kwargs,
+        )
+
     def rolling_mean_8h(self, dim: str = "time", min_periods: int = 6, center: bool = True) -> xr.DataArray:
         """
         Compute rolling 8-hour mean.
@@ -953,6 +1023,76 @@ class MonetDatasetAccessor:
             method=method,
             stat=stat,
             dim=dim,
+            title=title,
+            **kwargs,
+        )
+
+    def plot_timeseries(
+        self,
+        method: str = "matplotlib",
+        dim: str = "time",
+        title: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot timeseries for all variables in the Dataset.
+
+        Parameters
+        ----------
+        method : str, optional
+            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
+            Default is 'matplotlib'.
+        dim : str, optional
+            Time dimension. Default is 'time'.
+        title : str, optional
+            Plot title.
+        **kwargs : Any
+            Additional keyword arguments.
+
+        Returns
+        -------
+        Any
+            The plot object.
+        """
+        from .visualize import plot_timeseries
+
+        return plot_timeseries(
+            self._obj,
+            method=method,
+            dim=dim,
+            title=title,
+            **kwargs,
+        )
+
+    def plot_power_spectrum(
+        self,
+        method: str = "matplotlib",
+        title: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot power spectrum for all variables in the Dataset.
+
+        Parameters
+        ----------
+        method : str, optional
+            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
+            Default is 'matplotlib'.
+        title : str, optional
+            Plot title.
+        **kwargs : Any
+            Additional keyword arguments.
+
+        Returns
+        -------
+        Any
+            The plot object.
+        """
+        from .visualize import plot_power_spectrum
+
+        return plot_power_spectrum(
+            self._obj,
+            method=method,
             title=title,
             **kwargs,
         )
