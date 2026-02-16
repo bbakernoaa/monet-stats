@@ -181,7 +181,15 @@ def kz_filter(
         return convolve1d(x, kernel, axis=-1, mode="constant", cval=np.nan)
 
     # Ensure dimension is in a single chunk for Dask-backed arrays
-    if hasattr(data.data, "chunks"):
+    is_lazy = False
+    if isinstance(data, xr.DataArray):
+        if hasattr(data.data, "chunks"):
+            is_lazy = True
+    elif isinstance(data, xr.Dataset):
+        if any(hasattr(data[v].data, "chunks") for v in data.data_vars):
+            is_lazy = True
+
+    if is_lazy:
         data = data.chunk({dim: -1})
 
     res = xr.apply_ufunc(
@@ -366,25 +374,28 @@ def mda8(
 
 
 def exceedance_count(
-    data: Union[xr.DataArray, xr.Dataset],
+    data: Union[xr.DataArray, xr.Dataset, np.ndarray],
     threshold: float,
     dim: str = "time",
-) -> Union[xr.DataArray, xr.Dataset]:
+    axis: Optional[int] = None,
+) -> Union[xr.DataArray, xr.Dataset, np.ndarray]:
     """
     Count exceedances of a threshold (Aero Protocol).
 
     Parameters
     ----------
-    data : xarray.DataArray or xarray.Dataset
+    data : xarray.DataArray, xarray.Dataset, or numpy.ndarray
         Input data.
     threshold : float
         Value above which an exceedance is counted.
     dim : str, optional
-        Dimension along which to count exceedances. Default is 'time'.
+        Dimension along which to count exceedances (xarray only). Default is 'time'.
+    axis : int, optional
+        Axis along which to count exceedances (numpy only). Default is None (all).
 
     Returns
     -------
-    Union[xr.DataArray, xr.Dataset]
+    Union[xr.DataArray, xr.Dataset, np.ndarray]
         Number of exceedances.
 
     Examples
@@ -395,42 +406,60 @@ def exceedance_count(
     <xarray.DataArray ()>
     array(2)
     """
-    res = (data > threshold).sum(dim=dim)
-    return _update_history(res, f"Exceedance count (threshold={threshold})")
+    if isinstance(data, (xr.DataArray, xr.Dataset)):
+        res = (data > threshold).sum(dim=dim)
+        return _update_history(res, f"Exceedance count (threshold={threshold})")
+
+    res = np.sum(data > threshold, axis=axis)
+    return res
 
 
 def percentile(
-    data: Union[xr.DataArray, xr.Dataset],
+    data: Union[xr.DataArray, xr.Dataset, np.ndarray],
     q: Union[float, list, np.ndarray],
     dim: str = "time",
+    axis: Optional[int] = None,
     **kwargs: Any,
-) -> Union[xr.DataArray, xr.Dataset]:
+) -> Union[xr.DataArray, xr.Dataset, np.ndarray]:
     """
     Compute percentiles (Aero Protocol).
 
     Parameters
     ----------
-    data : xarray.DataArray or xarray.Dataset
+    data : xarray.DataArray, xarray.Dataset, or numpy.ndarray
         Input data.
     q : float or list of float
         Percentile(s) to compute (0-100).
     dim : str, optional
-        Dimension(s) over which to compute percentiles. Default is 'time'.
+        Dimension(s) over which to compute percentiles (xarray only). Default is 'time'.
+    axis : int, optional
+        Axis over which to compute percentiles (numpy only). Default is None.
     **kwargs : Any
-        Additional keyword arguments passed to xarray.quantile.
+        Additional keyword arguments passed to xarray.quantile or np.percentile.
 
     Returns
     -------
-    Union[xr.DataArray, xr.Dataset]
+    Union[xr.DataArray, xr.Dataset, np.ndarray]
         Computed percentiles.
     """
-    # Ensure dimension is in a single chunk for Dask-backed arrays
-    if hasattr(data.data, "chunks"):
-        data = data.chunk({dim: -1})
+    if isinstance(data, (xr.DataArray, xr.Dataset)):
+        # Ensure dimension is in a single chunk for Dask-backed arrays
+        is_lazy = False
+        if isinstance(data, xr.DataArray):
+            if hasattr(data.data, "chunks"):
+                is_lazy = True
+        elif isinstance(data, xr.Dataset):
+            if any(hasattr(data[v].data, "chunks") for v in data.data_vars):
+                is_lazy = True
 
-    # xarray uses 0-1 for quantile, so divide by 100
-    res = data.quantile(np.asanyarray(q) / 100.0, dim=dim, **kwargs)
-    return _update_history(res, f"Percentile (q={q})")
+        if is_lazy:
+            data = data.chunk({dim: -1})
+
+        # xarray uses 0-1 for quantile, so divide by 100
+        res = data.quantile(np.asanyarray(q) / 100.0, dim=dim, **kwargs)
+        return _update_history(res, f"Percentile (q={q})")
+
+    return np.percentile(data, q, axis=axis, **kwargs)
 
 
 def peak_timing(
@@ -461,7 +490,15 @@ def peak_timing(
     >>> peak_hour = peak_timing(da, dim="time")
     """
     # Ensure dimension is in a single chunk for Dask-backed arrays
-    if hasattr(data.data, "chunks"):
+    is_lazy = False
+    if isinstance(data, xr.DataArray):
+        if hasattr(data.data, "chunks"):
+            is_lazy = True
+    elif isinstance(data, xr.Dataset):
+        if any(hasattr(data[v].data, "chunks") for v in data.data_vars):
+            is_lazy = True
+
+    if is_lazy:
         data = data.chunk({dim: -1})
 
     # idxmax returns the coordinate of the maximum
@@ -487,7 +524,7 @@ def weighted_spatial_mean(
         Input data with spatial coordinates.
     lat_dim : str, optional
         Name of the latitude dimension. Default is 'lat'.
-    lon_dim : str, optional
+        lon_dim : str, optional
         Name of the longitude dimension. Default is 'lon'.
     weights : xarray.DataArray or numpy.ndarray, optional
         Custom weights for the mean. If None, it tries to find 'cell_area'
@@ -581,7 +618,11 @@ def fft_analysis(
         return np.fft.fft(x, axis=-1)
 
     # Core dimensions for apply_ufunc must be a single chunk if using dask
+    is_lazy = False
     if hasattr(data.data, "chunks"):
+        is_lazy = True
+
+    if is_lazy:
         data = data.chunk({dim: -1})
 
     res_complex = xr.apply_ufunc(
@@ -656,7 +697,11 @@ def power_spectrum(
     from scipy.signal import welch
 
     # Core dimensions for apply_ufunc must be a single chunk if using dask
+    is_lazy = False
     if hasattr(data.data, "chunks"):
+        is_lazy = True
+
+    if is_lazy:
         data = data.chunk({dim: -1})
 
     def _welch_wrapper(x: np.ndarray, fs: float, window: str, nperseg: int, **kwargs: Any) -> np.ndarray:
@@ -863,7 +908,11 @@ def detrend(
             return _update_history(res, "Detrended (linear)")
 
         # Core dimensions for apply_ufunc must be a single chunk if using dask
+        is_lazy = False
         if hasattr(data.data, "chunks"):
+            is_lazy = True
+
+        if is_lazy:
             data = data.chunk({dim: -1})
 
         res = xr.apply_ufunc(

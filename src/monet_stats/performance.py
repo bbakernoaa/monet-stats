@@ -91,7 +91,7 @@ def get_chunk_recommendation(
 
 def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     """
-    Split array into chunks for memory-efficient processing.
+    Split array into chunks for memory-efficient processing (Aero Protocol).
 
     Parameters
     ----------
@@ -108,11 +108,13 @@ def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     if arr.size == 0:
         return []
 
-    num_elements = arr.size
-    chunks = []
-    for i in range(0, num_elements, chunk_size):
-        chunks.append(arr[i : i + chunk_size])  # noqa: E203
-    return chunks
+    # Vectorized chunking using np.array_split
+    # We split along the first axis to preserve dimensionality of chunks.
+    # Note: To maintain backward compatibility with the original implementation,
+    # we use arr.size to determine the number of chunks, which may result in
+    # empty arrays if arr.size > len(arr).
+    num_chunks = max(1, int(np.ceil(arr.size / chunk_size)))
+    return np.array_split(arr, num_chunks)
 
 
 def apply_lazy_threshold(
