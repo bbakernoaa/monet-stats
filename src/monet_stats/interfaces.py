@@ -5,6 +5,7 @@ This module defines the core interfaces, base classes, and validation framework
 for the statistical functions in the Monet Stats package.
 """
 
+import warnings
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Iterable, Optional, Tuple, Union
 
@@ -249,7 +250,18 @@ class BaseStatisticalMetric(StatisticalMetric):
 class DataProcessor:
     """
     Data processing utilities (Legacy wrapper for data_processing module).
+
+    .. deprecated:: 0.1.0
+        Use direct module functions from `monet_stats.data_processing` instead.
     """
+
+    def __init__(self) -> None:
+        warnings.warn(
+            "DataProcessor is deprecated and will be removed in a future version. "
+            "Use direct module functions from monet_stats.data_processing instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     @staticmethod
     def to_numpy(data: Any) -> np.ndarray:
@@ -322,7 +334,18 @@ class DataProcessor:
 class PerformanceOptimizer:
     """
     Performance optimization utilities (Legacy wrapper for performance module).
+
+    .. deprecated:: 0.1.0
+        Use direct module functions from `monet_stats.performance` instead.
     """
+
+    def __init__(self) -> None:
+        warnings.warn(
+            "PerformanceOptimizer is deprecated and will be removed in a future version. "
+            "Use direct module functions from monet_stats.performance instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     @staticmethod
     def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
