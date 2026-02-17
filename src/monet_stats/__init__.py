@@ -115,7 +115,7 @@ from .utils_stats import (
     matchmasks,
     rmse,
 )
-from .visualize import plot_spatial
+from .visualize import plot_diurnal_cycle, plot_spatial
 
 __all__ = [
     # analysis
@@ -253,6 +253,7 @@ __all__ = [
     "fast_mae",
     # visualize
     "plot_spatial",
+    "plot_diurnal_cycle",
 ]
 
 # Register xarray accessors

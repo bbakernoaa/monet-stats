@@ -745,6 +745,51 @@ class MonetDataArrayAccessor:
             **kwargs,
         )
 
+    def plot_diurnal_cycle(
+        self,
+        method: str = "matplotlib",
+        dim: str = "time",
+        stat: str = "mean",
+        show_std: bool = True,
+        title: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot the diurnal cycle following the Aero Protocol's Two-Track Rule.
+
+        Parameters
+        ----------
+        method : str, optional
+            The plotting track to use ('matplotlib' or 'hvplot').
+            Default is 'matplotlib'.
+        dim : str, optional
+            Dimension along which to compute the cycle. Default is 'time'.
+        stat : str, optional
+            Statistical method for reduction ('mean', 'median').
+        show_std : bool, optional
+            Whether to show standard deviation.
+        title : str, optional
+            Plot title.
+        **kwargs : Any
+            Additional keyword arguments.
+
+        Returns
+        -------
+        Any
+            The plot object.
+        """
+        from .visualize import plot_diurnal_cycle
+
+        return plot_diurnal_cycle(
+            self._obj,
+            method=method,
+            dim=dim,
+            stat=stat,
+            show_std=show_std,
+            title=title,
+            **kwargs,
+        )
+
 
 @xr.register_dataset_accessor("monet_stats")
 class MonetDatasetAccessor:
