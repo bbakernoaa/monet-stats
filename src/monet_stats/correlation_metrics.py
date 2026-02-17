@@ -73,8 +73,6 @@ def R2(
     >>> R2(obs, mod)
     0.9846153846153847
     """
-    from scipy.stats import pearsonr
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         if axis is None:
@@ -85,32 +83,16 @@ def R2(
         else:
             dim = axis
 
-        def _pearsonr2(a, b):
-            a_flat = a.ravel()
-            b_flat = b.ravel()
-            if np.var(a_flat) == 0 or np.var(b_flat) == 0:
-                return 0.0
-            r_val, _ = pearsonr(a_flat, b_flat)
-            if np.isnan(r_val).any():
-                return 0.0
-            return r_val**2
-
-        result = xr.apply_ufunc(
-            _pearsonr2,
-            obs,
-            mod,
-            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
-            output_core_dims=[[]],
-            vectorize=True,
-            dask="parallelized",
-            dask_gufunc_kwargs={"allow_rechunk": True},
-            output_dtypes=[float],
-        )
+        # Use native xarray correlation for speed and laziness (Aero Protocol)
+        r = xr.corr(obs, mod, dim=dim)
+        result = r**2
         return _update_history(result, "R2")
     else:
+        from scipy.stats import pearsonr
+
         if axis is None:
             obsc, modc = matchedcompressed(obs, mod)
-            if np.var(obsc) == 0 or np.var(modc) == 0:
+            if len(obsc) < 2 or np.var(obsc) == 0 or np.var(modc) == 0:
                 return 0.0
             r_val, _ = pearsonr(obsc, modc)
             if np.isnan(r_val):
@@ -1056,8 +1038,6 @@ def pearsonr(
     >>> pearsonr(obs, mod)
     1.0
     """
-    from scipy.stats import pearsonr as _pearsonr
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         if axis is None:
@@ -1067,27 +1047,12 @@ def pearsonr(
         else:
             dim = axis
 
-        def _pearsonr_onlyr(a, b):
-            a_flat = a.ravel()
-            b_flat = b.ravel()
-            mask = ~np.isnan(a_flat) & ~np.isnan(b_flat)
-            if np.sum(mask) < 2 or np.var(a_flat[mask]) == 0 or np.var(b_flat[mask]) == 0:
-                return np.nan
-            return _pearsonr(a_flat[mask], b_flat[mask])[0]
-
-        result = xr.apply_ufunc(
-            _pearsonr_onlyr,
-            obs,
-            mod,
-            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
-            output_core_dims=[[]],
-            vectorize=True,
-            dask="parallelized",
-            dask_gufunc_kwargs={"allow_rechunk": True},
-            output_dtypes=[float],
-        )
+        # Use native xarray correlation for speed and laziness (Aero Protocol)
+        result = xr.corr(obs, mod, dim=dim)
         return _update_history(result, "pearsonr")
     else:
+        from scipy.stats import pearsonr as _pearsonr
+
         if axis is None:
             obsc, modc = matchedcompressed(obs, mod)
             if len(obsc) < 2 or np.var(obsc) == 0 or np.var(modc) == 0:
