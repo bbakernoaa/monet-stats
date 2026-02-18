@@ -11,6 +11,42 @@ import xarray as xr
 from numpy.typing import ArrayLike
 
 
+def _resolve_axis_to_dim(
+    obj: Any, axis: Optional[Union[int, str, Iterable[Union[int, str]]]]
+) -> Optional[Union[str, Iterable[str]]]:
+    """
+    Resolve axis index or name(s) to Xarray dimension name(s).
+
+    Parameters
+    ----------
+    obj : Any
+        Xarray DataArray or Dataset.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute.
+
+    Returns
+    -------
+    str or iterable of str, optional
+        Dimension name(s) corresponding to the axis.
+    """
+    if not hasattr(obj, "dims"):
+        return axis
+
+    if axis is None:
+        return obj.dims
+
+    if isinstance(axis, int):
+        return obj.dims[axis]
+
+    if isinstance(axis, str):
+        return axis
+
+    if isinstance(axis, Iterable):
+        return [obj.dims[a] if isinstance(a, int) else a for a in axis]
+
+    return axis
+
+
 def matchedcompressed(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ndarray, np.ndarray]:
     """
     Return compressed (non-masked) values from two matched arrays.

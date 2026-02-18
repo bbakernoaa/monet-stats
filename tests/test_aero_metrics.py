@@ -194,7 +194,8 @@ def test_rNSE_aero():
     obs = np.array([1, 2, 3, 4])
     mod = np.array([1.1, 2.1, 2.9, 4.1])
     val = rNSE(obs, mod)
-    assert np.isclose(val, 0.992)
+    # New scientific definition of relative NSE
+    assert np.isclose(val, 0.994261721483555)
 
 
 def test_PC_aero():
