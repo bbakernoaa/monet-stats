@@ -159,3 +159,53 @@ def test_masked_fallback_paths():
     relative_metrics.FE(obs, mod)
     relative_metrics.USUTPB(obs, mod)
     relative_metrics.USUTPE(obs, mod)
+
+
+def test_aero_multi_dim_axis_tuple():
+    """Verify that multi-dimensional axis (tuple) works correctly (Aero Protocol)."""
+    data_obs = np.random.rand(5, 5, 5)
+    data_mod = np.random.rand(5, 5, 5)
+
+    da_obs = xr.DataArray(data_obs, dims=("time", "y", "x"), name="obs")
+    da_mod = xr.DataArray(data_mod, dims=("time", "y", "x"), name="mod")
+
+    # Test with tuple axis
+    res = relative_metrics.NMB(da_obs, da_mod, axis=("y", "x"))
+    assert res.dims == ("time",)
+    assert "Calculated Normalized Mean Bias (NMB) using monet-stats." in res.attrs["history"]
+
+    # Test with list axis
+    res_list = relative_metrics.NMB(da_obs, da_mod, axis=["y", "x"])
+    xr.testing.assert_allclose(res, res_list)
+
+
+def test_aero_dask_median_chunking():
+    """Verify that median-based metrics handle Dask chunking correctly for multi-dim axis."""
+    dask = pytest.importorskip("dask.array")
+
+    data_obs = np.random.rand(10, 10)
+    data_mod = np.random.rand(10, 10)
+
+    da_obs = xr.DataArray(data_obs, dims=("y", "x"), name="obs").chunk({"y": 5, "x": 5})
+    da_mod = xr.DataArray(data_mod, dims=("y", "x"), name="mod").chunk({"y": 5, "x": 5})
+
+    # This should not raise an error and should preserve laziness
+    res = relative_metrics.NMdnB(da_obs, da_mod, axis=("y", "x"))
+    assert isinstance(res.data, dask.Array)
+    assert "Calculated Normalized Median Bias (NMdnB) using monet-stats." in res.attrs["history"]
+    assert res.compute() is not None
+
+
+def test_aero_peak_metrics_provenance():
+    """Verify that peak metrics have correct provenance strings."""
+    data_obs = np.random.rand(5, 5)
+    data_mod = np.random.rand(5, 5)
+
+    da_obs = xr.DataArray(data_obs, dims=("time", "site"), name="obs")
+    da_mod = xr.DataArray(data_mod, dims=("time", "site"), name="mod")
+
+    res = relative_metrics.MNPB(da_obs, da_mod, paxis="time", axis="site")
+    assert "Calculated Mean Normalized Peak Bias (MNPB) using monet-stats." in res.attrs["history"]
+
+    res2 = relative_metrics.NMdnPB(da_obs, da_mod, paxis="time")
+    assert "Calculated Normalized Median Peak Bias (NMdnPB) using monet-stats." in res2.attrs["history"]
