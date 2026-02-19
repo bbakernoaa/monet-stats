@@ -111,7 +111,10 @@ def NSEm(
     0.995
     """
     # Standard NSE implementation already handles NaNs if using nan-aware functions
-    return NSE(obs, mod, axis=axis)
+    res = NSE(obs, mod, axis=axis)
+    if isinstance(res, xr.DataArray):
+        return _update_history(res, "NSEm")
+    return res
 
 
 def NSElog(
