@@ -11,6 +11,16 @@ import xarray as xr
 from .utils_stats import _update_history
 
 
+def _has_dask() -> bool:
+    """Check if Dask is installed and available."""
+    try:
+        import dask  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 def get_chunk_recommendation(
     data: Union[xr.DataArray, xr.Dataset],
     target_mb: float = 100.0,
@@ -32,6 +42,10 @@ def get_chunk_recommendation(
     -------
     Dict[str, int]
         Recommended chunk sizes dictionary.
+
+    Notes
+    -----
+    Aero Protocol: Targets ~100MB per chunk by default for optimal performance.
 
     Examples
     --------
@@ -162,6 +176,15 @@ def apply_lazy_threshold(
     size_mb = data.nbytes / (1024 * 1024)
 
     if force_dask or size_mb > threshold_mb:
+        if not _has_dask():
+            warnings.warn(
+                f"Laziness requested (force_dask={force_dask} or size={size_mb:.2f}MB > threshold={threshold_mb}MB), "
+                "but Dask is not installed. Continuing with eager computation.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return data
+
         recommendation = get_chunk_recommendation(data)
         if not is_lazy:
             warnings.warn(

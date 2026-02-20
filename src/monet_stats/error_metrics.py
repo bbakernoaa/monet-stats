@@ -7,7 +7,7 @@ from typing import Iterable, List, Optional, Tuple, Union
 import numpy as np
 import xarray as xr
 
-from .utils_stats import _update_history, circlebias, circlebias_m, matchmasks
+from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, matchmasks
 
 ############################################################
 # 1. Basic Error Metrics
@@ -50,17 +50,13 @@ def STDO(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         errors = obs - mod
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = errors.std(dim=dim, keep_attrs=True)
         return _update_history(result, "STDO")
 
     # Fallback to numpy-compatible logic
     errors = np.subtract(obs, mod)
-    result = np.std(errors, axis=axis)
+    result = np.ma.std(np.ma.masked_invalid(errors), axis=axis)
     return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -100,17 +96,13 @@ def STDP(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         errors = mod - obs
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = errors.std(dim=dim, keep_attrs=True)
         return _update_history(result, "STDP")
 
     # Fallback to numpy-compatible logic
     errors = np.subtract(mod, obs)
-    result = np.std(errors, axis=axis)
+    result = np.ma.std(np.ma.masked_invalid(errors), axis=axis)
     return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -146,11 +138,7 @@ def MNB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = ((mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
         return _update_history(result, "MNB")
     else:
@@ -190,11 +178,7 @@ def MNE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = (abs(mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
         return _update_history(result, "MNE")
     else:
@@ -233,16 +217,13 @@ def MdnNB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff = (mod - obs) / obs
         if hasattr(diff.data, "chunks"):
-            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
+            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
         return _update_history(result, "MdnNB")
     else:
@@ -281,16 +262,13 @@ def MdnNE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff = abs(mod - obs) / obs
         if hasattr(diff.data, "chunks"):
-            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
+            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
         return _update_history(result, "MdnNE")
     else:
@@ -338,16 +316,13 @@ def NMdnGE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff = abs(mod - obs)
         if hasattr(diff.data, "chunks"):
-            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
+            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
         result = (diff.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore") / obs.mean(dim=dim)) * 100.0
         return _update_history(result, "NMdnGE")
     else:
@@ -385,11 +360,7 @@ def NO(
         Number of valid observations.
     """
     if isinstance(obs, xr.DataArray):
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         return obs.count(dim=dim)
     else:
         result = (~np.ma.getmaskarray(obs)).sum(axis=axis)
@@ -426,14 +397,7 @@ def NOP(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
-        # count() on aligned xarray handles NaNs in both by alignment if NaNs are coords,
-        # but if NaNs are in data, we need to mask.
-        # However, count() counts non-NaN values.
+        dim = _resolve_axis_to_dim(obs, axis)
         # To get pairs where BOTH are not NaN:
         mask = obs.notnull() & mod.notnull()
         return mask.sum(dim=dim)
@@ -472,11 +436,7 @@ def NP(
         Number of valid predictions.
     """
     if isinstance(mod, xr.DataArray):
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = mod.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(mod, axis)
         return mod.count(dim=dim)
     else:
         result = (~np.ma.getmaskarray(mod)).sum(axis=axis)
@@ -522,15 +482,11 @@ def MO(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = (mod - obs).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MO")
     else:
-        result = np.mean(np.subtract(mod, obs), axis=axis)
+        result = np.ma.mean(np.ma.masked_invalid(np.subtract(mod, obs)), axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -564,15 +520,11 @@ def MP(
         Mean of predictions.
     """
     if isinstance(mod, xr.DataArray):
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = mod.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(mod, axis)
         result = mod.mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MP")
     else:
-        result = np.mean(mod, axis=axis)
+        result = np.ma.mean(np.ma.masked_invalid(mod), axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -616,16 +568,13 @@ def MdnO(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
         if hasattr(diff.data, "chunks"):
-            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
+            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
         return _update_history(result, "MdnO")
     else:
@@ -658,16 +607,13 @@ def MdnP(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
         if hasattr(diff.data, "chunks"):
-            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
+            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
         return _update_history(result, "MdnP")
     else:
@@ -700,11 +646,7 @@ def RM(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = np.sqrt(((obs - mod) ** 2).mean(dim=dim, keep_attrs=True))
         return _update_history(result, "RM")
     else:
@@ -737,16 +679,13 @@ def RMdn(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff_sq = (obs - mod) ** 2
         if hasattr(diff_sq.data, "chunks"):
-            diff_sq = diff_sq.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
+            diff_sq = diff_sq.chunk({d: -1 for d in dims_to_chunk if d in diff_sq.dims})
         result = np.sqrt(diff_sq.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore"))
         return _update_history(result, "RMdn")
     else:
@@ -780,11 +719,7 @@ def MB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = (mod - obs).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MB")
     else:
@@ -817,59 +752,17 @@ def MdnB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
         if hasattr(diff.data, "chunks"):
-            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
+            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
         return _update_history(result, "MdnB")
     else:
         result = np.ma.median(np.subtract(mod, obs), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
-
-
-def WDMB_m(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Wind Direction Mean Bias (WDMB, robust version for masked arrays).
-
-    This version uses circlebias_m, which is robust to masked arrays and
-    missing data. Use this if your data may contain NaNs or masked values.
-
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed wind direction values (degrees).
-    mod : numpy.ndarray or xarray.DataArray
-        Model predicted wind direction values (degrees).
-    axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute the mean bias.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Mean wind direction bias (degrees).
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
-        result = circlebias_m(mod - obs).mean(dim=dim, keep_attrs=True)
-        return _update_history(result, "WDMB_m")
-    else:
-        result = np.ma.mean(circlebias_m(np.subtract(mod, obs)), axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -879,10 +772,7 @@ def WDMB(
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Wind Direction Mean Bias (WDMB, standard version).
-
-    This version uses circlebias, which is not robust to masked arrays.
-    Use this if your data are dense and do not contain missing values.
+    Wind Direction Mean Bias (WDMB).
 
     Parameters
     ----------
@@ -900,16 +790,15 @@ def WDMB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = circlebias(mod - obs).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "WDMB")
     else:
         result = np.ma.mean(circlebias(np.subtract(mod, obs)), axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+WDMB_m = WDMB
 
 
 def WDMdnB(
@@ -936,16 +825,13 @@ def WDMdnB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff = circlebias(mod - obs)
         if hasattr(diff.data, "chunks"):
-            diff = diff.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
+            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
         return _update_history(result, "WDMdnB")
     else:
@@ -986,17 +872,12 @@ def MSE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
-
+        dim = _resolve_axis_to_dim(obs, axis)
         result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MSE")
     else:
         result = np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis)
-        return result.item() if np.ndim(result) == 0 else result
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def MAE(
@@ -1038,11 +919,7 @@ def MAE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = abs(mod - obs).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MAE")
     else:
@@ -1089,16 +966,13 @@ def MedAE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff_abs = abs(mod - obs)
         if hasattr(diff_abs.data, "chunks"):
-            diff_abs = diff_abs.chunk({d: -1 for d in (dim if isinstance(dim, (list, tuple)) else [dim])})
+            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
+            diff_abs = diff_abs.chunk({d: -1 for d in dims_to_chunk if d in diff_abs.dims})
         result = diff_abs.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
         return _update_history(result, "MedAE")
     else:
@@ -1145,11 +1019,7 @@ def CRMSE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         o_ = obs - obs.mean(dim=dim)
         m_ = mod - mod.mean(dim=dim)
         result = ((m_ - o_) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
@@ -1201,11 +1071,7 @@ def MAPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = (100 * abs(mod - obs) / abs(obs)).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MAPE")
     else:
@@ -1253,11 +1119,7 @@ def sMAPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "sMAPE")
     else:
@@ -1306,11 +1168,7 @@ def NRMSE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         rmse = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         obs_range = obs.max(dim=dim) - obs.min(dim=dim)
         result = xr.where(obs_range == 0, 0, rmse / obs_range)
@@ -1363,15 +1221,9 @@ def MASE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         # Calculate naive forecast error (using previous observation)
-        # Assuming 'time' is a dimension for shift
-        # If 'time' is not present, we use the provided dimension or axis
         if "time" in obs.dims:
             naive_error = abs(obs - obs.shift(time=1)).mean(dim=dim, skipna=True)
         else:
@@ -1488,11 +1340,7 @@ def RMSPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = (100 * ((mod - obs) / obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "RMSPE")
     else:
@@ -1500,96 +1348,8 @@ def RMSPE(
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MAPEm(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Mean Absolute Percentage Error (MAPE) - robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average relative error between model and observations as
-      a percentage, robust to missing data.
-    - Used in time series forecasting, regression, and model evaluation for
-      percentage-based error assessment.
-
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed values.
-    mod : numpy.ndarray or xarray.DataArray
-        Model or predicted values.
-    axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute MAPE.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Mean absolute percentage error (in percent).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.error_metrics import MAPEm
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> MAPEm(obs, mod)
-    50.0
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        # MAPE implementation for xarray already handles NaNs
-        return MAPE(obs, mod, axis=axis)
-    else:
-        result = 100 * np.ma.mean(np.ma.abs((mod - obs) / obs), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
-
-
-def sMAPEm(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Symmetric Mean Absolute Percentage Error (sMAPE) - robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average relative error between model and observations,
-      normalized by their mean, robust to missing data.
-    - Used in time series forecasting, regression, and model evaluation for
-      percentage-based error assessment.
-
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed values.
-    mod : numpy.ndarray or xarray.DataArray
-        Model or predicted values.
-    axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute sMAPE.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Symmetric mean absolute percentage error (in percent).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.error_metrics import sMAPEm
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> sMAPEm(obs, mod)
-    28.57142857142857
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        # sMAPE implementation for xarray already handles NaNs
-        return sMAPE(obs, mod, axis=axis)
-    else:
-        result = 200 * np.ma.mean(np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs)), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+MAPEm = MAPE  # noqa: N816
+sMAPEm = sMAPE  # noqa: N816
 
 
 def NSC(
@@ -1631,11 +1391,7 @@ def NSC(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         obs_mean = obs.mean(dim=dim)
         numerator = ((obs - mod) ** 2).sum(dim=dim)
         denominator = ((obs - obs_mean) ** 2).sum(dim=dim)
@@ -1688,11 +1444,7 @@ def NSE_alpha(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = mod.std(dim=dim) / obs.std(dim=dim)
         return _update_history(result, "NSE_alpha")
     else:
@@ -1739,11 +1491,7 @@ def NSE_beta(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = mod.mean(dim=dim) / obs.mean(dim=dim)
         return _update_history(result, "NSE_beta")
     else:
@@ -1751,96 +1499,11 @@ def NSE_beta(
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MAE_m(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Mean Absolute Error (MAE) - robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average magnitude of errors between model and
-      observations, regardless of direction, robust to missing data.
-    - Used in model evaluation, forecast verification, and regression analysis
-      with incomplete datasets.
-
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed values.
-    mod : numpy.ndarray or xarray.DataArray
-        Model or predicted values.
-    axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute MAE.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Mean absolute error.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.error_metrics import MAE_m
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> MAE_m(obs, mod)
-    0.6666666666666666
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        # MAE implementation for xarray already handles NaNs
-        return MAE(obs, mod, axis=axis)
-    else:
-        result = np.ma.mean(np.ma.abs(np.subtract(mod, obs)), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+# Aliases for masked versions (already handled by base functions)
+MAE_m = MAE
 
 
-def MedAE_m(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Median Absolute Error (MedAE) - robust to masked arrays and outliers.
-
-    Typical Use Cases
-    -----------------
-    - Evaluating the typical magnitude of errors, robust to outliers and
-      non-normal error distributions with missing data.
-    - Used in robust regression, model evaluation, and forecast verification
-      with incomplete datasets.
-
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed values.
-    mod : numpy.ndarray or xarray.DataArray
-        Model or predicted values.
-    axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute MedAE.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Median absolute error.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.error_metrics import MedAE_m
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> MedAE_m(obs, mod)
-    1.0
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        # MedAE implementation for xarray already handles NaNs
-        return MedAE(obs, mod, axis=axis)
-    else:
-        result = np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+MedAE_m = MedAE
 
 
 def RMSE(
@@ -1882,63 +1545,15 @@ def RMSE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "RMSE")
     else:
         result = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
-        return result.item() if np.ndim(result) == 0 else result
-
-
-def RMSE_m(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Root Mean Square Error (RMSE) - robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average magnitude of errors between model and
-      observations, accounting for large errors more heavily than MAE,
-      robust to missing data.
-    - Used in model evaluation, forecast verification, and regression analysis
-      with incomplete datasets.
-
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed values.
-    mod : numpy.ndarray or xarray.DataArray
-        Model or predicted values.
-    axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute RMSE.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Root mean square error.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.error_metrics import RMSE_m
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> RMSE_m(obs, mod)
-    0.816496580927726
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        # RMSE implementation for xarray already handles NaNs
-        return RMSE(obs, mod, axis=axis)
-    else:
-        result = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+RMSE_m = RMSE
 
 
 def IOA(
@@ -1980,72 +1595,24 @@ def IOA(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         obs_mean = obs.mean(dim=dim)
         num = ((obs - mod) ** 2).sum(dim=dim)
         denom = ((abs(mod - obs_mean) + abs(obs - obs_mean)) ** 2).sum(dim=dim)
         result = 1.0 - (num / denom)
         return _update_history(result, "IOA")
     else:
-        obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
-        num = np.nansum((obs - mod) ** 2, axis=axis)
-        denom = np.nansum((np.abs(mod - obs_mean) + np.abs(obs - obs_mean)) ** 2, axis=axis)
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        obs_mean = np.ma.mean(obs_m, axis=axis, keepdims=True)
+        num = np.ma.sum((obs_m - mod_m) ** 2, axis=axis)
+        denom = np.ma.sum((np.ma.abs(mod_m - obs_mean) + np.ma.abs(obs_m - obs_mean)) ** 2, axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (num / denom)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def IOA_m(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """
-    Index of Agreement (IOA) - robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the agreement between model and observations, normalized by
-      total deviation, robust to missing data.
-    - Used in model evaluation for skill assessment with incomplete datasets.
-
-    Parameters
-    ----------
-    obs : numpy.ndarray or xarray.DataArray
-        Observed values.
-    mod : numpy.ndarray or xarray.DataArray
-        Model or predicted values.
-    axis : int, str, or iterable of such, optional
-        Axis or dimension along which to compute IOA.
-
-    Returns
-    -------
-    numpy.number, numpy.ndarray, or xarray.DataArray
-        Index of agreement (unitless, 0-1).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.error_metrics import IOA_m
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> IOA_m(obs, mod)
-    0.8
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        # IOA implementation for xarray already handles NaNs
-        return IOA(obs, mod, axis=axis)
-    else:
-        obs_mean = np.ma.mean(obs, axis=axis, keepdims=True)
-        num = np.ma.sum((obs - mod) ** 2, axis=axis)
-        denom = np.ma.sum((np.ma.abs(mod - obs_mean) + np.ma.abs(obs - obs_mean)) ** 2, axis=axis)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            result = 1.0 - (num / denom)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+IOA_m = IOA
 
 
 # Add the missing functions from the specification
@@ -2081,11 +1648,7 @@ def MAPE_mod(
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         # Add epsilon to avoid division by zero
         obs_safe = xr.where(abs(obs) < epsilon, epsilon, obs)
         result = (100 * abs(mod - obs) / abs(obs_safe)).mean(dim=dim, keep_attrs=True)
@@ -2124,11 +1687,7 @@ def MASE_mod(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         # Calculate naive forecast error (using previous observation)
         if "time" in obs.dims:
             naive_error = abs(obs - obs.shift(time=1)).mean(dim=dim, skipna=True)
@@ -2179,11 +1738,7 @@ def RMSE_norm(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         rmse = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         obs_min = obs.min(dim=dim)
         obs_max = obs.max(dim=dim)
@@ -2227,11 +1782,7 @@ def MAE_norm(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         mae = abs(mod - obs).mean(dim=dim, keep_attrs=True)
         obs_min = obs.min(dim=dim)
         obs_max = obs.max(dim=dim)
@@ -2275,11 +1826,7 @@ def bias_fraction(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         bias = (mod - obs).mean(dim=dim)
         total_error = np.sqrt(((mod - obs) ** 2).mean(dim=dim, keep_attrs=True))
         # Avoid division by zero
@@ -2336,19 +1883,15 @@ def NMSE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         mse = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True)
         obs_var = obs.var(dim=dim)
         # Handle case where variance is 0 (perfect agreement)
         result = xr.where(obs_var == 0, 0, mse / obs_var)
         return _update_history(result, "NMSE")
     else:
-        mse = np.mean((np.subtract(mod, obs)) ** 2, axis=axis)
-        obs_var = np.var(obs, axis=axis)
+        mse = np.ma.mean(np.ma.masked_invalid(np.subtract(mod, obs)) ** 2, axis=axis)
+        obs_var = np.ma.var(np.ma.masked_invalid(obs), axis=axis)
         # Handle case where variance is 0 (perfect agreement)
         result = np.where(obs_var == 0, 0, mse / obs_var)
         return result.item() if np.ndim(result) == 0 else result
@@ -2396,11 +1939,7 @@ def LOG_ERROR(
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         # Use abs to handle potential negative values, then add epsilon
         obs_safe = abs(obs) + epsilon
         mod_safe = abs(mod) + epsilon
@@ -2419,7 +1958,7 @@ def LOG_ERROR(
         # Return 0 for perfect agreement
         if np.array_equal(obs, mod):
             return 0.0
-        return result
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def COE(
@@ -2461,7 +2000,6 @@ def COE(
     >>> np.allclose(COE(obs, mod), np.sqrt(2))
     True
     """
-    from .utils_stats import _update_history
 
     def _get_centroid(da: xr.DataArray, dims: Iterable[str]) -> List[xr.DataArray]:
         """Helper to calculate centroid of a DataArray."""
@@ -2483,12 +2021,13 @@ def COE(
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
             dims = list(obs.dims)
-        elif isinstance(axis, (int, str)):
-            dims = [obs.dims[axis] if isinstance(axis, int) else axis]
+        elif isinstance(dim, str):
+            dims = [dim]
         else:
-            dims = [obs.dims[d] if isinstance(d, int) else d for d in axis]
+            dims = list(dim)
 
         c_obs = _get_centroid(obs, dims)
         c_mod = _get_centroid(mod, dims)
@@ -2507,6 +2046,9 @@ def COE(
         axes = tuple(range(obs_arr.ndim))
     elif isinstance(axis, int):
         axes = (axis,)
+    elif isinstance(axis, str):
+        # Handle single string axis for consistency with xarray path
+        axes = (obs_arr.ndim - 1,)  # Best guess for numpy if only string provided
     else:
         axes = tuple(axis)
 
@@ -2528,7 +2070,8 @@ def COE(
     c_mod_np = _get_numpy_centroid(mod_arr, axes)
 
     dist_sq_np = sum((cm - co) ** 2 for cm, co in zip(c_mod_np, c_obs_np))
-    return dist_sq_np**0.5
+    result = dist_sq_np**0.5
+    return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def VOLUMETRIC_ERROR(
@@ -2570,11 +2113,7 @@ def VOLUMETRIC_ERROR(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         obs_sum = obs.sum(dim=dim)
         mod_sum = mod.sum(dim=dim)
         result = abs(mod_sum - obs_sum) / abs(obs_sum)
@@ -2625,11 +2164,7 @@ def CORR_INDEX(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
         # Using xarray's built-in correlation function
         result = xr.corr(obs, mod, dim=dim)
         return _update_history(result, "CORR_INDEX")
