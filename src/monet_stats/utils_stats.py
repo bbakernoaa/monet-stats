@@ -29,6 +29,7 @@ def _resolve_axis_to_dim(
     str or iterable of str, optional
         Dimension name(s) corresponding to the axis.
     """
+    # Centralized resolution for Aero Protocol compliance
     if not hasattr(obj, "dims"):
         return axis
 

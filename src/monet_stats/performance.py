@@ -33,6 +33,10 @@ def get_chunk_recommendation(
     Dict[str, int]
         Recommended chunk sizes dictionary.
 
+    Notes
+    -----
+    Aero Protocol: Targets ~100MB per chunk by default for optimal performance.
+
     Examples
     --------
     >>> import xarray as xr

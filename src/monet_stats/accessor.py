@@ -7,7 +7,14 @@ from typing import Any, List, Optional, Union
 import numpy as np
 import xarray as xr
 
-from . import analysis, correlation_metrics, efficiency_metrics, error_metrics, relative_metrics
+from . import (
+    analysis,
+    correlation_metrics,
+    efficiency_metrics,
+    error_metrics,
+    performance,
+    relative_metrics,
+)
 
 
 @xr.register_dataarray_accessor("monet_stats")
@@ -378,6 +385,85 @@ class MonetDataArrayAccessor:
             Detrended data.
         """
         return analysis.detrend(self._obj, method=method, dim=dim)
+
+    def optimize(self, target_mb: float = 100.0) -> xr.DataArray:
+        """
+        Optimize performance by ensuring laziness and recommended chunks (Aero Protocol).
+
+        Parameters
+        ----------
+        target_mb : float, optional
+            Target size for each chunk in Megabytes. Default is 100.0.
+
+        Returns
+        -------
+        xarray.DataArray
+            Optimized DataArray.
+        """
+        # Ensure data is lazy
+        res = performance.apply_lazy_threshold(self._obj, threshold_mb=0.1)
+        # Always calculate and apply recommended chunks for the target size
+        recommendation = performance.get_chunk_recommendation(res, target_mb=target_mb)
+        res = res.chunk(recommendation)
+
+        from .utils_stats import _update_history
+
+        return _update_history(res, f"Optimized for performance (target={target_mb}MB)")
+
+    def rechunk(self, chunks: Optional[dict] = None) -> xr.DataArray:
+        """
+        Apply new chunks to the DataArray (Aero Protocol provenance tracking).
+
+        Parameters
+        ----------
+        chunks : dict, optional
+            New chunk sizes. If None, uses optimal recommendations (~100MB).
+
+        Returns
+        -------
+        xarray.DataArray
+            Rechunked DataArray.
+        """
+        if chunks is None:
+            chunks = performance.get_chunk_recommendation(self._obj)
+
+        res = self._obj.chunk(chunks)
+        from .utils_stats import _update_history
+
+        return _update_history(res, f"Rechunked with {chunks}")
+
+    def taylor_statistics(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.Dataset:
+        """
+        Calculate components required for a Taylor diagram (Aero Protocol).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values (reference).
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the statistics.
+
+        Returns
+        -------
+        xarray.Dataset
+            Dataset containing:
+            - std_obs: Standard deviation of observations.
+            - std_mod: Standard deviation of model predictions.
+            - correlation: Pearson correlation coefficient.
+        """
+        obs, mod = xr.align(obs, self._obj, join="inner")
+        from .utils_stats import _resolve_axis_to_dim, _update_history
+
+        d = _resolve_axis_to_dim(obs, dim)
+
+        res = xr.Dataset(
+            {
+                "std_obs": obs.std(dim=d),
+                "std_mod": mod.std(dim=d),
+                "correlation": correlation_metrics.pearsonr(obs, mod, axis=dim),
+            }
+        )
+        return _update_history(res, "Taylor statistics components")
 
     def mae(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1102,3 +1188,49 @@ class MonetDatasetAccessor:
             Detrended data.
         """
         return analysis.detrend(self._obj, method=method, dim=dim)
+
+    def optimize(self, target_mb: float = 100.0) -> xr.Dataset:
+        """
+        Optimize performance by ensuring laziness and recommended chunks (Aero Protocol).
+
+        Parameters
+        ----------
+        target_mb : float, optional
+            Target size for each chunk in Megabytes. Default is 100.0.
+
+        Returns
+        -------
+        xarray.Dataset
+            Optimized Dataset.
+        """
+        # Ensure data is lazy
+        res = performance.apply_lazy_threshold(self._obj, threshold_mb=0.1)
+        # Always calculate and apply recommended chunks for the target size
+        recommendation = performance.get_chunk_recommendation(res, target_mb=target_mb)
+        res = res.chunk(recommendation)
+
+        from .utils_stats import _update_history
+
+        return _update_history(res, f"Optimized for performance (target={target_mb}MB)")
+
+    def rechunk(self, chunks: Optional[dict] = None) -> xr.Dataset:
+        """
+        Apply new chunks to the Dataset (Aero Protocol provenance tracking).
+
+        Parameters
+        ----------
+        chunks : dict, optional
+            New chunk sizes. If None, uses optimal recommendations (~100MB).
+
+        Returns
+        -------
+        xarray.Dataset
+            Rechunked Dataset.
+        """
+        if chunks is None:
+            chunks = performance.get_chunk_recommendation(self._obj)
+
+        res = self._obj.chunk(chunks)
+        from .utils_stats import _update_history
+
+        return _update_history(res, f"Rechunked with {chunks}")
