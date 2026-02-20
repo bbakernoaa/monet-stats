@@ -3,7 +3,17 @@ Tests for Aero Protocol optimization and accessor enhancements.
 """
 
 import numpy as np
+import pytest
 import xarray as xr
+
+
+def _has_dask():
+    try:
+        import dask  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
 
 
 def test_da_optimize():
@@ -17,9 +27,13 @@ def test_da_optimize():
     # Optimize it (force laziness by using small target)
     da_opt = da.monet_stats.optimize(target_mb=0.01)
 
-    # Should be lazy now
-    assert hasattr(da_opt.data, "chunks")
-    assert "Optimized for performance" in da_opt.attrs.get("history", "")
+    # Should be lazy now if dask is present
+    if _has_dask():
+        assert hasattr(da_opt.data, "chunks")
+        assert "Optimized for performance" in da_opt.attrs.get("history", "")
+    else:
+        assert not hasattr(da_opt.data, "chunks")
+        assert "Optimization skipped" in da_opt.attrs.get("history", "")
 
 
 def test_ds_optimize():
@@ -30,13 +44,18 @@ def test_ds_optimize():
     # Optimize it
     ds_opt = ds.monet_stats.optimize(target_mb=0.01)
 
-    # Should be lazy now
-    assert hasattr(ds_opt.v1.data, "chunks")
-    assert "Optimized for performance" in ds_opt.attrs.get("history", "")
+    # Should be lazy now if dask is present
+    if _has_dask():
+        assert hasattr(ds_opt.v1.data, "chunks")
+        assert "Optimized for performance" in ds_opt.attrs.get("history", "")
+    else:
+        assert not hasattr(ds_opt.v1.data, "chunks")
+        assert "Optimization skipped" in ds_opt.attrs.get("history", "")
 
 
 def test_da_rechunk():
     """Test rechunk() method on DataArray."""
+    pytest.importorskip("dask")
     data = np.random.rand(100, 100)
     da = xr.DataArray(data, dims=["x", "y"], name="test").chunk({"x": 50, "y": 50})
 

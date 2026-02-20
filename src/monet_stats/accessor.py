@@ -400,13 +400,16 @@ class MonetDataArrayAccessor:
         xarray.DataArray
             Optimized DataArray.
         """
+        from .utils_stats import _update_history
+
+        if not performance._has_dask():
+            return _update_history(self._obj, "Optimization skipped (Dask not installed)")
+
         # Ensure data is lazy
         res = performance.apply_lazy_threshold(self._obj, threshold_mb=0.1)
         # Always calculate and apply recommended chunks for the target size
         recommendation = performance.get_chunk_recommendation(res, target_mb=target_mb)
         res = res.chunk(recommendation)
-
-        from .utils_stats import _update_history
 
         return _update_history(res, f"Optimized for performance (target={target_mb}MB)")
 
@@ -424,11 +427,15 @@ class MonetDataArrayAccessor:
         xarray.DataArray
             Rechunked DataArray.
         """
+        from .utils_stats import _update_history
+
+        if not performance._has_dask():
+            return _update_history(self._obj, "Rechunking skipped (Dask not installed)")
+
         if chunks is None:
             chunks = performance.get_chunk_recommendation(self._obj)
 
         res = self._obj.chunk(chunks)
-        from .utils_stats import _update_history
 
         return _update_history(res, f"Rechunked with {chunks}")
 
@@ -1203,13 +1210,16 @@ class MonetDatasetAccessor:
         xarray.Dataset
             Optimized Dataset.
         """
+        from .utils_stats import _update_history
+
+        if not performance._has_dask():
+            return _update_history(self._obj, "Optimization skipped (Dask not installed)")
+
         # Ensure data is lazy
         res = performance.apply_lazy_threshold(self._obj, threshold_mb=0.1)
         # Always calculate and apply recommended chunks for the target size
         recommendation = performance.get_chunk_recommendation(res, target_mb=target_mb)
         res = res.chunk(recommendation)
-
-        from .utils_stats import _update_history
 
         return _update_history(res, f"Optimized for performance (target={target_mb}MB)")
 
@@ -1227,10 +1237,14 @@ class MonetDatasetAccessor:
         xarray.Dataset
             Rechunked Dataset.
         """
+        from .utils_stats import _update_history
+
+        if not performance._has_dask():
+            return _update_history(self._obj, "Rechunking skipped (Dask not installed)")
+
         if chunks is None:
             chunks = performance.get_chunk_recommendation(self._obj)
 
         res = self._obj.chunk(chunks)
-        from .utils_stats import _update_history
 
         return _update_history(res, f"Rechunked with {chunks}")
