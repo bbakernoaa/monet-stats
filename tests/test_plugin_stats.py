@@ -2,12 +2,14 @@ import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+
 from monet_stats import stats
 from monet_stats.plugin_system import plugin_manager
 
 
 def test_plugin_decorator_registration():
     """Test that the @register decorator correctly registers a plugin."""
+
     @plugin_manager.register(name="CustomAdd", description="Adds 1 to the mean of mod")
     def custom_add(obs, mod, axis=None):
         if isinstance(mod, xr.DataArray):
