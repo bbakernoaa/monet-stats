@@ -2,7 +2,7 @@
 Statistics submodule for MONET utility functions.
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -257,6 +257,7 @@ __all__ = [
 
 # Register xarray accessors
 from . import accessor as accessor
+from .plugin_system import plugin_manager
 
 
 def stats(
@@ -266,6 +267,7 @@ def stats(
     threshold: float = 0.0,
     minval: Optional[float] = None,
     maxval: Optional[float] = None,
+    plugins: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Calculate summary statistics for observations and model results (Aero Protocol).
@@ -287,6 +289,8 @@ def stats(
         Minimum value for filtering observations, by default None.
     maxval : float, optional
         Maximum value for filtering observations, by default None.
+    plugins : List[str], optional
+        List of registered plugin names to include in the statistics, by default None.
 
     Returns
     -------
@@ -362,6 +366,14 @@ def stats(
         res["CCC"] = CCC(obs, mod)
         res["NMSE"] = NMSE(obs, mod)
 
+        # Include plugins
+        if plugins:
+            for p_name in plugins:
+                try:
+                    res[p_name] = plugin_manager.compute_metric(p_name, obs, mod)
+                except Exception:
+                    res[p_name] = np.nan
+
         try:
             res["POD"] = POD(obs, mod, threshold)
             res["FAR"] = FAR(obs, mod, threshold)
@@ -397,6 +409,14 @@ def stats(
             "CCC": CCC(obs, mod),
             "NMSE": NMSE(obs, mod),
         }
+
+        # Include plugins (lazy evaluation)
+        if plugins:
+            for p_name in plugins:
+                try:
+                    metrics_lazy[p_name] = plugin_manager.compute_metric(p_name, obs, mod)
+                except Exception:
+                    metrics_lazy[p_name] = xr.DataArray(np.nan)
 
         # Contingency scores (optional if threshold is valid)
         try:
