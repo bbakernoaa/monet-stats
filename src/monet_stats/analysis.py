@@ -524,7 +524,7 @@ def weighted_spatial_mean(
         Input data with spatial coordinates.
     lat_dim : str, optional
         Name of the latitude dimension. Default is 'lat'.
-        lon_dim : str, optional
+    lon_dim : str, optional
         Name of the longitude dimension. Default is 'lon'.
     weights : xarray.DataArray or numpy.ndarray, optional
         Custom weights for the mean. If None, it tries to find 'cell_area'
@@ -534,6 +534,11 @@ def weighted_spatial_mean(
     -------
     Union[xr.DataArray, xr.Dataset]
         Area-weighted spatial mean.
+
+    Notes
+    -----
+    Aero Protocol: Targets high performance via xarray.weighted and handles
+    Dask-backed arrays lazily.
 
     Examples
     --------
@@ -546,36 +551,89 @@ def weighted_spatial_mean(
     ...                   dims=("lat", "lon"))
     >>> spatial_mean = weighted_spatial_mean(da)
     """
+    # 2. Automated Weight Selection
     if weights is None:
         if "cell_area" in data.coords:
             weights = data.coords["cell_area"]
         elif isinstance(data, xr.Dataset) and "cell_area" in data.data_vars:
             weights = data["cell_area"]
-        else:
+        elif lat_dim in data.coords or lat_dim in data.dims:
             # Fall back to cosine of latitude
             weights = np.cos(np.deg2rad(data[lat_dim]))
-
-    if not isinstance(weights, xr.DataArray):
-        # Determine weights dimensions by matching the end of data dimensions
-        # This handles cases where data is (time, lat, lon) and weights is (lat, lon)
-        w_ndim = np.ndim(weights)
-        if w_ndim == 0:
-            weights = xr.DataArray(weights)
         else:
-            w_dims = data.dims[-w_ndim:]
-            weights = xr.DataArray(weights, dims=w_dims)
+            warnings.warn(
+                f"No weights found and '{lat_dim}' not in coordinates. "
+                "Falling back to equal weights (unweighted mean).",
+                UserWarning,
+                stacklevel=2,
+            )
+            weights = xr.DataArray(1.0)
+
+    # 3. Robust Weight Broadcasting
+    # If weights is NumPy, wrap it intelligently based on detected spatial dimensions
+    if not isinstance(weights, xr.DataArray):
+        weights_arr = np.asanyarray(weights)
+        spatial_dims = [d for d in [lat_dim, lon_dim] if d in data.dims]
+
+        if not spatial_dims:
+            # Fallback for non-spatial data or generic weighting
+            w_ndim = weights_arr.ndim
+            if w_ndim == 0:
+                weights = xr.DataArray(weights_arr)
+            else:
+                # Original behavior as last resort, but warned
+                w_dims = data.dims[-w_ndim:]
+                weights = xr.DataArray(weights_arr, dims=w_dims)
+        else:
+            # Try to match spatial_dims to weights shape
+            w_shape = weights_arr.shape
+            if len(w_shape) == len(spatial_dims):
+                # Check for direct match or transposed match
+                data_spatial_shape = tuple(data.sizes[d] for d in spatial_dims)
+                if w_shape == data_spatial_shape:
+                    weights = xr.DataArray(weights_arr, dims=spatial_dims)
+                elif w_shape == data_spatial_shape[::-1]:
+                    weights = xr.DataArray(weights_arr, dims=spatial_dims[::-1])
+                else:
+                    # Best guess if sizes don't match exactly (will fail later during alignment)
+                    weights = xr.DataArray(weights_arr, dims=spatial_dims)
+            elif len(w_shape) == 1 and len(spatial_dims) > 0:
+                # Handle case where 1D weights are provided for one of the spatial dims
+                for d in spatial_dims:
+                    if w_shape[0] == data.sizes[d]:
+                        weights = xr.DataArray(weights_arr, dims=[d])
+                        break
+                else:
+                    weights = xr.DataArray(weights_arr, dims=[spatial_dims[0]])
+            else:
+                weights = xr.DataArray(weights_arr)
+
+    # 4. Optimized Reduction
+    # Capture name before overwriting for history tracking
+    weights_name = str(getattr(weights, "name", ""))
+
+    # Determine reduction dimensions (re-use spatial_dims if already calculated)
+    if "spatial_dims" not in locals():
+        reduction_dims = [d for d in [lat_dim, lon_dim] if d in data.dims]
+    else:
+        reduction_dims = spatial_dims
+
+    if not reduction_dims:
+        # If specified dims are not present, reduce over all shared dims with weights
+        reduction_dims = [d for d in data.dims if d in weights.dims]
 
     weights.name = "weights"
     weighted_data = data.weighted(weights)
 
-    # Reduction over spatial dimensions
-    spatial_dims = [d for d in [lat_dim, lon_dim] if d in data.dims]
-    if not spatial_dims:
-        # If specified dims are not present, reduce over all shared dims with weights
-        spatial_dims = [d for d in data.dims if d in weights.dims]
+    if not reduction_dims:
+        # If still no reduction dims, default to all dimensions
+        res = weighted_data.mean()
+    else:
+        res = weighted_data.mean(dim=reduction_dims)
 
-    res = weighted_data.mean(dim=spatial_dims)
-    return _update_history(res, "Weighted spatial mean (area-weighted)")
+    # Update history with info about weights used
+    w_info = "area-weighted" if "cell_area" in weights_name else "weighted"
+    return _update_history(res, f"Weighted spatial mean ({w_info})")
 
 
 def fft_analysis(
