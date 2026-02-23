@@ -2,19 +2,57 @@
 Relative/Percentage Metrics for Model Evaluation (Aero Protocol Compliant)
 """
 
-from typing import Optional, Union
+from typing import Iterable, Optional, Union
 
 import numpy as np
 import xarray as xr
 
 from .error_metrics import MAE, MedAE
-from .utils_stats import _update_history, circlebias, circlebias_m
+from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, circlebias_m
+
+__all__ = [
+    "NMB",
+    "WDNMB_m",
+    "NMB_ABS",
+    "NMdnB",
+    "FB",
+    "ME",
+    "MdnE",
+    "WDME_m",
+    "WDME",
+    "WDMdnE",
+    "NME_m",
+    "NME_m_ABS",
+    "NME",
+    "NMdnE",
+    "FE",
+    "USUTPB",
+    "USUTPE",
+    "MNPB",
+    "MdnNPB",
+    "MNPE",
+    "MdnNPE",
+    "NMPB",
+    "NMdnPB",
+    "NMPE",
+    "NMdnPE",
+    "PSUTMNPB",
+    "PSUTMdnNPB",
+    "PSUTMNPE",
+    "PSUTMdnNPE",
+    "PSUTNMPB",
+    "PSUTNMPE",
+    "PSUTNMdnPB",
+    "PSUTNMdnPE",
+    "MPE",
+    "MdnPE",
+]
 
 
 def NMB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Bias (%)
@@ -48,22 +86,20 @@ def NMB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Ensure we use dimension name if axis is int
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = (mod - obs).sum(dim=dim) / obs.sum(dim=dim) * 100.0
         return _update_history(res, "Normalized Mean Bias (NMB)")
     else:
         obs_arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
-        return (mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis) * 100.0
+        res = (mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis) * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def WDNMB_m(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Wind Direction Normalized Mean Bias (%) (avoid single block error in np.ma)
@@ -97,9 +133,7 @@ def WDNMB_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         diff = mod - obs
         cb = circlebias_m(diff)
         res = cb.sum(dim=dim) / obs.sum(dim=dim) * 100.0
@@ -108,13 +142,14 @@ def WDNMB_m(
         obs_arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
         diff = mod_arr - obs_arr
-        return circlebias_m(diff).sum(axis=axis) / obs_arr.sum(axis=axis) * 100.0
+        res = circlebias_m(diff).sum(axis=axis) / obs_arr.sum(axis=axis) * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def NMB_ABS(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Bias - Absolute of the denominator (%)
@@ -140,21 +175,20 @@ def NMB_ABS(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = (mod - obs).sum(dim=dim) / abs(obs.sum(dim=dim)) * 100.0
         return _update_history(res, "Normalized Mean Bias Absolute (NMB_ABS)")
     else:
         obs_arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
-        return (mod_arr - obs_arr).sum(axis=axis) / np.abs(obs_arr.sum(axis=axis)) * 100.0
+        res = (mod_arr - obs_arr).sum(axis=axis) / np.abs(obs_arr.sum(axis=axis)) * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def NMdnB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Median Bias (%)
@@ -188,15 +222,14 @@ def NMdnB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
         if hasattr(diff.data, "chunks"):
-            diff = diff.chunk({d: -1 for d in dim})
-            obs = obs.chunk({d: -1 for d in dim})
+            dims_to_chunk = [dim] if isinstance(dim, str) else list(dim)
+            diff = diff.chunk({d: -1 for d in dims_to_chunk})
+            obs = obs.chunk({d: -1 for d in dims_to_chunk})
         res = (
             diff.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
             / obs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
@@ -213,7 +246,7 @@ def NMdnB(
 def FB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Fractional Bias (%)
@@ -240,21 +273,20 @@ def FB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = (((mod - obs) / (mod + obs)).mean(dim=dim) * 2.0) * 100.0
         return _update_history(res, "Fractional Bias (FB)")
     else:
         obs_arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
-        return (np.ma.masked_invalid((mod_arr - obs_arr) / (mod_arr + obs_arr)).mean(axis=axis) * 2.0) * 100.0
+        res = (np.ma.masked_invalid((mod_arr - obs_arr) / (mod_arr + obs_arr)).mean(axis=axis) * 2.0) * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def ME(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Mean Gross Error (model and obs unit). Alias for MAE.
@@ -268,7 +300,7 @@ def ME(
 def MdnE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Median Gross Error (model and obs unit). Alias for MedAE.
@@ -282,7 +314,7 @@ def MdnE(
 def WDME_m(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Wind Direction Mean Gross Error (model and obs unit)
@@ -317,21 +349,20 @@ def WDME_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = abs(circlebias_m(mod - obs)).mean(dim=dim)
         return _update_history(res, "Wind Direction Mean Gross Error (WDME_m)")
     else:
         obs_arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
-        return np.abs(circlebias_m(mod_arr - obs_arr)).mean(axis=axis)
+        res = np.abs(circlebias_m(mod_arr - obs_arr)).mean(axis=axis)
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def WDME(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Wind Direction Mean Gross Error (model and obs unit)
@@ -365,21 +396,20 @@ def WDME(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = abs(circlebias(mod - obs)).mean(dim=dim)
         return _update_history(res, "Wind Direction Mean Gross Error (WDME)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return np.ma.mean(np.ma.abs(circlebias(mod_arr - obs_arr)), axis=axis)
+        res = np.ma.mean(np.ma.abs(circlebias(mod_arr - obs_arr)), axis=axis)
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def WDMdnE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Wind Direction Median Gross Error (model and obs unit)
@@ -413,14 +443,13 @@ def WDMdnE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         cb = abs(circlebias(mod - obs))
         if hasattr(cb.data, "chunks"):
-            cb = cb.chunk({d: -1 for d in dim})
+            dims_to_chunk = [dim] if isinstance(dim, str) else list(dim)
+            cb = cb.chunk({d: -1 for d in dims_to_chunk})
         res = cb.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
         return _update_history(res, "Wind Direction Median Gross Error (WDMdnE)")
     else:
@@ -434,7 +463,7 @@ def WDMdnE(
 def NME_m(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Error (%) (avoid single block error in np.ma)
@@ -468,21 +497,20 @@ def NME_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = (abs(mod - obs).sum(dim=dim) / obs.sum(dim=dim)) * 100
         return _update_history(res, "Normalized Mean Error (NME_m)")
     else:
         obs_arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
-        return (np.abs(mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis)) * 100
+        res = (np.abs(mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis)) * 100
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def NME_m_ABS(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Error (%) - Absolute of the denominator
@@ -518,21 +546,20 @@ def NME_m_ABS(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = (abs(mod - obs).sum(dim=dim) / abs(obs.sum(dim=dim))) * 100
         return _update_history(res, "Normalized Mean Error Absolute (NME_m_ABS)")
     else:
         obs_arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
-        return (np.abs(mod_arr - obs_arr).sum(axis=axis) / np.abs(obs_arr.sum(axis=axis))) * 100
+        res = (np.abs(mod_arr - obs_arr).sum(axis=axis) / np.abs(obs_arr.sum(axis=axis))) * 100
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def NME(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Error (%)
@@ -566,21 +593,20 @@ def NME(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = (abs(mod - obs).sum(dim=dim) / obs.sum(dim=dim)) * 100
         return _update_history(res, "Normalized Mean Error (NME)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (np.ma.abs(mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis)) * 100
+        res = (np.ma.abs(mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis)) * 100
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def NMdnE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Median Error (%)
@@ -614,15 +640,14 @@ def NMdnE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         if dim is None:
             dim = list(obs.dims)
         diff_abs = abs(mod - obs)
         if hasattr(diff_abs.data, "chunks"):
-            diff_abs = diff_abs.chunk({d: -1 for d in dim})
-            obs = obs.chunk({d: -1 for d in dim})
+            dims_to_chunk = [dim] if isinstance(dim, str) else list(dim)
+            diff_abs = diff_abs.chunk({d: -1 for d in dims_to_chunk})
+            obs = obs.chunk({d: -1 for d in dims_to_chunk})
         res = (
             diff_abs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
             / obs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
@@ -639,7 +664,7 @@ def NMdnE(
 def FE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Fractional Error (%)
@@ -666,21 +691,20 @@ def FE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = (abs(mod - obs) / (mod + obs)).mean(dim=dim) * 2.0 * 100.0
         return _update_history(res, "Fractional Error (FE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (np.ma.mean(np.ma.abs(mod_arr - obs_arr) / (mod_arr + obs_arr), axis=axis)) * 2.0 * 100.0
+        res = (np.ma.mean(np.ma.abs(mod_arr - obs_arr) / (mod_arr + obs_arr), axis=axis)) * 2.0 * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def USUTPB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Unpaired Space/Unpaired Time Peak Bias (%)
@@ -714,21 +738,20 @@ def USUTPB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = ((mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)) * 100.0
         return _update_history(res, "Unpaired Space/Unpaired Time Peak Bias (USUTPB)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return ((np.ma.max(mod_arr, axis=axis) - np.ma.max(obs_arr, axis=axis)) / np.ma.max(obs_arr, axis=axis)) * 100.0
+        res = ((np.ma.max(mod_arr, axis=axis) - np.ma.max(obs_arr, axis=axis)) / np.ma.max(obs_arr, axis=axis)) * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def USUTPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Unpaired Space/Unpaired Time Peak Error (%)
@@ -762,24 +785,23 @@ def USUTPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = (abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)) * 100.0
         return _update_history(res, "Unpaired Space/Unpaired Time Peak Error (USUTPE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
+        res = (
             np.ma.abs(np.ma.max(mod_arr, axis=axis) - np.ma.max(obs_arr, axis=axis)) / np.ma.max(obs_arr, axis=axis)
         ) * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def MNPB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    paxis: Union[int, str],
-    axis: Optional[Union[int, str]] = None,
+    paxis: Union[int, str, Iterable[Union[int, str]]],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Mean Normalized Peak Bias (%)
@@ -802,27 +824,25 @@ def MNPB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        pdim = paxis
-        if isinstance(paxis, int):
-            pdim = obs.dims[paxis]
-        mdim = axis
-        if isinstance(axis, int):
-            mdim = obs.dims[axis]
-        res = (((mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).mean(dim=mdim)) * 100.0
+        pdim = _resolve_axis_to_dim(obs, paxis)
+        _intermediate = (mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)
+        mdim = _resolve_axis_to_dim(_intermediate, axis)
+        res = _intermediate.mean(dim=mdim) * 100.0
         return _update_history(res, "Mean Normalized Peak Bias (MNPB)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
-            (np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)) / np.ma.max(obs_arr, axis=paxis)
-        ).mean(axis=axis) * 100.0
+        res = ((np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)) / np.ma.max(obs_arr, axis=paxis)).mean(
+            axis=axis
+        ) * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def MdnNPB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    paxis: Union[int, str],
-    axis: Optional[Union[int, str]] = None,
+    paxis: Union[int, str, Iterable[Union[int, str]]],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Median Normalized Peak Bias (%)
@@ -845,17 +865,14 @@ def MdnNPB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        pdim = paxis
-        if isinstance(paxis, int):
-            pdim = obs.dims[paxis]
-        mdim = axis
-        if isinstance(axis, int):
-            mdim = obs.dims[axis]
+        pdim = _resolve_axis_to_dim(obs, paxis)
         _intermediate = (mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)
+        mdim = _resolve_axis_to_dim(_intermediate, axis)
         if mdim is None:
             mdim = list(_intermediate.dims)
         if hasattr(_intermediate.data, "chunks"):
-            _intermediate = _intermediate.chunk({d: -1 for d in mdim})
+            dims_to_chunk = [mdim] if isinstance(mdim, str) else list(mdim)
+            _intermediate = _intermediate.chunk({d: -1 for d in dims_to_chunk})
         res = _intermediate.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore") * 100.0
         return _update_history(res, "Median Normalized Peak Bias (MdnNPB)")
     else:
@@ -874,8 +891,8 @@ def MdnNPB(
 def MNPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    paxis: Union[int, str],
-    axis: Optional[Union[int, str]] = None,
+    paxis: Union[int, str, Iterable[Union[int, str]]],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Mean Normalized Peak Error (MNPE, %)
@@ -911,27 +928,25 @@ def MNPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        pdim = paxis
-        if isinstance(paxis, int):
-            pdim = obs.dims[paxis]
-        mdim = axis
-        if isinstance(axis, int):
-            mdim = obs.dims[axis]
-        res = (abs(mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)).mean(dim=mdim) * 100.0
+        pdim = _resolve_axis_to_dim(obs, paxis)
+        _intermediate = abs(mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)
+        mdim = _resolve_axis_to_dim(_intermediate, axis)
+        res = _intermediate.mean(dim=mdim) * 100.0
         return _update_history(res, "Mean Normalized Peak Error (MNPE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
+        res = (
             np.ma.abs(np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)) / np.ma.max(obs_arr, axis=paxis)
         ).mean(axis=axis) * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def MdnNPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    paxis: Union[int, str],
-    axis: Optional[Union[int, str]] = None,
+    paxis: Union[int, str, Iterable[Union[int, str]]],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Median Normalized Peak Error (MdnNPE, %)
@@ -969,17 +984,13 @@ def MdnNPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        pdim = paxis
-        if isinstance(paxis, int):
-            pdim = obs.dims[paxis]
-        mdim = axis
-        if isinstance(axis, int):
-            mdim = obs.dims[axis]
+        pdim = _resolve_axis_to_dim(obs, paxis)
         _intermediate = abs(mod.max(dim=pdim) - obs.max(dim=pdim)) / obs.max(dim=pdim)
+        mdim = _resolve_axis_to_dim(_intermediate, axis)
         if mdim is None:
             mdim = list(_intermediate.dims)
         if hasattr(_intermediate.data, "chunks"):
-            _intermediate = _intermediate.chunk({d: -1 for d in mdim})
+            _intermediate = _intermediate.chunk({d: -1 for d in (mdim if isinstance(mdim, list) else [mdim])})
         res = _intermediate.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore") * 100.0
         return _update_history(res, "Median Normalized Peak Error (MdnNPE)")
     else:
@@ -1001,8 +1012,8 @@ def MdnNPE(
 def NMPB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    paxis: Union[int, str],
-    axis: Optional[Union[int, str]] = None,
+    paxis: Union[int, str, Iterable[Union[int, str]]],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Peak Bias (NMPB, %)
@@ -1038,28 +1049,26 @@ def NMPB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        pdim = paxis
-        if isinstance(paxis, int):
-            pdim = obs.dims[paxis]
-        mdim = axis
-        if isinstance(axis, int):
-            mdim = obs.dims[axis]
-        res = ((mod.max(dim=pdim) - obs.max(dim=pdim)).mean(dim=mdim) / obs.max(dim=pdim).mean(dim=mdim)) * 100.0
+        pdim = _resolve_axis_to_dim(obs, paxis)
+        _diff_mean = (mod.max(dim=pdim) - obs.max(dim=pdim)).mean(dim=_resolve_axis_to_dim(mod.max(dim=pdim), axis))
+        _obs_mean = obs.max(dim=pdim).mean(dim=_resolve_axis_to_dim(obs.max(dim=pdim), axis))
+        res = (_diff_mean / _obs_mean) * 100.0
         return _update_history(res, "Normalized Mean Peak Bias (NMPB)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
+        res = (
             (np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)).mean(axis=axis)
             / np.ma.max(obs_arr, axis=paxis).mean(axis=axis)
         ) * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def NMdnPB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    paxis: Union[int, str],
-    axis: Optional[Union[int, str]] = None,
+    paxis: Union[int, str, Iterable[Union[int, str]]],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Median Peak Bias (NMdnPB, %)
@@ -1095,19 +1104,16 @@ def NMdnPB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        pdim = paxis
-        if isinstance(paxis, int):
-            pdim = obs.dims[paxis]
-        mdim = axis
-        if isinstance(axis, int):
-            mdim = obs.dims[axis]
+        pdim = _resolve_axis_to_dim(obs, paxis)
         _diff = mod.max(dim=pdim) - obs.max(dim=pdim)
         _obs_max = obs.max(dim=pdim)
+        mdim = _resolve_axis_to_dim(_diff, axis)
         if mdim is None:
             mdim = list(_diff.dims)
         if hasattr(_diff.data, "chunks"):
-            _diff = _diff.chunk({d: -1 for d in mdim})
-            _obs_max = _obs_max.chunk({d: -1 for d in mdim})
+            dims_to_chunk = [mdim] if isinstance(mdim, str) else list(mdim)
+            _diff = _diff.chunk({d: -1 for d in dims_to_chunk})
+            _obs_max = _obs_max.chunk({d: -1 for d in dims_to_chunk})
         res = (
             _diff.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
             / _obs_max.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
@@ -1127,8 +1133,8 @@ def NMdnPB(
 def NMPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    paxis: Union[int, str],
-    axis: Optional[Union[int, str]] = None,
+    paxis: Union[int, str, Iterable[Union[int, str]]],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Peak Error (NMPE, %)
@@ -1164,28 +1170,28 @@ def NMPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        pdim = paxis
-        if isinstance(paxis, int):
-            pdim = obs.dims[paxis]
-        mdim = axis
-        if isinstance(axis, int):
-            mdim = obs.dims[axis]
-        res = (abs(mod.max(dim=pdim) - obs.max(dim=pdim)).mean(dim=mdim) / obs.max(dim=pdim).mean(dim=mdim)) * 100.0
+        pdim = _resolve_axis_to_dim(obs, paxis)
+        _diff_abs_mean = abs(mod.max(dim=pdim) - obs.max(dim=pdim)).mean(
+            dim=_resolve_axis_to_dim(mod.max(dim=pdim), axis)
+        )
+        _obs_mean = obs.max(dim=pdim).mean(dim=_resolve_axis_to_dim(obs.max(dim=pdim), axis))
+        res = (_diff_abs_mean / _obs_mean) * 100.0
         return _update_history(res, "Normalized Mean Peak Error (NMPE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
+        res = (
             np.ma.abs(np.ma.max(mod_arr, axis=paxis) - np.ma.max(obs_arr, axis=paxis)).mean(axis=axis)
             / np.ma.max(obs_arr, axis=paxis).mean(axis=axis)
         ) * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def NMdnPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    paxis: Union[int, str],
-    axis: Optional[Union[int, str]] = None,
+    paxis: Union[int, str, Iterable[Union[int, str]]],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Median Peak Error (NMdnPE, %)
@@ -1221,19 +1227,16 @@ def NMdnPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        pdim = paxis
-        if isinstance(paxis, int):
-            pdim = obs.dims[paxis]
-        mdim = axis
-        if isinstance(axis, int):
-            mdim = obs.dims[axis]
+        pdim = _resolve_axis_to_dim(obs, paxis)
         _diff_abs = abs(mod.max(dim=pdim) - obs.max(dim=pdim))
         _obs_max = obs.max(dim=pdim)
+        mdim = _resolve_axis_to_dim(_diff_abs, axis)
         if mdim is None:
             mdim = list(_diff_abs.dims)
         if hasattr(_diff_abs.data, "chunks"):
-            _diff_abs = _diff_abs.chunk({d: -1 for d in mdim})
-            _obs_max = _obs_max.chunk({d: -1 for d in mdim})
+            dims_to_chunk = [mdim] if isinstance(mdim, str) else list(mdim)
+            _diff_abs = _diff_abs.chunk({d: -1 for d in dims_to_chunk})
+            _obs_max = _obs_max.chunk({d: -1 for d in dims_to_chunk})
         res = (
             _diff_abs.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
             / _obs_max.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
@@ -1256,7 +1259,7 @@ def NMdnPE(
 def PSUTMNPB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Mean Normalized Peak Bias (PSUTMNPB, %)
@@ -1269,7 +1272,7 @@ def PSUTMNPB(
 def PSUTMdnNPB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Median Normalized Peak Bias (PSUTMdnNPB, %)
@@ -1282,7 +1285,7 @@ def PSUTMdnNPB(
 def PSUTMNPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Mean Normalized Peak Error (PSUTMNPE, %)
@@ -1295,7 +1298,7 @@ def PSUTMNPE(
 def PSUTMdnNPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Median Normalized Peak Error (PSUTMdnNPE, %)
@@ -1308,7 +1311,7 @@ def PSUTMdnNPE(
 def PSUTNMPB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Normalized Mean Peak Bias (PSUTNMPB, %)
@@ -1321,7 +1324,7 @@ def PSUTNMPB(
 def PSUTNMPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Normalized Mean Peak Error (PSUTNMPE, %)
@@ -1334,7 +1337,7 @@ def PSUTNMPE(
 def PSUTNMdnPB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Normalized Median Peak Bias (PSUTNMdnPB, %)
@@ -1372,7 +1375,7 @@ def PSUTNMdnPB(
 def PSUTNMdnPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Paired Space/Unpaired Time Normalized Median Peak Error (PSUTNMdnPE, %)
@@ -1411,7 +1414,7 @@ def PSUTNMdnPE(
 def MPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Mean Peak Error (%)
@@ -1446,23 +1449,22 @@ def MPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         res = (abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)).mean() * 100.0
         return _update_history(res, "Mean Peak Error (MPE)")
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
-        return (
+        res = (
             np.ma.abs(np.ma.max(mod_arr, axis=axis) - np.ma.max(obs_arr, axis=axis)) / np.ma.max(obs_arr, axis=axis)
         ).mean() * 100.0
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def MdnPE(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
-    axis: Optional[Union[int, str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Median Peak Error (%)
@@ -1498,9 +1500,7 @@ def MdnPE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        dim = axis
-        if isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
         _intermediate = abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)
         mdim = list(_intermediate.dims)
         if hasattr(_intermediate.data, "chunks"):

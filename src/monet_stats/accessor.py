@@ -7,7 +7,14 @@ from typing import Any, List, Optional, Union
 import numpy as np
 import xarray as xr
 
-from . import analysis
+from . import (
+    analysis,
+    correlation_metrics,
+    efficiency_metrics,
+    error_metrics,
+    performance,
+    relative_metrics,
+)
 
 
 @xr.register_dataarray_accessor("monet_stats")
@@ -341,6 +348,450 @@ class MonetDataArrayAccessor:
             Monthly climatology.
         """
         return analysis.monthly_climatology(self._obj, dim=dim, method=method)
+
+    def anomalies(self, freq: str = "month", dim: str = "time") -> xr.DataArray:
+        """
+        Compute anomalies by subtracting the climatology.
+
+        Parameters
+        ----------
+        freq : str, optional
+            Climatology frequency ('season', 'month', 'dayofyear', 'hour').
+            Default is 'month'.
+        dim : str, optional
+            Dimension along which to compute the anomalies. Default is 'time'.
+
+        Returns
+        -------
+        xarray.DataArray
+            Anomalies.
+        """
+        return analysis.anomalies(self._obj, freq=freq, dim=dim)
+
+    def detrend(self, method: str = "linear", dim: str = "time") -> xr.DataArray:
+        """
+        Remove trend from data.
+
+        Parameters
+        ----------
+        method : str, optional
+            Detrending method ('linear', 'constant'). Default is 'linear'.
+        dim : str, optional
+            Dimension along which to detrend. Default is 'time'.
+
+        Returns
+        -------
+        xarray.DataArray
+            Detrended data.
+        """
+        return analysis.detrend(self._obj, method=method, dim=dim)
+
+    def optimize(self, target_mb: float = 100.0) -> xr.DataArray:
+        """
+        Optimize performance by ensuring laziness and recommended chunks (Aero Protocol).
+
+        Parameters
+        ----------
+        target_mb : float, optional
+            Target size for each chunk in Megabytes. Default is 100.0.
+
+        Returns
+        -------
+        xarray.DataArray
+            Optimized DataArray.
+        """
+        from .utils_stats import _update_history
+
+        if not performance._has_dask():
+            return _update_history(self._obj, "Optimization skipped (Dask not installed)")
+
+        # Ensure data is lazy
+        res = performance.apply_lazy_threshold(self._obj, threshold_mb=0.1)
+        # Always calculate and apply recommended chunks for the target size
+        recommendation = performance.get_chunk_recommendation(res, target_mb=target_mb)
+        res = res.chunk(recommendation)
+
+        return _update_history(res, f"Optimized for performance (target={target_mb}MB)")
+
+    def rechunk(self, chunks: Optional[dict] = None) -> xr.DataArray:
+        """
+        Apply new chunks to the DataArray (Aero Protocol provenance tracking).
+
+        Parameters
+        ----------
+        chunks : dict, optional
+            New chunk sizes. If None, uses optimal recommendations (~100MB).
+
+        Returns
+        -------
+        xarray.DataArray
+            Rechunked DataArray.
+        """
+        from .utils_stats import _update_history
+
+        if not performance._has_dask():
+            return _update_history(self._obj, "Rechunking skipped (Dask not installed)")
+
+        if chunks is None:
+            chunks = performance.get_chunk_recommendation(self._obj)
+
+        res = self._obj.chunk(chunks)
+
+        return _update_history(res, f"Rechunked with {chunks}")
+
+    def taylor_statistics(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.Dataset:
+        """
+        Calculate components required for a Taylor diagram (Aero Protocol).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values (reference).
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the statistics.
+
+        Returns
+        -------
+        xarray.Dataset
+            Dataset containing:
+            - std_obs: Standard deviation of observations.
+            - std_mod: Standard deviation of model predictions.
+            - correlation: Pearson correlation coefficient.
+        """
+        obs, mod = xr.align(obs, self._obj, join="inner")
+        from .utils_stats import _resolve_axis_to_dim, _update_history
+
+        d = _resolve_axis_to_dim(obs, dim)
+
+        res = xr.Dataset(
+            {
+                "std_obs": obs.std(dim=d),
+                "std_mod": mod.std(dim=d),
+                "correlation": correlation_metrics.pearsonr(obs, mod, axis=dim),
+            }
+        )
+        return _update_history(res, "Taylor statistics components")
+
+    def mae(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Mean Absolute Error (MAE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean absolute error.
+        """
+        return error_metrics.MAE(obs, self._obj, axis=dim)
+
+    def rmse(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Root Mean Square Error (RMSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Root mean square error.
+        """
+        return error_metrics.RMSE(obs, self._obj, axis=dim)
+
+    def mb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Mean Bias (MB).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean bias.
+        """
+        return error_metrics.MB(obs, self._obj, axis=dim)
+
+    def ioa(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Index of Agreement (IOA).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Index of agreement.
+        """
+        return error_metrics.IOA(obs, self._obj, axis=dim)
+
+    def crmse(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Centered Root Mean Square Error (CRMSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Centered root mean square error.
+        """
+        return error_metrics.CRMSE(obs, self._obj, axis=dim)
+
+    def mdnb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Median Bias (MdnB).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Median bias.
+        """
+        return error_metrics.MdnB(obs, self._obj, axis=dim)
+
+    def nmse(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Normalized Mean Square Error (NMSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Normalized mean square error.
+        """
+        return error_metrics.NMSE(obs, self._obj, axis=dim)
+
+    def pearsonr(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Pearson correlation coefficient.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Pearson correlation coefficient.
+        """
+        return correlation_metrics.pearsonr(obs, self._obj, axis=dim)
+
+    def r2(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Coefficient of Determination (R^2).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Coefficient of determination.
+        """
+        return correlation_metrics.R2(obs, self._obj, axis=dim)
+
+    def kge(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Kling-Gupta Efficiency (KGE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Kling-Gupta efficiency.
+        """
+        return correlation_metrics.KGE(obs, self._obj, axis=dim)
+
+    def ccc(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Concordance Correlation Coefficient (CCC).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Concordance correlation coefficient.
+        """
+        return correlation_metrics.CCC(obs, self._obj, axis=dim)
+
+    def nmb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Normalized Mean Bias (NMB).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Normalized mean bias.
+        """
+        return relative_metrics.NMB(obs, self._obj, axis=dim)
+
+    def fb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Fractional Bias (FB).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Fractional bias.
+        """
+        return relative_metrics.FB(obs, self._obj, axis=dim)
+
+    def mnb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Mean Normalized Bias (MNB).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean normalized bias.
+        """
+        return error_metrics.MNB(obs, self._obj, axis=dim)
+
+    def mne(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Mean Normalized Gross Error (MNE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean normalized gross error.
+        """
+        return error_metrics.MNE(obs, self._obj, axis=dim)
+
+    def nse(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Nash-Sutcliffe Efficiency (NSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Nash-Sutcliffe efficiency.
+        """
+        return efficiency_metrics.NSE(obs, self._obj, axis=dim)
+
+    def verify(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.Dataset:
+        """
+        Calculate a bundle of common evaluation metrics (Aero Protocol).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metrics.
+
+        Returns
+        -------
+        xarray.Dataset
+            Dataset containing: MAE, RMSE, MB, R, IOA, NMB, MNB, MNE, NSE, and R2.
+        """
+        metrics = {
+            "MAE": error_metrics.MAE(obs, self._obj, axis=dim),
+            "RMSE": error_metrics.RMSE(obs, self._obj, axis=dim),
+            "MB": error_metrics.MB(obs, self._obj, axis=dim),
+            "R": correlation_metrics.pearsonr(obs, self._obj, axis=dim),
+            "IOA": error_metrics.IOA(obs, self._obj, axis=dim),
+            "NMB": relative_metrics.NMB(obs, self._obj, axis=dim),
+            "MNB": error_metrics.MNB(obs, self._obj, axis=dim),
+            "MNE": error_metrics.MNE(obs, self._obj, axis=dim),
+            "NSE": efficiency_metrics.NSE(obs, self._obj, axis=dim),
+            "R2": correlation_metrics.R2(obs, self._obj, axis=dim),
+        }
+        res = xr.Dataset(metrics)
+        from .utils_stats import _update_history
+
+        return _update_history(res, "Verification metrics bundle (verify)")
 
     def plot_spatial(
         self,
@@ -707,3 +1158,93 @@ class MonetDatasetAccessor:
             Monthly climatology.
         """
         return analysis.monthly_climatology(self._obj, dim=dim, method=method)
+
+    def anomalies(self, freq: str = "month", dim: str = "time") -> xr.Dataset:
+        """
+        Compute anomalies by subtracting the climatology.
+
+        Parameters
+        ----------
+        freq : str, optional
+            Climatology frequency ('season', 'month', 'dayofyear', 'hour').
+            Default is 'month'.
+        dim : str, optional
+            Dimension along which to compute the anomalies. Default is 'time'.
+
+        Returns
+        -------
+        xarray.Dataset
+            Anomalies.
+        """
+        return analysis.anomalies(self._obj, freq=freq, dim=dim)
+
+    def detrend(self, method: str = "linear", dim: str = "time") -> xr.Dataset:
+        """
+        Remove trend from data.
+
+        Parameters
+        ----------
+        method : str, optional
+            Detrending method ('linear', 'constant'). Default is 'linear'.
+        dim : str, optional
+            Dimension along which to detrend. Default is 'time'.
+
+        Returns
+        -------
+        xarray.Dataset
+            Detrended data.
+        """
+        return analysis.detrend(self._obj, method=method, dim=dim)
+
+    def optimize(self, target_mb: float = 100.0) -> xr.Dataset:
+        """
+        Optimize performance by ensuring laziness and recommended chunks (Aero Protocol).
+
+        Parameters
+        ----------
+        target_mb : float, optional
+            Target size for each chunk in Megabytes. Default is 100.0.
+
+        Returns
+        -------
+        xarray.Dataset
+            Optimized Dataset.
+        """
+        from .utils_stats import _update_history
+
+        if not performance._has_dask():
+            return _update_history(self._obj, "Optimization skipped (Dask not installed)")
+
+        # Ensure data is lazy
+        res = performance.apply_lazy_threshold(self._obj, threshold_mb=0.1)
+        # Always calculate and apply recommended chunks for the target size
+        recommendation = performance.get_chunk_recommendation(res, target_mb=target_mb)
+        res = res.chunk(recommendation)
+
+        return _update_history(res, f"Optimized for performance (target={target_mb}MB)")
+
+    def rechunk(self, chunks: Optional[dict] = None) -> xr.Dataset:
+        """
+        Apply new chunks to the Dataset (Aero Protocol provenance tracking).
+
+        Parameters
+        ----------
+        chunks : dict, optional
+            New chunk sizes. If None, uses optimal recommendations (~100MB).
+
+        Returns
+        -------
+        xarray.Dataset
+            Rechunked Dataset.
+        """
+        from .utils_stats import _update_history
+
+        if not performance._has_dask():
+            return _update_history(self._obj, "Rechunking skipped (Dask not installed)")
+
+        if chunks is None:
+            chunks = performance.get_chunk_recommendation(self._obj)
+
+        res = self._obj.chunk(chunks)
+
+        return _update_history(res, f"Rechunked with {chunks}")

@@ -2,7 +2,7 @@
 Statistics submodule for MONET utility functions.
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -10,7 +10,9 @@ import xarray as xr
 
 # Explicit imports for all public API symbols (for lint compliance)
 from .analysis import (
+    anomalies,
     climatology,
+    detrend,
     diurnal_cycle,
     exceedance_count,
     fft_analysis,
@@ -119,6 +121,8 @@ __all__ = [
     # analysis
     "resample_data",
     "climatology",
+    "anomalies",
+    "detrend",
     "kz_filter",
     "diurnal_cycle",
     "rolling_mean_8h",
@@ -253,6 +257,7 @@ __all__ = [
 
 # Register xarray accessors
 from . import accessor as accessor
+from .plugin_system import plugin_manager
 
 
 def stats(
@@ -262,6 +267,7 @@ def stats(
     threshold: float = 0.0,
     minval: Optional[float] = None,
     maxval: Optional[float] = None,
+    plugins: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Calculate summary statistics for observations and model results (Aero Protocol).
@@ -283,6 +289,8 @@ def stats(
         Minimum value for filtering observations, by default None.
     maxval : float, optional
         Maximum value for filtering observations, by default None.
+    plugins : List[str], optional
+        List of registered plugin names to include in the statistics, by default None.
 
     Returns
     -------
@@ -309,6 +317,8 @@ def stats(
         - CCC: Concordance Correlation Coefficient
         - MNE: Mean Normalized Gross Error
         - NMSE: Normalized Mean Square Error
+        - CSI: Critical Success Index (at threshold)
+        - TSS: True Skill Statistic (at threshold)
 
     Examples
     --------
@@ -358,14 +368,26 @@ def stats(
         res["CCC"] = CCC(obs, mod)
         res["NMSE"] = NMSE(obs, mod)
 
+        # Include plugins
+        if plugins:
+            for p_name in plugins:
+                try:
+                    res[p_name] = plugin_manager.compute_metric(p_name, obs, mod)
+                except Exception:
+                    res[p_name] = np.nan
+
         try:
             res["POD"] = POD(obs, mod, threshold)
             res["FAR"] = FAR(obs, mod, threshold)
             res["HSS"] = HSS(obs, mod, threshold)
+            res["CSI"] = CSI(obs, mod, threshold)
+            res["TSS"] = TSS(obs, mod, threshold)
         except Exception:
             res["POD"] = np.nan
             res["FAR"] = np.nan
             res["HSS"] = np.nan
+            res["CSI"] = np.nan
+            res["TSS"] = np.nan
         return res
 
     elif isinstance(data, xr.Dataset):
@@ -394,16 +416,28 @@ def stats(
             "NMSE": NMSE(obs, mod),
         }
 
+        # Include plugins (lazy evaluation)
+        if plugins:
+            for p_name in plugins:
+                try:
+                    metrics_lazy[p_name] = plugin_manager.compute_metric(p_name, obs, mod)
+                except Exception:
+                    metrics_lazy[p_name] = xr.DataArray(np.nan)
+
         # Contingency scores (optional if threshold is valid)
         try:
             metrics_lazy["POD"] = POD(obs, mod, threshold)
             metrics_lazy["FAR"] = FAR(obs, mod, threshold)
             metrics_lazy["HSS"] = HSS(obs, mod, threshold)
+            metrics_lazy["CSI"] = CSI(obs, mod, threshold)
+            metrics_lazy["TSS"] = TSS(obs, mod, threshold)
         except (ValueError, TypeError):
             # If thresholding fails during graph construction
             metrics_lazy["POD"] = xr.DataArray(np.nan)
             metrics_lazy["FAR"] = xr.DataArray(np.nan)
             metrics_lazy["HSS"] = xr.DataArray(np.nan)
+            metrics_lazy["CSI"] = xr.DataArray(np.nan)
+            metrics_lazy["TSS"] = xr.DataArray(np.nan)
 
         # Single optimized compute call using a dummy Dataset to bundle dask graph
         # This avoids a direct dependency on dask.base.compute

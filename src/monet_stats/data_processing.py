@@ -94,7 +94,10 @@ def align_arrays(
 
 
 def handle_missing_values(
-    obs: Union[np.ndarray, xr.DataArray], mod: Union[np.ndarray, xr.DataArray], strategy: str = "pairwise"
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    strategy: str = "pairwise",
+    preserve_shape: bool = False,
 ) -> Tuple[Union[np.ndarray, xr.DataArray], Union[np.ndarray, xr.DataArray]]:
     """
     Handle missing values in arrays (Aero Protocol: Lazy-friendly).
@@ -108,7 +111,9 @@ def handle_missing_values(
     strategy : str, optional
         Strategy for handling missing values ('pairwise', 'listwise').
         For xarray, ensures NaNs are matched across both arrays without dropping coordinates.
-        For numpy, returns flattened arrays with NaNs removed.
+    preserve_shape : bool, optional
+        If True, returns masked arrays (for NumPy) instead of flattened arrays.
+        Default is False.
 
     Returns
     -------
@@ -122,6 +127,9 @@ def handle_missing_values(
     >>> mod = np.array([1, 2, np.nan])
     >>> handle_missing_values(obs, mod)
     (array([1.]), array([1.]))
+    >>> o, m = handle_missing_values(obs, mod, preserve_shape=True)
+    >>> o
+    masked_array(data=[1.0, --, --], mask=[False,  True,  True], fill_value=1e+20)
     """
     obs, mod = align_arrays(obs, mod)
 
@@ -133,6 +141,8 @@ def handle_missing_values(
     else:
         mask = np.isnan(obs) | np.isnan(mod)
         if strategy in ["pairwise", "listwise"]:
+            if preserve_shape:
+                return np.ma.masked_where(mask, obs), np.ma.masked_where(mask, mod)
             return obs[~mask], mod[~mask]
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
@@ -212,7 +222,7 @@ def detrend_data(
     axis: int = -1,
 ) -> Tuple[Union[np.ndarray, xr.DataArray], Union[np.ndarray, xr.DataArray]]:
     """
-    Remove trend from data (Lazy-friendly).
+    Remove trend from data (Aero Protocol: Lazy-friendly).
 
     Parameters
     ----------
@@ -243,52 +253,30 @@ def detrend_data(
     >>> np.allclose(obs_d, 0)
     True
     """
+    from .analysis import detrend
+
     obs, mod = align_arrays(obs, mod)
 
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        # Delegate to canonical implementation in analysis module
+        if dim is None:
+            dim = obs.dims[axis]
+        return detrend(obs, method=method, dim=dim), detrend(mod, method=method, dim=dim)
+
+    # NumPy path
     if method == "linear":
-        from scipy.signal import detrend
+        from scipy.signal import detrend as scipy_detrend
 
-        if isinstance(obs, xr.DataArray):
-            if dim is None:
-                dim = obs.dims[axis]
-
-            # Core dimensions for apply_ufunc must be a single chunk if using dask
-            if hasattr(obs.data, "chunks"):
-                obs = obs.chunk({dim: -1})
-            if hasattr(mod.data, "chunks"):
-                mod = mod.chunk({dim: -1})
-
-            # Use xr.apply_ufunc for laziness and dask support
-            obs_detrended = xr.apply_ufunc(
-                detrend,
-                obs,
-                input_core_dims=[[dim]],
-                output_core_dims=[[dim]],
-                kwargs={"axis": -1},
-                dask="parallelized",
-                output_dtypes=[obs.dtype],
-            )
-            mod_detrended = xr.apply_ufunc(
-                detrend,
-                mod,
-                input_core_dims=[[dim]],
-                output_core_dims=[[dim]],
-                kwargs={"axis": -1},
-                dask="parallelized",
-                output_dtypes=[mod.dtype],
-            )
-        else:
-            obs_detrended = detrend(obs, axis=axis)
-            mod_detrended = detrend(mod, axis=axis)
-
+        obs_detrended = scipy_detrend(obs, axis=axis)
+        mod_detrended = scipy_detrend(mod, axis=axis)
     elif method == "constant":
-        obs_detrended = obs - obs.mean()
-        mod_detrended = mod - mod.mean()
+        obs_detrended = obs - np.mean(obs, axis=axis, keepdims=True)
+        mod_detrended = mod - np.mean(mod, axis=axis, keepdims=True)
     else:
         raise ValueError(f"Unknown detrending method: {method}")
 
-    return _update_history(obs_detrended, f"Detrending ({method})"), _update_history(
-        mod_detrended, f"Detrending ({method})"
+    return _update_history(obs_detrended, f"Detrended ({method})"), _update_history(
+        mod_detrended, f"Detrended ({method})"
     )
 
 
@@ -296,9 +284,11 @@ def compute_anomalies(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     climatology: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    freq: Optional[str] = None,
+    dim: Optional[str] = None,
 ) -> Tuple[Union[np.ndarray, xr.DataArray], Union[np.ndarray, xr.DataArray]]:
     """
-    Compute anomalies relative to climatology (Lazy-friendly).
+    Compute anomalies relative to climatology (Aero Protocol: Lazy-friendly).
 
     Parameters
     ----------
@@ -308,6 +298,11 @@ def compute_anomalies(
         Model/predicted values.
     climatology : numpy.ndarray or xarray.DataArray, optional
         Climatology to subtract. If None, the mean of each array is used.
+    freq : str, optional
+        Frequency for climatology ('month', 'season', etc.). Only used if climatology is None
+        and inputs are Xarray objects with time dimensions.
+    dim : str, optional
+        Dimension along which to compute anomalies.
 
     Returns
     -------
@@ -323,7 +318,15 @@ def compute_anomalies(
     >>> np.isclose(np.mean(obs_anom), 0)
     True
     """
+    from .analysis import anomalies
+
     obs, mod = align_arrays(obs, mod)
+
+    # If freq or dim is specified, use the canonical climatology-based anomalies
+    if (freq is not None or dim is not None) and isinstance(obs, xr.DataArray) and climatology is None:
+        return anomalies(obs, freq=freq or "month", dim=dim or "time"), anomalies(
+            mod, freq=freq or "month", dim=dim or "time"
+        )
 
     if climatology is not None:
         obs_anom = obs - climatology

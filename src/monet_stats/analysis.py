@@ -181,7 +181,15 @@ def kz_filter(
         return convolve1d(x, kernel, axis=-1, mode="constant", cval=np.nan)
 
     # Ensure dimension is in a single chunk for Dask-backed arrays
-    if hasattr(data.data, "chunks"):
+    is_lazy = False
+    if isinstance(data, xr.DataArray):
+        if hasattr(data.data, "chunks"):
+            is_lazy = True
+    elif isinstance(data, xr.Dataset):
+        if any(hasattr(data[v].data, "chunks") for v in data.data_vars):
+            is_lazy = True
+
+    if is_lazy:
         data = data.chunk({dim: -1})
 
     res = xr.apply_ufunc(
@@ -366,25 +374,28 @@ def mda8(
 
 
 def exceedance_count(
-    data: Union[xr.DataArray, xr.Dataset],
+    data: Union[xr.DataArray, xr.Dataset, np.ndarray],
     threshold: float,
     dim: str = "time",
-) -> Union[xr.DataArray, xr.Dataset]:
+    axis: Optional[int] = None,
+) -> Union[xr.DataArray, xr.Dataset, np.ndarray]:
     """
     Count exceedances of a threshold (Aero Protocol).
 
     Parameters
     ----------
-    data : xarray.DataArray or xarray.Dataset
+    data : xarray.DataArray, xarray.Dataset, or numpy.ndarray
         Input data.
     threshold : float
         Value above which an exceedance is counted.
     dim : str, optional
-        Dimension along which to count exceedances. Default is 'time'.
+        Dimension along which to count exceedances (xarray only). Default is 'time'.
+    axis : int, optional
+        Axis along which to count exceedances (numpy only). Default is None (all).
 
     Returns
     -------
-    Union[xr.DataArray, xr.Dataset]
+    Union[xr.DataArray, xr.Dataset, np.ndarray]
         Number of exceedances.
 
     Examples
@@ -395,42 +406,60 @@ def exceedance_count(
     <xarray.DataArray ()>
     array(2)
     """
-    res = (data > threshold).sum(dim=dim)
-    return _update_history(res, f"Exceedance count (threshold={threshold})")
+    if isinstance(data, (xr.DataArray, xr.Dataset)):
+        res = (data > threshold).sum(dim=dim)
+        return _update_history(res, f"Exceedance count (threshold={threshold})")
+
+    res = np.sum(data > threshold, axis=axis)
+    return res
 
 
 def percentile(
-    data: Union[xr.DataArray, xr.Dataset],
+    data: Union[xr.DataArray, xr.Dataset, np.ndarray],
     q: Union[float, list, np.ndarray],
     dim: str = "time",
+    axis: Optional[int] = None,
     **kwargs: Any,
-) -> Union[xr.DataArray, xr.Dataset]:
+) -> Union[xr.DataArray, xr.Dataset, np.ndarray]:
     """
     Compute percentiles (Aero Protocol).
 
     Parameters
     ----------
-    data : xarray.DataArray or xarray.Dataset
+    data : xarray.DataArray, xarray.Dataset, or numpy.ndarray
         Input data.
     q : float or list of float
         Percentile(s) to compute (0-100).
     dim : str, optional
-        Dimension(s) over which to compute percentiles. Default is 'time'.
+        Dimension(s) over which to compute percentiles (xarray only). Default is 'time'.
+    axis : int, optional
+        Axis over which to compute percentiles (numpy only). Default is None.
     **kwargs : Any
-        Additional keyword arguments passed to xarray.quantile.
+        Additional keyword arguments passed to xarray.quantile or np.percentile.
 
     Returns
     -------
-    Union[xr.DataArray, xr.Dataset]
+    Union[xr.DataArray, xr.Dataset, np.ndarray]
         Computed percentiles.
     """
-    # Ensure dimension is in a single chunk for Dask-backed arrays
-    if hasattr(data.data, "chunks"):
-        data = data.chunk({dim: -1})
+    if isinstance(data, (xr.DataArray, xr.Dataset)):
+        # Ensure dimension is in a single chunk for Dask-backed arrays
+        is_lazy = False
+        if isinstance(data, xr.DataArray):
+            if hasattr(data.data, "chunks"):
+                is_lazy = True
+        elif isinstance(data, xr.Dataset):
+            if any(hasattr(data[v].data, "chunks") for v in data.data_vars):
+                is_lazy = True
 
-    # xarray uses 0-1 for quantile, so divide by 100
-    res = data.quantile(np.asanyarray(q) / 100.0, dim=dim, **kwargs)
-    return _update_history(res, f"Percentile (q={q})")
+        if is_lazy:
+            data = data.chunk({dim: -1})
+
+        # xarray uses 0-1 for quantile, so divide by 100
+        res = data.quantile(np.asanyarray(q) / 100.0, dim=dim, **kwargs)
+        return _update_history(res, f"Percentile (q={q})")
+
+    return np.percentile(data, q, axis=axis, **kwargs)
 
 
 def peak_timing(
@@ -461,7 +490,15 @@ def peak_timing(
     >>> peak_hour = peak_timing(da, dim="time")
     """
     # Ensure dimension is in a single chunk for Dask-backed arrays
-    if hasattr(data.data, "chunks"):
+    is_lazy = False
+    if isinstance(data, xr.DataArray):
+        if hasattr(data.data, "chunks"):
+            is_lazy = True
+    elif isinstance(data, xr.Dataset):
+        if any(hasattr(data[v].data, "chunks") for v in data.data_vars):
+            is_lazy = True
+
+    if is_lazy:
         data = data.chunk({dim: -1})
 
     # idxmax returns the coordinate of the maximum
@@ -498,6 +535,11 @@ def weighted_spatial_mean(
     Union[xr.DataArray, xr.Dataset]
         Area-weighted spatial mean.
 
+    Notes
+    -----
+    Aero Protocol: Targets high performance via xarray.weighted and handles
+    Dask-backed arrays lazily.
+
     Examples
     --------
     >>> import xarray as xr
@@ -509,36 +551,89 @@ def weighted_spatial_mean(
     ...                   dims=("lat", "lon"))
     >>> spatial_mean = weighted_spatial_mean(da)
     """
+    # 2. Automated Weight Selection
     if weights is None:
         if "cell_area" in data.coords:
             weights = data.coords["cell_area"]
         elif isinstance(data, xr.Dataset) and "cell_area" in data.data_vars:
             weights = data["cell_area"]
-        else:
+        elif lat_dim in data.coords or lat_dim in data.dims:
             # Fall back to cosine of latitude
             weights = np.cos(np.deg2rad(data[lat_dim]))
-
-    if not isinstance(weights, xr.DataArray):
-        # Determine weights dimensions by matching the end of data dimensions
-        # This handles cases where data is (time, lat, lon) and weights is (lat, lon)
-        w_ndim = np.ndim(weights)
-        if w_ndim == 0:
-            weights = xr.DataArray(weights)
         else:
-            w_dims = data.dims[-w_ndim:]
-            weights = xr.DataArray(weights, dims=w_dims)
+            warnings.warn(
+                f"No weights found and '{lat_dim}' not in coordinates. "
+                "Falling back to equal weights (unweighted mean).",
+                UserWarning,
+                stacklevel=2,
+            )
+            weights = xr.DataArray(1.0)
+
+    # 3. Robust Weight Broadcasting
+    # If weights is NumPy, wrap it intelligently based on detected spatial dimensions
+    if not isinstance(weights, xr.DataArray):
+        weights_arr = np.asanyarray(weights)
+        spatial_dims = [d for d in [lat_dim, lon_dim] if d in data.dims]
+
+        if not spatial_dims:
+            # Fallback for non-spatial data or generic weighting
+            w_ndim = weights_arr.ndim
+            if w_ndim == 0:
+                weights = xr.DataArray(weights_arr)
+            else:
+                # Original behavior as last resort, but warned
+                w_dims = data.dims[-w_ndim:]
+                weights = xr.DataArray(weights_arr, dims=w_dims)
+        else:
+            # Try to match spatial_dims to weights shape
+            w_shape = weights_arr.shape
+            if len(w_shape) == len(spatial_dims):
+                # Check for direct match or transposed match
+                data_spatial_shape = tuple(data.sizes[d] for d in spatial_dims)
+                if w_shape == data_spatial_shape:
+                    weights = xr.DataArray(weights_arr, dims=spatial_dims)
+                elif w_shape == data_spatial_shape[::-1]:
+                    weights = xr.DataArray(weights_arr, dims=spatial_dims[::-1])
+                else:
+                    # Best guess if sizes don't match exactly (will fail later during alignment)
+                    weights = xr.DataArray(weights_arr, dims=spatial_dims)
+            elif len(w_shape) == 1 and len(spatial_dims) > 0:
+                # Handle case where 1D weights are provided for one of the spatial dims
+                for d in spatial_dims:
+                    if w_shape[0] == data.sizes[d]:
+                        weights = xr.DataArray(weights_arr, dims=[d])
+                        break
+                else:
+                    weights = xr.DataArray(weights_arr, dims=[spatial_dims[0]])
+            else:
+                weights = xr.DataArray(weights_arr)
+
+    # 4. Optimized Reduction
+    # Capture name before overwriting for history tracking
+    weights_name = str(getattr(weights, "name", ""))
+
+    # Determine reduction dimensions (re-use spatial_dims if already calculated)
+    if "spatial_dims" not in locals():
+        reduction_dims = [d for d in [lat_dim, lon_dim] if d in data.dims]
+    else:
+        reduction_dims = spatial_dims
+
+    if not reduction_dims:
+        # If specified dims are not present, reduce over all shared dims with weights
+        reduction_dims = [d for d in data.dims if d in weights.dims]
 
     weights.name = "weights"
     weighted_data = data.weighted(weights)
 
-    # Reduction over spatial dimensions
-    spatial_dims = [d for d in [lat_dim, lon_dim] if d in data.dims]
-    if not spatial_dims:
-        # If specified dims are not present, reduce over all shared dims with weights
-        spatial_dims = [d for d in data.dims if d in weights.dims]
+    if not reduction_dims:
+        # If still no reduction dims, default to all dimensions
+        res = weighted_data.mean()
+    else:
+        res = weighted_data.mean(dim=reduction_dims)
 
-    res = weighted_data.mean(dim=spatial_dims)
-    return _update_history(res, "Weighted spatial mean (area-weighted)")
+    # Update history with info about weights used
+    w_info = "area-weighted" if "cell_area" in weights_name else "weighted"
+    return _update_history(res, f"Weighted spatial mean ({w_info})")
 
 
 def fft_analysis(
@@ -581,7 +676,11 @@ def fft_analysis(
         return np.fft.fft(x, axis=-1)
 
     # Core dimensions for apply_ufunc must be a single chunk if using dask
+    is_lazy = False
     if hasattr(data.data, "chunks"):
+        is_lazy = True
+
+    if is_lazy:
         data = data.chunk({dim: -1})
 
     res_complex = xr.apply_ufunc(
@@ -656,7 +755,11 @@ def power_spectrum(
     from scipy.signal import welch
 
     # Core dimensions for apply_ufunc must be a single chunk if using dask
+    is_lazy = False
     if hasattr(data.data, "chunks"):
+        is_lazy = True
+
+    if is_lazy:
         data = data.chunk({dim: -1})
 
     def _welch_wrapper(x: np.ndarray, fs: float, window: str, nperseg: int, **kwargs: Any) -> np.ndarray:
@@ -774,3 +877,112 @@ def monthly_climatology(
     # Shortcut to the general climatology function with freq='month'
     res = climatology(data, freq="month", method=method, dim=dim)
     return _update_history(res, f"Monthly climatology using {method}")
+
+
+def anomalies(
+    data: Union[xr.DataArray, xr.Dataset],
+    freq: str = "month",
+    dim: str = "time",
+) -> Union[xr.DataArray, xr.Dataset]:
+    """
+    Compute anomalies by subtracting the climatology (Aero Protocol).
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        Input data with a time-like coordinate.
+    freq : str, optional
+        Climatology frequency ('season', 'month', 'dayofyear', 'hour').
+        Default is 'month'.
+    dim : str, optional
+        Dimension along which to compute the anomalies. Default is 'time'.
+
+    Returns
+    -------
+    Union[xr.DataArray, xr.Dataset]
+        Anomalies (data - climatology).
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> times = pd.date_range("2020-01-01", periods=366*2, freq="D")
+    >>> da = xr.DataArray(np.random.rand(732), coords={"time": times}, dims="time")
+    >>> monthly_anom = anomalies(da, freq="month")
+    """
+    group = f"{dim}.{freq}"
+    # Compute climatology (this reduces the 'dim' dimension)
+    climo = climatology(data, freq=freq, method="mean", dim=dim)
+
+    # Subtract climatology using groupby broadcasting
+    # data.groupby(group) - climo aligns the 'freq' coordinate automatically
+    res = data.groupby(group) - climo
+
+    return _update_history(res, f"Anomalies ({freq})")
+
+
+def detrend(
+    data: Union[xr.DataArray, xr.Dataset],
+    method: str = "linear",
+    dim: str = "time",
+) -> Union[xr.DataArray, xr.Dataset]:
+    """
+    Remove trend from data (Aero Protocol).
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        Input data.
+    method : str, optional
+        Detrending method ('linear', 'constant').
+        - 'linear': least-squares linear detrend.
+        - 'constant': subtract mean.
+        Default is 'linear'.
+    dim : str, optional
+        Dimension along which to detrend. Default is 'time'.
+
+    Returns
+    -------
+    Union[xr.DataArray, xr.Dataset]
+        Detrended data.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> da = xr.DataArray(np.arange(10) + np.random.randn(10), dims="time")
+    >>> detrended = detrend(da, method="linear")
+    """
+    if method == "constant":
+        res = data - data.mean(dim=dim)
+        return _update_history(res, "Detrended (constant)")
+
+    if method == "linear":
+        from scipy.signal import detrend as scipy_detrend
+
+        if isinstance(data, xr.Dataset):
+            res = data.map(detrend, method=method, dim=dim)
+            return _update_history(res, "Detrended (linear)")
+
+        # Core dimensions for apply_ufunc must be a single chunk if using dask
+        is_lazy = False
+        if hasattr(data.data, "chunks"):
+            is_lazy = True
+
+        if is_lazy:
+            data = data.chunk({dim: -1})
+
+        res = xr.apply_ufunc(
+            scipy_detrend,
+            data,
+            input_core_dims=[[dim]],
+            output_core_dims=[[dim]],
+            kwargs={"axis": -1},
+            dask="parallelized",
+            output_dtypes=[data.dtype],
+            keep_attrs=True,
+        )
+        return _update_history(res, "Detrended (linear)")
+
+    raise ValueError(f"Unknown detrending method: {method}")

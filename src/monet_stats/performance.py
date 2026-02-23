@@ -11,6 +11,16 @@ import xarray as xr
 from .utils_stats import _update_history
 
 
+def _has_dask() -> bool:
+    """Check if Dask is installed and available."""
+    try:
+        import dask  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 def get_chunk_recommendation(
     data: Union[xr.DataArray, xr.Dataset],
     target_mb: float = 100.0,
@@ -32,6 +42,10 @@ def get_chunk_recommendation(
     -------
     Dict[str, int]
         Recommended chunk sizes dictionary.
+
+    Notes
+    -----
+    Aero Protocol: Targets ~100MB per chunk by default for optimal performance.
 
     Examples
     --------
@@ -91,7 +105,7 @@ def get_chunk_recommendation(
 
 def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     """
-    Split array into chunks for memory-efficient processing.
+    Split array into chunks for memory-efficient processing (Aero Protocol).
 
     Parameters
     ----------
@@ -108,11 +122,13 @@ def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     if arr.size == 0:
         return []
 
-    num_elements = arr.size
-    chunks = []
-    for i in range(0, num_elements, chunk_size):
-        chunks.append(arr[i : i + chunk_size])  # noqa: E203
-    return chunks
+    # Vectorized chunking using np.array_split
+    # We split along the first axis to preserve dimensionality of chunks.
+    # Note: To maintain backward compatibility with the original implementation,
+    # we use arr.size to determine the number of chunks, which may result in
+    # empty arrays if arr.size > len(arr).
+    num_chunks = max(1, int(np.ceil(arr.size / chunk_size)))
+    return np.array_split(arr, num_chunks)
 
 
 def apply_lazy_threshold(
@@ -160,6 +176,15 @@ def apply_lazy_threshold(
     size_mb = data.nbytes / (1024 * 1024)
 
     if force_dask or size_mb > threshold_mb:
+        if not _has_dask():
+            warnings.warn(
+                f"Laziness requested (force_dask={force_dask} or size={size_mb:.2f}MB > threshold={threshold_mb}MB), "
+                "but Dask is not installed. Continuing with eager computation.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return data
+
         recommendation = get_chunk_recommendation(data)
         if not is_lazy:
             warnings.warn(

@@ -88,6 +88,15 @@ pip install monet-stats
 - Ensemble mean and spread
 - Rank histograms
 
+#### Analysis & Utility Methods
+
+- Anomalies (Monthly, Seasonal, Daily)
+- Detrending (Linear, Constant)
+- Kolmogorov-Zurbenko (KZ) Filter
+- Diurnal Cycle Analysis
+- Weighted Spatial Mean
+- FFT and Power Spectrum Analysis
+
 ## Documentation Structure
 
 - [Installation Guide](installation.md) - Setup and configuration

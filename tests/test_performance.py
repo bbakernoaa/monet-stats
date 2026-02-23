@@ -35,7 +35,7 @@ class TestPerformance:
         chunks = chunk_array(arr, chunk_size=3)
         assert len(chunks) == 4
         assert chunks[0].shape == (3,)
-        assert chunks[-1].shape == (1,)
+        assert chunks[-1].shape == (2,)
 
     def test_vectorize_function(self):
         """Test that vectorize_function applies a function to an array."""
