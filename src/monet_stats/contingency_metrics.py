@@ -556,6 +556,7 @@ def BSS_binary(
         bs_ref = p_bar * (1.0 - p_bar)
 
         result = xr.where(bs_ref > 0, 1.0 - (bs / bs_ref), 0.0)
+        result.attrs = obs.attrs.copy()
         return _update_history(result, "Binary Brier Skill Score (BSS_binary)")
     else:
         obs_binary = (np.asarray(obs) >= threshold).astype(float)
@@ -650,6 +651,10 @@ def _contingency_table(
         b = (obs_event & ~mod_event).sum(dim=dim)
         c = (~obs_event & mod_event).sum(dim=dim)
         d = (~obs_event & ~mod_event & mask).sum(dim=dim)
+
+        # Preserve attributes for provenance tracking
+        for res in [a, b, c, d]:
+            res.attrs = obs.attrs.copy()
 
         return a, b, c, d
     else:
