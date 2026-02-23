@@ -61,6 +61,7 @@ def HSS(
     denom = (a + c) * (c + d) + (a + b) * (b + d)
     if isinstance(denom, xr.DataArray):
         result = xr.where(denom > 0, 2 * (a * d - b * c) / denom, np.nan)
+        result.attrs = obs.attrs.copy()
         return _update_history(result, "Heidke Skill Score (HSS)")
     else:
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -125,6 +126,7 @@ def ETS(
     denom = a + b + c - random_hits
     if isinstance(denom, xr.DataArray):
         result = xr.where(denom > 0, (a - random_hits) / denom, np.nan)
+        result.attrs = obs.attrs.copy()
         return _update_history(result, "Equitable Threat Score (ETS)")
     else:
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -186,6 +188,7 @@ def CSI(
     denom = a + b + c
     if isinstance(denom, xr.DataArray):
         result = xr.where(denom > 0, a / denom, np.nan)
+        result.attrs = obs.attrs.copy()
         return _update_history(result, "Critical Success Index (CSI)")
     else:
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -298,6 +301,7 @@ def POD(
     denom = a + b
     if isinstance(denom, xr.DataArray):
         result = xr.where(denom > 0, a / denom, np.nan)
+        result.attrs = obs.attrs.copy()
         return _update_history(result, "Probability of Detection (POD)")
     else:
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -359,6 +363,7 @@ def FAR(
     denom = a + c
     if isinstance(denom, xr.DataArray):
         result = xr.where(denom > 0, c / denom, np.nan)
+        result.attrs = obs.attrs.copy()
         return _update_history(result, "False Alarm Rate (FAR)")
     else:
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -420,6 +425,7 @@ def FBI(
     denom = a + b
     if isinstance(denom, xr.DataArray):
         result = xr.where(denom > 0, (a + c) / denom, np.nan)
+        result.attrs = obs.attrs.copy()
         return _update_history(result, "Frequency Bias Index (FBI)")
     else:
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -486,6 +492,7 @@ def TSS(
         pod = xr.where(pod_denom > 0, a / pod_denom, np.nan)
         pofd = xr.where(pofd_denom > 0, c / pofd_denom, np.nan)
         result = pod - pofd
+        result.attrs = obs.attrs.copy()
         return _update_history(result, "True Skill Statistic (TSS)")
     else:
         with np.errstate(divide="ignore", invalid="ignore"):
