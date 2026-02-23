@@ -3,7 +3,7 @@ from typing import Iterable, Optional, Tuple, Union
 import numpy as np
 import xarray as xr
 
-from .utils_stats import _update_history
+from .utils_stats import _resolve_axis_to_dim, _update_history
 
 
 def HSS(
@@ -240,7 +240,15 @@ def scores(
     >>> print(f"Hits: {a}")
     Hits: 2
     """
-    return _contingency_table(obs, mod, minval, maxval, axis=axis)
+    res = _contingency_table(obs, mod, minval, maxval, axis=axis)
+    if isinstance(res[0], xr.DataArray):
+        return (
+            _update_history(res[0], "Hits (a)"),
+            _update_history(res[1], "Misses (b)"),
+            _update_history(res[2], "False Alarms (c)"),
+            _update_history(res[3], "Correct Negatives (d)"),
+        )
+    return res
 
 
 def POD(
@@ -368,6 +376,19 @@ def FBI(
     """
     Frequency Bias Index (FBI) for a given event threshold.
 
+    Typical Use Cases
+    -----------------
+    - Evaluating whether the model over- or under-predicts the frequency of events.
+    - Used in air quality and weather forecasting to assess systematic bias in
+      categorical predictions.
+
+    Typical Values and Range
+    ------------------------
+    - Range: 0 to ∞
+    - 1: Perfect (events occur with same frequency in model and observations)
+    - > 1: Over-prediction (model predicts events more often than observed)
+    - < 1: Under-prediction (model predicts events less often than observed)
+
     Parameters
     ----------
     obs : numpy.ndarray or xarray.DataArray
@@ -415,6 +436,20 @@ def TSS(
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Hanssen-Kuipers Discriminant (True Skill Statistic, TSS).
+
+    Typical Use Cases
+    -----------------
+    - Assessing the ability of the model to distinguish between event and non-event
+      occurrences.
+    - Preferred over other scores for its independence from event frequency
+      (prevalence).
+
+    Typical Values and Range
+    ------------------------
+    - Range: -1 to 1
+    - 1: Perfect forecast
+    - 0: No skill
+    - -1: Perfect mis-forecast (always wrong)
 
     Parameters
     ----------
@@ -510,18 +545,15 @@ def BSS_binary(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obs_binary = (obs >= threshold).astype(float)
         mod_binary = (mod >= threshold).astype(float)
 
         bs = ((mod_binary - obs_binary) ** 2).mean(dim=dim)
-        obs_clim = obs_binary.mean(dim=dim)
-        bs_ref = ((obs_clim - obs_binary) ** 2).mean(dim=dim)
+        # bs_ref is p_bar * (1 - p_bar) where p_bar is the event frequency
+        p_bar = obs_binary.mean(dim=dim)
+        bs_ref = p_bar * (1.0 - p_bar)
 
         result = xr.where(bs_ref > 0, 1.0 - (bs / bs_ref), 0.0)
         return _update_history(result, "Binary Brier Skill Score (BSS_binary)")
@@ -530,13 +562,8 @@ def BSS_binary(
         mod_binary = (np.asarray(mod) >= threshold).astype(float)
 
         bs = np.nanmean((mod_binary - obs_binary) ** 2, axis=axis)
-        obs_clim = np.nanmean(obs_binary, axis=axis)
-        if axis is not None:
-            # Need to keep dims for subtraction
-            obs_clim_kd = np.nanmean(obs_binary, axis=axis, keepdims=True)
-        else:
-            obs_clim_kd = obs_clim
-        bs_ref = np.nanmean((obs_clim_kd - obs_binary) ** 2, axis=axis)
+        p_bar = np.nanmean(obs_binary, axis=axis)
+        bs_ref = p_bar * (1.0 - p_bar)
 
         with np.errstate(divide="ignore", invalid="ignore"):
             result = np.where(bs_ref > 0, 1.0 - (bs / bs_ref), 0.0)
@@ -604,12 +631,7 @@ def _contingency_table(
             if maxval is not None and not isinstance(maxval, xr.DataArray):
                 maxval = xr.DataArray(maxval, dims="threshold", coords={"threshold": maxval})
 
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         mask = obs.notnull() & mod.notnull()
 
@@ -686,6 +708,11 @@ def HSS_max_threshold(
 
     Vectorized implementation (Aero Protocol).
 
+    Typical Use Cases
+    -----------------
+    - Automated tuning of model thresholds to achieve the best possible
+      overall categorical predictive skill.
+
     Parameters
     ----------
     obs : numpy.ndarray or xarray.DataArray
@@ -743,6 +770,11 @@ def ETS_max_threshold(
 
     Vectorized implementation (Aero Protocol).
 
+    Typical Use Cases
+    -----------------
+    - Automated tuning of model thresholds to achieve the best possible
+      predictive skill for rare events.
+
     Parameters
     ----------
     obs : numpy.ndarray or xarray.DataArray
@@ -793,6 +825,11 @@ def POD_max_threshold(
     Find the threshold that maximizes the Probability of Detection (POD) over a range.
 
     Vectorized implementation (Aero Protocol).
+
+    Typical Use Cases
+    -----------------
+    - Determining the most sensitive threshold for event detection,
+      prioritizing hits over all other categories.
 
     Parameters
     ----------
@@ -894,3 +931,110 @@ def FAR_min_threshold(
         min_val = far_values[min_idx]
 
     return float(thresholds[min_idx]), float(min_val)
+
+
+def CSI_max_threshold(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval_range: float,
+    maxval_range: float,
+    step_size: float = 1.0,
+) -> Tuple[float, float]:
+    """
+    Find the threshold that maximizes the Critical Success Index (CSI) over a range.
+
+    Vectorized implementation (Aero Protocol).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    minval_range : float
+        Minimum value of threshold range to test.
+    maxval_range : float
+        Maximum value of threshold range to test.
+    step_size : float, optional
+        Step size for testing thresholds. Default is 1.0.
+
+    Returns
+    -------
+    optimal_threshold : float
+        Threshold value that maximizes CSI.
+    max_csi : float
+        Maximum CSI value achieved.
+    """
+    thresholds = np.arange(minval_range, maxval_range, step_size)
+    a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
+
+    denom = a + b + c
+    with np.errstate(divide="ignore", invalid="ignore"):
+        csi_values = np.where(denom > 0, a / denom, np.nan)
+
+    if isinstance(csi_values, xr.DataArray):
+        max_idx = csi_values.argmax(dim="threshold").values.item()
+        max_val = csi_values.isel(threshold=max_idx).values.item()
+    else:
+        max_idx = np.nanargmax(csi_values)
+        max_val = csi_values[max_idx]
+
+    return float(thresholds[max_idx]), float(max_val)
+
+
+def TSS_max_threshold(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval_range: float,
+    maxval_range: float,
+    step_size: float = 1.0,
+) -> Tuple[float, float]:
+    """
+    Find the threshold that maximizes the True Skill Statistic (TSS) over a range.
+
+    Vectorized implementation (Aero Protocol).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    minval_range : float
+        Minimum value of threshold range to test.
+    maxval_range : float
+        Maximum value of threshold range to test.
+    step_size : float, optional
+        Step size for testing thresholds. Default is 1.0.
+
+    Returns
+    -------
+    optimal_threshold : float
+        Threshold value that maximizes TSS.
+    max_tss : float
+        Maximum TSS value achieved.
+    """
+    thresholds = np.arange(minval_range, maxval_range, step_size)
+    a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
+
+    pod_denom = a + b
+    pofd_denom = c + d
+
+    if isinstance(a, xr.DataArray):
+        pod = xr.where(pod_denom > 0, a / pod_denom, np.nan)
+        pofd = xr.where(pofd_denom > 0, c / pofd_denom, np.nan)
+        tss_values = pod - pofd
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            pod = np.where(pod_denom > 0, a / pod_denom, np.nan)
+            pofd = np.where(pofd_denom > 0, c / pofd_denom, np.nan)
+            tss_values = pod - pofd
+
+    if isinstance(tss_values, xr.DataArray):
+        max_idx = tss_values.argmax(dim="threshold").values.item()
+        max_val = tss_values.isel(threshold=max_idx).values.item()
+    else:
+        max_idx = np.nanargmax(tss_values)
+        max_val = tss_values[max_idx]
+
+    return float(thresholds[max_idx]), float(max_val)

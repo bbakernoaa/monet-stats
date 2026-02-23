@@ -317,6 +317,8 @@ def stats(
         - CCC: Concordance Correlation Coefficient
         - MNE: Mean Normalized Gross Error
         - NMSE: Normalized Mean Square Error
+        - CSI: Critical Success Index (at threshold)
+        - TSS: True Skill Statistic (at threshold)
 
     Examples
     --------
@@ -378,10 +380,14 @@ def stats(
             res["POD"] = POD(obs, mod, threshold)
             res["FAR"] = FAR(obs, mod, threshold)
             res["HSS"] = HSS(obs, mod, threshold)
+            res["CSI"] = CSI(obs, mod, threshold)
+            res["TSS"] = TSS(obs, mod, threshold)
         except Exception:
             res["POD"] = np.nan
             res["FAR"] = np.nan
             res["HSS"] = np.nan
+            res["CSI"] = np.nan
+            res["TSS"] = np.nan
         return res
 
     elif isinstance(data, xr.Dataset):
@@ -423,11 +429,15 @@ def stats(
             metrics_lazy["POD"] = POD(obs, mod, threshold)
             metrics_lazy["FAR"] = FAR(obs, mod, threshold)
             metrics_lazy["HSS"] = HSS(obs, mod, threshold)
+            metrics_lazy["CSI"] = CSI(obs, mod, threshold)
+            metrics_lazy["TSS"] = TSS(obs, mod, threshold)
         except (ValueError, TypeError):
             # If thresholding fails during graph construction
             metrics_lazy["POD"] = xr.DataArray(np.nan)
             metrics_lazy["FAR"] = xr.DataArray(np.nan)
             metrics_lazy["HSS"] = xr.DataArray(np.nan)
+            metrics_lazy["CSI"] = xr.DataArray(np.nan)
+            metrics_lazy["TSS"] = xr.DataArray(np.nan)
 
         # Single optimized compute call using a dummy Dataset to bundle dask graph
         # This avoids a direct dependency on dask.base.compute
