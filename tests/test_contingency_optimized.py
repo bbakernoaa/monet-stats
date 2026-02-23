@@ -1,6 +1,11 @@
-import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
+
+try:
+    import dask.array as da
+except ImportError:
+    da = None
 
 from monet_stats.contingency_metrics import (
     HSS,
@@ -39,6 +44,7 @@ def test_bss_binary_optimized():
     assert res == 1.0
 
 
+@pytest.mark.skipif(da is None, reason="Dask not installed")
 def test_bss_binary_dask():
     obs_data = np.random.rand(10, 10)
     mod_data = np.random.rand(10, 10)
