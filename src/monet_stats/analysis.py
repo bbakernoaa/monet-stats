@@ -202,7 +202,7 @@ def kz_filter(
                 kernel=kernel,
                 axis=axis_idx,
                 dtype=float,
-                meta=np.array([], dtype=float)
+                meta=np.array([], dtype=float),
             )
             res = data.copy(data=res_data)
             return _update_history(res, f"KZ filter (m={m}, k={k})")
