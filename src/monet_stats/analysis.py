@@ -10,7 +10,7 @@ import pandas as pd
 import xarray as xr
 from scipy.ndimage import convolve1d
 
-from .utils_stats import _update_history
+from .utils_stats import _update_history, ensure_single_chunk, is_lazy
 
 
 def resample_data(
@@ -176,21 +176,45 @@ def kz_filter(
         res = data.map(kz_filter, m=m, k=k, dim=dim)
         return _update_history(res, f"KZ filter (m={m}, k={k})")
 
-    # Xarray DataArray path (handles Dask natively via apply_ufunc)
+    # Xarray DataArray path
+    if isinstance(data, xr.DataArray) and is_lazy(data):
+        # Optimization: Use map_overlap for Dask DataArrays to avoid rechunking to -1
+        try:
+            import dask.array as da
+
+            overlap = len(kernel) // 2
+            axis_idx = data.get_axis_num(dim)
+
+            def _kz_overlap_wrapper(x, kernel, axis):
+                return convolve1d(x, kernel, axis=axis, mode="constant", cval=np.nan)
+
+            # Apply map_overlap on the dask array
+            depth = {i: 0 for i in range(data.ndim)}
+            depth[axis_idx] = overlap
+
+            # Note: boundary='none' means we don't pad the global array edges before convolving.
+            # convolve1d handles those edges with mode='constant', cval=nan.
+            res_data = da.map_overlap(
+                _kz_overlap_wrapper,
+                data.data,
+                depth=depth,
+                boundary="none",
+                kernel=kernel,
+                axis=axis_idx,
+                dtype=float,
+                meta=np.array([], dtype=float),
+            )
+            res = data.copy(data=res_data)
+            return _update_history(res, f"KZ filter (m={m}, k={k})")
+        except (ImportError, Exception):
+            # Fallback to rechunking if dask is not available or fails
+            pass
+
     def _kz_wrapper(x: np.ndarray, kernel: np.ndarray) -> np.ndarray:
         return convolve1d(x, kernel, axis=-1, mode="constant", cval=np.nan)
 
-    # Ensure dimension is in a single chunk for Dask-backed arrays
-    is_lazy = False
-    if isinstance(data, xr.DataArray):
-        if hasattr(data.data, "chunks"):
-            is_lazy = True
-    elif isinstance(data, xr.Dataset):
-        if any(hasattr(data[v].data, "chunks") for v in data.data_vars):
-            is_lazy = True
-
-    if is_lazy:
-        data = data.chunk({dim: -1})
+    # Ensure dimension is in a single chunk for apply_ufunc
+    data = ensure_single_chunk(data, dim)
 
     res = xr.apply_ufunc(
         _kz_wrapper,
@@ -444,16 +468,7 @@ def percentile(
     """
     if isinstance(data, (xr.DataArray, xr.Dataset)):
         # Ensure dimension is in a single chunk for Dask-backed arrays
-        is_lazy = False
-        if isinstance(data, xr.DataArray):
-            if hasattr(data.data, "chunks"):
-                is_lazy = True
-        elif isinstance(data, xr.Dataset):
-            if any(hasattr(data[v].data, "chunks") for v in data.data_vars):
-                is_lazy = True
-
-        if is_lazy:
-            data = data.chunk({dim: -1})
+        data = ensure_single_chunk(data, dim)
 
         # xarray uses 0-1 for quantile, so divide by 100
         res = data.quantile(np.asanyarray(q) / 100.0, dim=dim, **kwargs)
@@ -490,16 +505,7 @@ def peak_timing(
     >>> peak_hour = peak_timing(da, dim="time")
     """
     # Ensure dimension is in a single chunk for Dask-backed arrays
-    is_lazy = False
-    if isinstance(data, xr.DataArray):
-        if hasattr(data.data, "chunks"):
-            is_lazy = True
-    elif isinstance(data, xr.Dataset):
-        if any(hasattr(data[v].data, "chunks") for v in data.data_vars):
-            is_lazy = True
-
-    if is_lazy:
-        data = data.chunk({dim: -1})
+    data = ensure_single_chunk(data, dim)
 
     # idxmax returns the coordinate of the maximum
     res = data.idxmax(dim=dim)
@@ -676,12 +682,7 @@ def fft_analysis(
         return np.fft.fft(x, axis=-1)
 
     # Core dimensions for apply_ufunc must be a single chunk if using dask
-    is_lazy = False
-    if hasattr(data.data, "chunks"):
-        is_lazy = True
-
-    if is_lazy:
-        data = data.chunk({dim: -1})
+    data = ensure_single_chunk(data, dim)
 
     res_complex = xr.apply_ufunc(
         _fft_wrapper,
@@ -755,12 +756,7 @@ def power_spectrum(
     from scipy.signal import welch
 
     # Core dimensions for apply_ufunc must be a single chunk if using dask
-    is_lazy = False
-    if hasattr(data.data, "chunks"):
-        is_lazy = True
-
-    if is_lazy:
-        data = data.chunk({dim: -1})
+    data = ensure_single_chunk(data, dim)
 
     def _welch_wrapper(x: np.ndarray, fs: float, window: str, nperseg: int, **kwargs: Any) -> np.ndarray:
         f, psd = welch(x, fs=fs, window=window, nperseg=nperseg, axis=-1, **kwargs)
@@ -966,12 +962,7 @@ def detrend(
             return _update_history(res, "Detrended (linear)")
 
         # Core dimensions for apply_ufunc must be a single chunk if using dask
-        is_lazy = False
-        if hasattr(data.data, "chunks"):
-            is_lazy = True
-
-        if is_lazy:
-            data = data.chunk({dim: -1})
+        data = ensure_single_chunk(data, dim)
 
         res = xr.apply_ufunc(
             scipy_detrend,
