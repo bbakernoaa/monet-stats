@@ -8,7 +8,7 @@ import numpy as np
 import xarray as xr
 
 from .error_metrics import IOA, RMSE, IOA_m
-from .utils_stats import _update_history, circlebias, circlebias_m, matchedcompressed
+from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, circlebias_m, matchedcompressed
 
 __all__ = [
     "IOA",
@@ -75,13 +75,7 @@ def R2(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            # Default to all dimensions if None
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         # Use native xarray correlation for speed and laziness (Aero Protocol)
         r = xr.corr(obs, mod, dim=dim)
@@ -154,16 +148,7 @@ def WDRMSE_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         result = (circlebias_m(mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "WDRMSE_m")
@@ -214,16 +199,7 @@ def WDRMSE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         result = (circlebias(mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "WDRMSE")
@@ -242,14 +218,13 @@ def _vectorized_regression_stats(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         orig_axis = axis
-        if axis is None:
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
             axis = tuple(range(obs.ndim))
-        elif isinstance(axis, str):
-            axis = (obs.get_axis_num(axis),)
-        elif isinstance(axis, int):
-            axis = (axis,)
+        elif isinstance(dim, str):
+            axis = (obs.get_axis_num(dim),)
         else:
-            axis = tuple(obs.get_axis_num(d) if isinstance(d, str) else d for d in axis)
+            axis = tuple(obs.get_axis_num(d) for d in dim)
     else:
         orig_axis = axis
         if axis is None:
@@ -428,16 +403,7 @@ def d1(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         num = abs(obs - mod).sum(dim=dim)
         mean_obs = obs.mean(dim=dim)
@@ -497,16 +463,7 @@ def E1(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         num = abs(obs - mod).sum(dim=dim)
         denom = abs(obs - obs.mean(dim=dim)).sum(dim=dim)
@@ -574,16 +531,7 @@ def WDIOA_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obsmean = obs.mean(dim=dim)
         num = (abs(circlebias_m(obs - mod))).sum(dim=dim)
@@ -652,16 +600,7 @@ def WDIOA(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         num = abs(circlebias(obs - mod)).sum(dim=dim)
         mean_obs = obs.mean(dim=dim)
@@ -715,16 +654,7 @@ def AC(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obs_bar = obs.mean(dim=dim)
         mod_bar = mod.mean(dim=dim)
@@ -785,16 +715,7 @@ def WDAC(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obs_rad = obs * np.pi / 180.0
         mod_rad = mod * np.pi / 180.0
@@ -869,16 +790,7 @@ def taylor_skill(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         std_obs = obs.std(dim=dim)
         std_mod = mod.std(dim=dim)
@@ -964,16 +876,7 @@ def KGE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         r = xr.corr(obs, mod, dim=dim)
         alpha = mod.std(dim=dim) / obs.std(dim=dim)
@@ -1040,12 +943,7 @@ def pearsonr(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         # Use native xarray correlation for speed and laziness (Aero Protocol)
         result = xr.corr(obs, mod, dim=dim)
@@ -1112,12 +1010,7 @@ def spearmanr(
     # Handle Xarray/NumPy alignment and dimension resolution
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
     else:
         dim = axis
 
@@ -1213,24 +1106,11 @@ def kendalltau(
     if is_numpy:
         obs = xr.DataArray(obs)
         mod = xr.DataArray(mod)
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, Iterable) and not isinstance(axis, str):
-                dim = [obs.dims[i] for i in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
     else:
         if isinstance(mod, xr.DataArray):
             obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
     if axis is None:
         obsc, modc = matchedcompressed(obs, mod)
@@ -1314,16 +1194,7 @@ def CCC(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         # Calculate means
         obs_mean = obs.mean(dim=dim)
@@ -1402,16 +1273,7 @@ def E1_prime(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obs_mean = obs.mean(dim=dim)
         num = abs(obs - mod).sum(dim=dim)
@@ -1484,16 +1346,7 @@ def IOA_prime(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obsmean = obs.mean(dim=dim)
         num = ((obs - mod) ** 2).sum(dim=dim)

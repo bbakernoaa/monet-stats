@@ -11,6 +11,59 @@ import xarray as xr
 from numpy.typing import ArrayLike
 
 
+def is_lazy(obj: Any) -> bool:
+    """
+    Check if an xarray object or numpy-like array is Dask-backed (Aero Protocol).
+
+    Parameters
+    ----------
+    obj : Any
+        Object to check (DataArray, Dataset, or array).
+
+    Returns
+    -------
+    bool
+        True if the object contains Dask chunks, False otherwise.
+    """
+    if isinstance(obj, xr.DataArray):
+        return hasattr(obj.data, "chunks") and obj.data.chunks is not None
+    if isinstance(obj, xr.Dataset):
+        return any(hasattr(obj[v].data, "chunks") and obj[v].data.chunks is not None for v in obj.data_vars)
+    return hasattr(obj, "chunks") and obj.chunks is not None
+
+
+def ensure_single_chunk(
+    obj: Union[xr.DataArray, xr.Dataset], dim: Union[str, Iterable[str]]
+) -> Union[xr.DataArray, xr.Dataset]:
+    """
+    Ensure specific dimensions are in a single chunk for Dask objects (Aero Protocol).
+
+    Required for operations like apply_ufunc(dask='parallelized') that cannot
+    handle chunks along core dimensions.
+
+    Parameters
+    ----------
+    obj : xarray.DataArray or xarray.Dataset
+        Object to rechunk.
+    dim : str or iterable of str
+        Dimension(s) to rechunk to a single chunk (-1).
+
+    Returns
+    -------
+    xarray.DataArray or xarray.Dataset
+        The object with specified dimensions rechunked to single chunks if it was lazy.
+    """
+    if not is_lazy(obj):
+        return obj
+
+    if isinstance(dim, str):
+        dims_to_chunk = {dim: -1}
+    else:
+        dims_to_chunk = {d: -1 for d in dim}
+
+    return obj.chunk(dims_to_chunk)
+
+
 def _resolve_axis_to_dim(
     obj: Any, axis: Optional[Union[int, str, Iterable[Union[int, str]]]]
 ) -> Optional[Union[str, Iterable[str]]]:
