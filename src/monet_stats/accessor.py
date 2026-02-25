@@ -9,6 +9,7 @@ import xarray as xr
 
 from . import (
     analysis,
+    contingency_metrics,
     correlation_metrics,
     efficiency_metrics,
     error_metrics,
@@ -760,7 +761,188 @@ class MonetDataArrayAccessor:
         """
         return efficiency_metrics.NSE(obs, self._obj, axis=dim)
 
-    def verify(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.Dataset:
+    def hss(
+        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Heidke Skill Score (HSS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Heidke Skill Score.
+        """
+        return contingency_metrics.HSS(obs, self._obj, minval=threshold, axis=dim)
+
+    def ets(
+        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Equitable Threat Score (ETS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Equitable Threat Score.
+        """
+        return contingency_metrics.ETS(obs, self._obj, minval=threshold, axis=dim)
+
+    def csi(
+        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Critical Success Index (CSI).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Critical Success Index.
+        """
+        return contingency_metrics.CSI(obs, self._obj, minval=threshold, axis=dim)
+
+    def pod(
+        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Probability of Detection (POD).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Probability of Detection.
+        """
+        return contingency_metrics.POD(obs, self._obj, minval=threshold, axis=dim)
+
+    def far(
+        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute False Alarm Rate (FAR).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            False Alarm Rate.
+        """
+        return contingency_metrics.FAR(obs, self._obj, minval=threshold, axis=dim)
+
+    def fbi(
+        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Frequency Bias Index (FBI).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Frequency Bias Index.
+        """
+        return contingency_metrics.FBI(obs, self._obj, minval=threshold, axis=dim)
+
+    def tss(
+        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute True Skill Statistic (TSS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            True Skill Statistic.
+        """
+        return contingency_metrics.TSS(obs, self._obj, minval=threshold, axis=dim)
+
+    def bss_binary(
+        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Binary Brier Skill Score (BSS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Binary Brier Skill Score.
+        """
+        return contingency_metrics.BSS_binary(obs, self._obj, threshold=threshold, axis=dim)
+
+    def verify(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        threshold: Optional[float] = None,
+    ) -> xr.Dataset:
         """
         Calculate a bundle of common evaluation metrics (Aero Protocol).
 
@@ -770,11 +952,14 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metrics.
+        threshold : float, optional
+            Threshold for categorical metrics (POD, FAR, HSS, etc.).
+            If provided, categorical metrics are included in the bundle.
 
         Returns
         -------
         xarray.Dataset
-            Dataset containing: MAE, RMSE, MB, R, IOA, NMB, MNB, MNE, NSE, and R2.
+            Dataset containing common evaluation metrics.
         """
         metrics = {
             "MAE": error_metrics.MAE(obs, self._obj, axis=dim),
@@ -788,6 +973,20 @@ class MonetDataArrayAccessor:
             "NSE": efficiency_metrics.NSE(obs, self._obj, axis=dim),
             "R2": correlation_metrics.R2(obs, self._obj, axis=dim),
         }
+
+        if threshold is not None:
+            metrics.update(
+                {
+                    "POD": contingency_metrics.POD(obs, self._obj, minval=threshold, axis=dim),
+                    "FAR": contingency_metrics.FAR(obs, self._obj, minval=threshold, axis=dim),
+                    "HSS": contingency_metrics.HSS(obs, self._obj, minval=threshold, axis=dim),
+                    "CSI": contingency_metrics.CSI(obs, self._obj, minval=threshold, axis=dim),
+                    "TSS": contingency_metrics.TSS(obs, self._obj, minval=threshold, axis=dim),
+                    "ETS": contingency_metrics.ETS(obs, self._obj, minval=threshold, axis=dim),
+                    "FBI": contingency_metrics.FBI(obs, self._obj, minval=threshold, axis=dim),
+                    "BSS_binary": contingency_metrics.BSS_binary(obs, self._obj, threshold=threshold, axis=dim),
+                }
+            )
         res = xr.Dataset(metrics)
         from .utils_stats import _update_history
 

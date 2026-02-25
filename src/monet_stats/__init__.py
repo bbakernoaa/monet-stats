@@ -27,7 +27,7 @@ from .analysis import (
     rolling_mean_24h,
     weighted_spatial_mean,
 )
-from .contingency_metrics import CSI, ETS, FAR, FBI, HSS, POD, TSS, scores
+from .contingency_metrics import BSS_binary, CSI, ETS, FAR, FBI, HSS, POD, TSS, scores
 from .correlation_metrics import (
     AC,
     CCC,
@@ -143,6 +143,7 @@ __all__ = [
     "HSS",
     "POD",
     "TSS",
+    "BSS_binary",
     "scores",
     # correlation_metrics
     "R2",
@@ -319,6 +320,9 @@ def stats(
         - NMSE: Normalized Mean Square Error
         - CSI: Critical Success Index (at threshold)
         - TSS: True Skill Statistic (at threshold)
+        - ETS: Equitable Threat Score (at threshold)
+        - FBI: Frequency Bias Index (at threshold)
+        - BSS_binary: Binary Brier Skill Score (at threshold)
 
     Examples
     --------
@@ -382,15 +386,23 @@ def stats(
             res["HSS"] = HSS(obs, mod, threshold)
             res["CSI"] = CSI(obs, mod, threshold)
             res["TSS"] = TSS(obs, mod, threshold)
+            res["ETS"] = ETS(obs, mod, threshold)
+            res["FBI"] = FBI(obs, mod, threshold)
+            res["BSS_binary"] = BSS_binary(obs, mod, threshold)
         except Exception:
             res["POD"] = np.nan
             res["FAR"] = np.nan
             res["HSS"] = np.nan
             res["CSI"] = np.nan
             res["TSS"] = np.nan
+            res["ETS"] = np.nan
+            res["FBI"] = np.nan
+            res["BSS_binary"] = np.nan
         return res
 
     elif isinstance(data, xr.Dataset):
+        # Ensure data is lazy if large (Aero Protocol)
+        data = apply_lazy_threshold(data)
         obs = data[obs_name]
         mod = data[mod_name]
 
@@ -431,6 +443,9 @@ def stats(
             metrics_lazy["HSS"] = HSS(obs, mod, threshold)
             metrics_lazy["CSI"] = CSI(obs, mod, threshold)
             metrics_lazy["TSS"] = TSS(obs, mod, threshold)
+            metrics_lazy["ETS"] = ETS(obs, mod, threshold)
+            metrics_lazy["FBI"] = FBI(obs, mod, threshold)
+            metrics_lazy["BSS_binary"] = BSS_binary(obs, mod, threshold)
         except (ValueError, TypeError):
             # If thresholding fails during graph construction
             metrics_lazy["POD"] = xr.DataArray(np.nan)
@@ -438,6 +453,9 @@ def stats(
             metrics_lazy["HSS"] = xr.DataArray(np.nan)
             metrics_lazy["CSI"] = xr.DataArray(np.nan)
             metrics_lazy["TSS"] = xr.DataArray(np.nan)
+            metrics_lazy["ETS"] = xr.DataArray(np.nan)
+            metrics_lazy["FBI"] = xr.DataArray(np.nan)
+            metrics_lazy["BSS_binary"] = xr.DataArray(np.nan)
 
         # Single optimized compute call using a dummy Dataset to bundle dask graph
         # This avoids a direct dependency on dask.base.compute
