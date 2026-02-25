@@ -27,7 +27,7 @@ from .analysis import (
     rolling_mean_24h,
     weighted_spatial_mean,
 )
-from .contingency_metrics import BSS_binary, CSI, ETS, FAR, FBI, HSS, POD, TSS, scores
+from .contingency_metrics import CSI, ETS, FAR, FBI, HSS, POD, TSS, BSS_binary, scores
 from .correlation_metrics import (
     AC,
     CCC,

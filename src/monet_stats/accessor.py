@@ -761,9 +761,7 @@ class MonetDataArrayAccessor:
         """
         return efficiency_metrics.NSE(obs, self._obj, axis=dim)
 
-    def hss(
-        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
-    ) -> xr.DataArray:
+    def hss(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute Heidke Skill Score (HSS).
 
@@ -783,9 +781,7 @@ class MonetDataArrayAccessor:
         """
         return contingency_metrics.HSS(obs, self._obj, minval=threshold, axis=dim)
 
-    def ets(
-        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
-    ) -> xr.DataArray:
+    def ets(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute Equitable Threat Score (ETS).
 
@@ -805,9 +801,7 @@ class MonetDataArrayAccessor:
         """
         return contingency_metrics.ETS(obs, self._obj, minval=threshold, axis=dim)
 
-    def csi(
-        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
-    ) -> xr.DataArray:
+    def csi(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute Critical Success Index (CSI).
 
@@ -827,9 +821,7 @@ class MonetDataArrayAccessor:
         """
         return contingency_metrics.CSI(obs, self._obj, minval=threshold, axis=dim)
 
-    def pod(
-        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
-    ) -> xr.DataArray:
+    def pod(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute Probability of Detection (POD).
 
@@ -849,9 +841,7 @@ class MonetDataArrayAccessor:
         """
         return contingency_metrics.POD(obs, self._obj, minval=threshold, axis=dim)
 
-    def far(
-        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
-    ) -> xr.DataArray:
+    def far(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute False Alarm Rate (FAR).
 
@@ -871,9 +861,7 @@ class MonetDataArrayAccessor:
         """
         return contingency_metrics.FAR(obs, self._obj, minval=threshold, axis=dim)
 
-    def fbi(
-        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
-    ) -> xr.DataArray:
+    def fbi(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute Frequency Bias Index (FBI).
 
@@ -893,9 +881,7 @@ class MonetDataArrayAccessor:
         """
         return contingency_metrics.FBI(obs, self._obj, minval=threshold, axis=dim)
 
-    def tss(
-        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
-    ) -> xr.DataArray:
+    def tss(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute True Skill Statistic (TSS).
 
