@@ -5,6 +5,7 @@ Tests for vectorized summary statistics in Monet Stats (Aero Protocol).
 import numpy as np
 import pytest
 import xarray as xr
+
 from monet_stats import stats
 
 
@@ -49,6 +50,7 @@ def test_stats_vectorized_xarray():
     assert isinstance(results_all["MB"], float)
     assert np.isclose(results_all["MB"], 0.1)
 
+
 def test_stats_accessor_vectorized():
     """Test the Xarray accessor stats method with dimension reduction."""
     obs_data = np.random.rand(5, 5)
@@ -69,6 +71,7 @@ def test_stats_accessor_vectorized():
     assert results["MAE"].shape == (5,)
     assert np.allclose(results["MAE"], 0.5)
 
+
 @pytest.mark.parametrize("backend", ["numpy", "dask"])
 def test_stats_laziness_preservation(backend):
     """Ensure stats() preserves laziness and uses optimized bundling for Dask."""
@@ -84,7 +87,8 @@ def test_stats_laziness_preservation(backend):
 
     if backend == "dask":
         try:
-            import dask.array as da
+            import dask.array  # noqa: F401
+
             ds = ds.chunk({"x": 5, "y": 5})
         except ImportError:
             pytest.skip("Dask not installed")
@@ -100,6 +104,7 @@ def test_stats_laziness_preservation(backend):
         assert isinstance(results["RMSE"], xr.DataArray)
 
     assert np.allclose(results["RMSE"], 0.2)
+
 
 def test_stats_with_plugins_vectorized():
     """Test that plugins also support vectorized reduction through stats()."""
