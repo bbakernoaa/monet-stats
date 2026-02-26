@@ -1040,6 +1040,8 @@ class MonetDatasetAccessor:
         threshold: float = 0.0,
         minval: Optional[float] = None,
         maxval: Optional[float] = None,
+        dim: Optional[Union[str, List[str]]] = None,
+        plugins: Optional[List[str]] = None,
     ) -> dict:
         """
         Calculate summary statistics for observations and model results.
@@ -1056,6 +1058,10 @@ class MonetDatasetAccessor:
             Minimum value for filtering.
         maxval : float, optional
             Maximum value for filtering.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the statistics.
+        plugins : list of str, optional
+            List of registered plugin names to include.
 
         Returns
         -------
@@ -1071,6 +1077,8 @@ class MonetDatasetAccessor:
             threshold=threshold,
             minval=minval,
             maxval=maxval,
+            axis=dim,
+            plugins=plugins,
         )
 
     def climatology(self, freq: str = "season", method: str = "mean", dim: str = "time") -> xr.Dataset:

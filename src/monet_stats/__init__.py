@@ -2,7 +2,7 @@
 Statistics submodule for MONET utility functions.
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -106,6 +106,8 @@ from .relative_metrics import FB, FE, MPE, NMB, NMB_ABS, NMdnB
 from .spatial_ensemble_metrics import BSS, CRPS, EDS, SAL, ensemble_mean, ensemble_std, rank_histogram, spread_error
 from .spatial_skill_metrics import FSS, VETS
 from .utils_stats import (
+    _resolve_axis_to_dim,
+    _update_history,
     angular_difference,
     circlebias,
     circlebias_m,
@@ -269,6 +271,7 @@ def stats(
     minval: Optional[float] = None,
     maxval: Optional[float] = None,
     plugins: Optional[List[str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Dict[str, Any]:
     """
     Calculate summary statistics for observations and model results (Aero Protocol).
@@ -292,6 +295,9 @@ def stats(
         Maximum value for filtering observations, by default None.
     plugins : List[str], optional
         List of registered plugin names to include in the statistics, by default None.
+    axis : int, str, or iterable, optional
+        Axis or dimension along which to compute the statistics. If None,
+        reduces over all dimensions.
 
     Returns
     -------
@@ -352,43 +358,47 @@ def stats(
         obs = obs_s.values
         mod = mod_s.values
 
+        if isinstance(axis, str):
+            raise TypeError(f"String axis '{axis}' is not supported for pandas DataFrames. Use integer axis.")
+
         res: Dict[str, Any] = {}
-        res["N"] = obs_s.dropna().count()
-        res["Obs"] = obs_s.mean()
-        res["Mod"] = mod_s.mean()
-        res["MB"] = MB(obs, mod)
-        res["MAE"] = MAE(obs, mod)
-        res["RMSE"] = RMSE(obs, mod)
-        res["R"] = pearsonr(obs, mod)
-        res["IOA"] = IOA(obs, mod)
-        res["NMB"] = NMB(obs, mod)
-        res["MNB"] = MNB(obs, mod)
-        res["MNE"] = MNE(obs, mod)
-        res["NSE"] = NSE(obs, mod)
-        res["CRMSE"] = CRMSE(obs, mod)
-        res["MdnB"] = MdnB(obs, mod)
-        res["KGE"] = KGE(obs, mod)
-        res["R2"] = R2(obs, mod)
-        res["CCC"] = CCC(obs, mod)
-        res["NMSE"] = NMSE(obs, mod)
+        # Pandas path: use provided axis if possible
+        res["N"] = obs_s.dropna().count()  # Pandas count doesn't easily map to axis for verification pairs
+        res["Obs"] = np.nanmean(obs, axis=axis)
+        res["Mod"] = np.nanmean(mod, axis=axis)
+        res["MB"] = MB(obs, mod, axis=axis)
+        res["MAE"] = MAE(obs, mod, axis=axis)
+        res["RMSE"] = RMSE(obs, mod, axis=axis)
+        res["R"] = pearsonr(obs, mod, axis=axis)
+        res["IOA"] = IOA(obs, mod, axis=axis)
+        res["NMB"] = NMB(obs, mod, axis=axis)
+        res["MNB"] = MNB(obs, mod, axis=axis)
+        res["MNE"] = MNE(obs, mod, axis=axis)
+        res["NSE"] = NSE(obs, mod, axis=axis)
+        res["CRMSE"] = CRMSE(obs, mod, axis=axis)
+        res["MdnB"] = MdnB(obs, mod, axis=axis)
+        res["KGE"] = KGE(obs, mod, axis=axis)
+        res["R2"] = R2(obs, mod, axis=axis)
+        res["CCC"] = CCC(obs, mod, axis=axis)
+        res["NMSE"] = NMSE(obs, mod, axis=axis)
 
         # Include plugins
         if plugins:
             for p_name in plugins:
                 try:
-                    res[p_name] = plugin_manager.compute_metric(p_name, obs, mod)
+                    res[p_name] = plugin_manager.compute_metric(p_name, obs, mod, axis=axis)
                 except Exception:
                     res[p_name] = np.nan
 
         try:
-            res["POD"] = POD(obs, mod, threshold)
-            res["FAR"] = FAR(obs, mod, threshold)
-            res["HSS"] = HSS(obs, mod, threshold)
-            res["CSI"] = CSI(obs, mod, threshold)
-            res["TSS"] = TSS(obs, mod, threshold)
-            res["ETS"] = ETS(obs, mod, threshold)
-            res["FBI"] = FBI(obs, mod, threshold)
-            res["BSS_binary"] = BSS_binary(obs, mod, threshold)
+            res["POD"] = POD(obs, mod, threshold, axis=axis)
+            res["FAR"] = FAR(obs, mod, threshold, axis=axis)
+            res["HSS"] = HSS(obs, mod, threshold, axis=axis)
+            res["CSI"] = CSI(obs, mod, threshold, axis=axis)
+            res["TSS"] = TSS(obs, mod, threshold, axis=axis)
+            res["ETS"] = ETS(obs, mod, threshold, axis=axis)
+            res["FBI"] = FBI(obs, mod, threshold, axis=axis)
+            res["BSS_binary"] = BSS_binary(obs, mod, threshold, axis=axis)
         except Exception:
             res["POD"] = np.nan
             res["FAR"] = np.nan
@@ -406,46 +416,48 @@ def stats(
         obs = data[obs_name]
         mod = data[mod_name]
 
+        dim = _resolve_axis_to_dim(obs, axis)
+
         # Gather all metrics that can be computed together to optimize dask graph
         metrics_lazy = {
-            "N": obs.count(),
-            "Obs": obs.mean(),
-            "Mod": mod.mean(),
-            "MB": MB(obs, mod),
-            "MAE": MAE(obs, mod),
-            "RMSE": RMSE(obs, mod),
-            "R": pearsonr(obs, mod),
-            "IOA": IOA(obs, mod),
-            "NMB": NMB(obs, mod),
-            "MNB": MNB(obs, mod),
-            "MNE": MNE(obs, mod),
-            "NSE": NSE(obs, mod),
-            "CRMSE": CRMSE(obs, mod),
-            "MdnB": MdnB(obs, mod),
-            "KGE": KGE(obs, mod),
-            "R2": R2(obs, mod),
-            "CCC": CCC(obs, mod),
-            "NMSE": NMSE(obs, mod),
+            "N": obs.count(dim=dim),
+            "Obs": obs.mean(dim=dim),
+            "Mod": mod.mean(dim=dim),
+            "MB": MB(obs, mod, axis=axis),
+            "MAE": MAE(obs, mod, axis=axis),
+            "RMSE": RMSE(obs, mod, axis=axis),
+            "R": pearsonr(obs, mod, axis=axis),
+            "IOA": IOA(obs, mod, axis=axis),
+            "NMB": NMB(obs, mod, axis=axis),
+            "MNB": MNB(obs, mod, axis=axis),
+            "MNE": MNE(obs, mod, axis=axis),
+            "NSE": NSE(obs, mod, axis=axis),
+            "CRMSE": CRMSE(obs, mod, axis=axis),
+            "MdnB": MdnB(obs, mod, axis=axis),
+            "KGE": KGE(obs, mod, axis=axis),
+            "R2": R2(obs, mod, axis=axis),
+            "CCC": CCC(obs, mod, axis=axis),
+            "NMSE": NMSE(obs, mod, axis=axis),
         }
 
         # Include plugins (lazy evaluation)
         if plugins:
             for p_name in plugins:
                 try:
-                    metrics_lazy[p_name] = plugin_manager.compute_metric(p_name, obs, mod)
+                    metrics_lazy[p_name] = plugin_manager.compute_metric(p_name, obs, mod, axis=axis)
                 except Exception:
                     metrics_lazy[p_name] = xr.DataArray(np.nan)
 
         # Contingency scores (optional if threshold is valid)
         try:
-            metrics_lazy["POD"] = POD(obs, mod, threshold)
-            metrics_lazy["FAR"] = FAR(obs, mod, threshold)
-            metrics_lazy["HSS"] = HSS(obs, mod, threshold)
-            metrics_lazy["CSI"] = CSI(obs, mod, threshold)
-            metrics_lazy["TSS"] = TSS(obs, mod, threshold)
-            metrics_lazy["ETS"] = ETS(obs, mod, threshold)
-            metrics_lazy["FBI"] = FBI(obs, mod, threshold)
-            metrics_lazy["BSS_binary"] = BSS_binary(obs, mod, threshold)
+            metrics_lazy["POD"] = POD(obs, mod, threshold, axis=axis)
+            metrics_lazy["FAR"] = FAR(obs, mod, threshold, axis=axis)
+            metrics_lazy["HSS"] = HSS(obs, mod, threshold, axis=axis)
+            metrics_lazy["CSI"] = CSI(obs, mod, threshold, axis=axis)
+            metrics_lazy["TSS"] = TSS(obs, mod, threshold, axis=axis)
+            metrics_lazy["ETS"] = ETS(obs, mod, threshold, axis=axis)
+            metrics_lazy["FBI"] = FBI(obs, mod, threshold, axis=axis)
+            metrics_lazy["BSS_binary"] = BSS_binary(obs, mod, threshold=threshold, axis=axis)
         except (ValueError, TypeError):
             # If thresholding fails during graph construction
             metrics_lazy["POD"] = xr.DataArray(np.nan)
@@ -460,16 +472,20 @@ def stats(
         # Single optimized compute call using a dummy Dataset to bundle dask graph
         # This avoids a direct dependency on dask.base.compute
         ds_lazy = xr.Dataset({k: v for k, v in metrics_lazy.items() if isinstance(v, (xr.DataArray, xr.Dataset))})
+        # Aero Protocol: Add lineage info to the bundled dataset
+        ds_lazy = _update_history(ds_lazy, f"Summary statistics (axis={axis})")
         ds_computed = ds_lazy.compute()
 
         results = {}
         for k, v in metrics_lazy.items():
             if k in ds_computed:
-                val = ds_computed[k].values
-                results[k] = val.item() if hasattr(val, "item") else val
+                da = ds_computed[k]
+                # Aero Protocol: Return scalar if possible, else DataArray to preserve coords
+                # Never drop coordinates if it's multi-dimensional
+                results[k] = da.item() if da.size == 1 else da
             else:
                 # For non-xarray types (already computed or scalar)
-                results[k] = v.item() if hasattr(v, "item") else v
+                results[k] = v.item() if hasattr(v, "item") and v.size == 1 else v
 
         return results
 
