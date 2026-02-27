@@ -129,18 +129,33 @@ def CRPS(
     array([0.22222222, 0.22222222])
     """
 
-    def _crps_numpy(ens, observation, ens_axis=0):
-        ens_sorted = np.sort(ens, axis=ens_axis)
+    def _crps_numpy(ens: np.ndarray, observation: np.ndarray, ens_axis: int = 0) -> np.ndarray:
+        """
+        Core NumPy implementation of CRPS using the energy form.
+        CRPS = E|X-y| - 0.5 * E|X-X'|
+        """
         n = ens.shape[ens_axis]
-        # Compute empirical CDFs
-        cdf_ens = np.arange(1, n + 1) / n
-        shape = [1] * ens.ndim
-        shape[ens_axis] = n
-        cdf_ens = np.reshape(cdf_ens, shape)
-        # Broadcast obs for comparison
-        obs_broadcast = np.expand_dims(observation, ens_axis)
-        cdf_obs = (ens_sorted >= obs_broadcast).astype(float)
-        return np.sum((cdf_ens - cdf_obs) ** 2, axis=ens_axis)
+        if n == 0:
+            return np.nan
+
+        # 1. Mean absolute error part: E|X-y|
+        obs_broadcast = np.expand_dims(observation, axis=ens_axis)
+        mae = np.mean(np.abs(ens - obs_broadcast), axis=ens_axis)
+
+        # 2. Ensemble spread part: 0.5 * E|X-X'|
+        # Optimized O(N log N) spread calculation using sorted weights
+        ens_sorted = np.sort(ens, axis=ens_axis)
+        i = np.arange(1, n + 1)
+        weights = (2 * i - n - 1) / (n * n)
+
+        # Reshape weights for broadcasting
+        w_shape = [1] * ens.ndim
+        w_shape[ens_axis] = n
+        weights = weights.reshape(w_shape)
+
+        spread = np.sum(weights * ens_sorted, axis=ens_axis)
+
+        return mae - spread
 
     if isinstance(ensemble, xr.DataArray) and isinstance(obs, xr.DataArray):
         # Determine core dimension
