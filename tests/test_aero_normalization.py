@@ -1,5 +1,5 @@
-import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
 
 from monet_stats.data_processing import normalize_data
@@ -43,6 +43,7 @@ def test_normalize_data_xarray_minmax():
 
 
 def test_normalize_data_robust_dask():
+    da = pytest.importorskip("dask.array")
     # Create a lazy dask-backed array
     data = da.random.random((100, 10), chunks=(50, 10))
     obs = xr.DataArray(data, dims=["time", "site"])
