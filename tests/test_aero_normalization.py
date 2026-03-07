@@ -1,9 +1,9 @@
-
-import numpy as np
-import pytest
-import xarray as xr
 import dask.array as da
+import numpy as np
+import xarray as xr
+
 from monet_stats.data_processing import normalize_data
+
 
 def test_normalize_data_numpy_zscore():
     obs = np.array([[1, 2], [3, 4]], dtype=float)
@@ -19,6 +19,7 @@ def test_normalize_data_numpy_zscore():
     assert np.allclose(o_norm.mean(axis=0), 0)
     assert np.allclose(o_norm.std(axis=0), 1)
 
+
 def test_normalize_data_xarray_zscore():
     data = np.random.rand(10, 5)
     obs = xr.DataArray(data, dims=["lat", "lon"], coords={"lat": np.arange(10), "lon": np.arange(5)})
@@ -30,6 +31,7 @@ def test_normalize_data_xarray_zscore():
     assert np.allclose(o_norm.std(dim="lat"), 1)
     assert "Normalized (zscore) along lat" in o_norm.attrs["history"]
 
+
 def test_normalize_data_xarray_minmax():
     obs = xr.DataArray([0, 5, 10], dims="x")
     mod = xr.DataArray([0, 5, 10], dims="x")
@@ -38,6 +40,7 @@ def test_normalize_data_xarray_minmax():
     assert np.allclose(o_norm.min(), 0)
     assert np.allclose(o_norm.max(), 1)
     assert np.allclose(o_norm.values, [0, 0.5, 1])
+
 
 def test_normalize_data_robust_dask():
     # Create a lazy dask-backed array
@@ -55,8 +58,9 @@ def test_normalize_data_robust_dask():
     o_computed = o_norm.compute()
     assert np.allclose(np.median(o_computed, axis=0), 0)
 
+
 def test_normalize_data_numpy_robust():
-    obs = np.array([1, 2, 3, 100], dtype=float) # 100 is an outlier
+    obs = np.array([1, 2, 3, 100], dtype=float)  # 100 is an outlier
     mod = obs.copy()
 
     o_norm, m_norm = normalize_data(obs, mod, method="robust")
