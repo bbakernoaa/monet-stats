@@ -2,7 +2,7 @@
 Data processing utilities for statistical computations (Aero Protocol Compliant).
 """
 
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Iterable, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -152,9 +152,11 @@ def normalize_data(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     method: str = "zscore",
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, Iterable[int]]] = None,
 ) -> Tuple[Union[np.ndarray, xr.DataArray], Union[np.ndarray, xr.DataArray]]:
     """
-    Normalize data using various methods (Lazy-friendly).
+    Normalize data using various methods (Aero Protocol: Lazy-friendly).
 
     Parameters
     ----------
@@ -167,51 +169,95 @@ def normalize_data(
         - 'zscore': (x - mean) / std
         - 'minmax': (x - min) / (max - min)
         - 'robust': (x - median) / MAD (Median Absolute Deviation)
+        Default is 'zscore'.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the normalization (xarray only).
+    axis : int or iterable of int, optional
+        Axis or axes along which to compute the normalization (numpy only).
 
     Returns
     -------
     tuple of (numpy.ndarray or xarray.DataArray)
         Normalized (obs, mod) arrays.
 
+    Notes
+    -----
+    Aero Protocol: Supports vectorized normalization along specified dimensions
+    and handles Dask-backed arrays lazily.
+
     Examples
     --------
     >>> import xarray as xr
     >>> import numpy as np
-    >>> obs = xr.DataArray(np.random.rand(10, 10))
-    >>> mod = xr.DataArray(np.random.rand(10, 10))
+    >>> obs = xr.DataArray(np.random.rand(10, 10), dims=['lat', 'lon'])
+    >>> mod = xr.DataArray(np.random.rand(10, 10), dims=['lat', 'lon'])
+    >>> # Normalize over all dimensions (default)
     >>> obs_norm, mod_norm = normalize_data(obs, mod, method='zscore')
+    >>> # Normalize along the 'lat' dimension (per-longitude)
+    >>> obs_norm, mod_norm = normalize_data(obs, mod, method='zscore', dim='lat')
     """
+    from .utils_stats import _resolve_axis_to_dim, ensure_single_chunk
+
     obs, mod = align_arrays(obs, mod)
 
+    # Resolve dimensions for Xarray or axes for NumPy
+    if isinstance(obs, xr.DataArray):
+        reduction_dim = dim if dim is not None else _resolve_axis_to_dim(obs, axis)
+    else:
+        reduction_dim = axis
+
     if method == "zscore":
-        obs_norm = (obs - obs.mean()) / obs.std()
-        mod_norm = (mod - mod.mean()) / mod.std()
+        if isinstance(obs, xr.DataArray):
+            obs_norm = (obs - obs.mean(dim=reduction_dim)) / obs.std(dim=reduction_dim)
+            mod_norm = (mod - mod.mean(dim=reduction_dim)) / mod.std(dim=reduction_dim)
+        else:
+            obs_norm = (obs - np.nanmean(obs, axis=reduction_dim, keepdims=True)) / np.nanstd(
+                obs, axis=reduction_dim, keepdims=True
+            )
+            mod_norm = (mod - np.nanmean(mod, axis=reduction_dim, keepdims=True)) / np.nanstd(
+                mod, axis=reduction_dim, keepdims=True
+            )
     elif method == "minmax":
-        obs_norm = (obs - obs.min()) / (obs.max() - obs.min())
-        mod_norm = (mod - mod.min()) / (mod.max() - mod.min())
+        if isinstance(obs, xr.DataArray):
+            obs_min = obs.min(dim=reduction_dim)
+            obs_max = obs.max(dim=reduction_dim)
+            mod_min = mod.min(dim=reduction_dim)
+            mod_max = mod.max(dim=reduction_dim)
+        else:
+            obs_min = np.nanmin(obs, axis=reduction_dim, keepdims=True)
+            obs_max = np.nanmax(obs, axis=reduction_dim, keepdims=True)
+            mod_min = np.nanmin(mod, axis=reduction_dim, keepdims=True)
+            mod_max = np.nanmax(mod, axis=reduction_dim, keepdims=True)
+        obs_norm = (obs - obs_min) / (obs_max - obs_min)
+        mod_norm = (mod - mod_min) / (mod_max - mod_min)
     elif method == "robust":
         if isinstance(obs, xr.DataArray):
-            obs_median = obs.median()
-            obs_mad = abs(obs - obs_median).median()
-        else:
-            obs_median = np.median(obs)
-            obs_mad = np.median(np.abs(obs - obs_median))
+            # Ensure reduction dimensions are single-chunked for Dask
+            # If reduction_dim is None, it means global reduction over all dims
+            rechunk_dims = reduction_dim if reduction_dim is not None else list(obs.dims)
+            obs_c = ensure_single_chunk(obs, rechunk_dims)
+            mod_c = ensure_single_chunk(mod, rechunk_dims)
 
-        if isinstance(mod, xr.DataArray):
-            mod_median = mod.median()
-            mod_mad = abs(mod - mod_median).median()
+            obs_median = obs_c.quantile(0.5, dim=reduction_dim).drop_vars("quantile", errors="ignore")
+            obs_mad = abs(obs_c - obs_median).quantile(0.5, dim=reduction_dim).drop_vars("quantile", errors="ignore")
+
+            mod_median = mod_c.quantile(0.5, dim=reduction_dim).drop_vars("quantile", errors="ignore")
+            mod_mad = abs(mod_c - mod_median).quantile(0.5, dim=reduction_dim).drop_vars("quantile", errors="ignore")
         else:
-            mod_median = np.median(mod)
-            mod_mad = np.median(np.abs(mod - mod_median))
+            # Use nanmedian for NumPy to handle NaNs if strategy was pairwise
+            obs_median = np.nanmedian(obs, axis=reduction_dim, keepdims=True)
+            obs_mad = np.nanmedian(np.abs(obs - obs_median), axis=reduction_dim, keepdims=True)
+
+            mod_median = np.nanmedian(mod, axis=reduction_dim, keepdims=True)
+            mod_mad = np.nanmedian(np.abs(mod - mod_median), axis=reduction_dim, keepdims=True)
 
         obs_norm = (obs - obs_median) / obs_mad
         mod_norm = (mod - mod_median) / mod_mad
     else:
         raise ValueError(f"Unknown normalization method: {method}")
 
-    return _update_history(obs_norm, f"Normalization ({method})"), _update_history(
-        mod_norm, f"Normalization ({method})"
-    )
+    hist_msg = f"Normalized ({method}) along {reduction_dim}"
+    return _update_history(obs_norm, hist_msg), _update_history(mod_norm, hist_msg)
 
 
 def detrend_data(
