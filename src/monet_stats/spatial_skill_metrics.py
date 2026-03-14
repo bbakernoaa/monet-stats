@@ -8,7 +8,7 @@ import numpy as np
 import xarray as xr
 from scipy.ndimage import uniform_filter
 
-from .utils_stats import _update_history
+from .utils_stats import _resolve_axis_to_dim, _update_history
 
 
 def _uniform_filter(data: np.ndarray, window_size: int) -> np.ndarray:
@@ -58,8 +58,8 @@ def FSS(
     dim : str or iterable of str, optional
         Dimension(s) along which to compute the fractions (xarray only).
         If None, uses all dimensions.
-    axis : int or iterable of int, optional
-        Axis or axes along which to compute the fractions (numpy only).
+    axis : int, str, or iterable of int or str, optional
+        Axis or axes along which to compute the fractions.
 
     Returns
     -------
@@ -85,19 +85,8 @@ def FSS(
         mod_binary = (mod >= threshold).astype(float)
 
         # Rolling mean for fractions
-        # Use provided dimensions or default to all dimensions
-        if dim is not None:
-            roll_dims = dim
-        elif axis is not None:
-            if isinstance(axis, str):
-                roll_dims = [axis]
-            elif isinstance(axis, int):
-                roll_dims = [obs.dims[axis]]
-            else:
-                # Iterable of int or str
-                roll_dims = [obs.dims[a] if isinstance(a, int) else a for a in axis]
-        else:
-            roll_dims = obs.dims
+        # Resolve dimensions using Aero Protocol utility
+        roll_dims = _resolve_axis_to_dim(obs, dim if dim is not None else axis)
 
         if isinstance(roll_dims, str):
             roll_dims = [roll_dims]
@@ -156,8 +145,8 @@ def VETS(
         Model or predicted values.
     dim : str or iterable of str, optional
         Dimension(s) along which to compute the score (xarray only).
-    axis : int or iterable of int, optional
-        Axis or axes along which to compute the score (numpy only, or dimension index for xarray).
+    axis : int, str, or iterable of int or str, optional
+        Axis or axes along which to compute the score.
 
     Returns
     -------
@@ -167,19 +156,8 @@ def VETS(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
 
-        # Determine dimensions to reduce over
-        if dim is not None:
-            reduction_dim = dim
-        elif axis is not None:
-            if isinstance(axis, str):
-                reduction_dim = axis
-            elif isinstance(axis, int):
-                reduction_dim = obs.dims[axis]
-            else:
-                # Iterable of int or str
-                reduction_dim = [obs.dims[a] if isinstance(a, int) else a for a in axis]
-        else:
-            reduction_dim = None  # Reduces over all dimensions
+        # Resolve reduction dimensions
+        reduction_dim = _resolve_axis_to_dim(obs, dim if dim is not None else axis)
 
         # Use xr.where for minimum/maximum to be safer with dask
         hits = xr.where(obs < mod, obs, mod).sum(dim=reduction_dim)

@@ -2,7 +2,7 @@
 Xarray accessors for the MONET Stats package (Aero Protocol Compliant).
 """
 
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -15,6 +15,8 @@ from . import (
     error_metrics,
     performance,
     relative_metrics,
+    spatial_ensemble_metrics,
+    spatial_skill_metrics,
 )
 
 
@@ -922,6 +924,145 @@ class MonetDataArrayAccessor:
             Binary Brier Skill Score.
         """
         return contingency_metrics.BSS_binary(obs, self._obj, threshold=threshold, axis=dim)
+
+    def fss(
+        self,
+        obs: xr.DataArray,
+        window_size: int = 3,
+        threshold: Optional[float] = None,
+        dim: Optional[Union[str, List[str]]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Fractions Skill Score (FSS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        window_size : int, optional
+            Size of the square window, by default 3.
+        threshold : float, optional
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the fractions.
+
+        Returns
+        -------
+        xarray.DataArray
+            Fractions Skill Score.
+        """
+        return spatial_skill_metrics.FSS(obs, self._obj, window_size=window_size, threshold=threshold, dim=dim)
+
+    def vets(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Volumetric Equitable Threat Score (VETS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the score.
+
+        Returns
+        -------
+        xarray.DataArray
+            Volumetric Equitable Threat Score.
+        """
+        return spatial_skill_metrics.VETS(obs, self._obj, dim=dim)
+
+    def crps(self, obs: xr.DataArray, dim: Union[int, str] = 0) -> xr.DataArray:
+        """
+        Compute Continuous Ranked Probability Score (CRPS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : int or str, optional
+            Ensemble dimension. Default is 0.
+
+        Returns
+        -------
+        xarray.DataArray
+            CRPS values.
+        """
+        return spatial_ensemble_metrics.CRPS(self._obj, obs, axis=dim)
+
+    def sal(
+        self,
+        obs: xr.DataArray,
+        threshold: Optional[float] = None,
+        lat_dim: str = "lat",
+        lon_dim: str = "lon",
+    ) -> Tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
+        """
+        Compute Structure-Amplitude-Location (SAL) score.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed field.
+        threshold : float, optional
+            Threshold for object identification.
+        lat_dim : str, optional
+            Latitude dimension name.
+        lon_dim : str, optional
+            Longitude dimension name.
+
+        Returns
+        -------
+        S, A, L : xarray.DataArray
+            Structure, Amplitude, and Location components.
+        """
+        return spatial_ensemble_metrics.SAL(obs, self._obj, threshold=threshold, lat_dim=lat_dim, lon_dim=lon_dim)
+
+    def eds(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Extreme Dependency Score (EDS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed field.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the score.
+
+        Returns
+        -------
+        xarray.DataArray
+            Extreme Dependency Score.
+        """
+        return spatial_ensemble_metrics.EDS(obs, self._obj, threshold=threshold, dim=dim)
+
+    def spread_error(
+        self,
+        obs: xr.DataArray,
+        ensemble_dim: Union[int, str] = 0,
+        dim: Optional[Union[str, List[str]]] = None,
+    ) -> Tuple[xr.DataArray, xr.DataArray]:
+        """
+        Compute Spread-Error Relationship.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        ensemble_dim : int or str, optional
+            Ensemble dimension. Default is 0.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the mean spread and error.
+
+        Returns
+        -------
+        mean_spread : xarray.DataArray
+            Mean ensemble spread.
+        mean_error : xarray.DataArray
+            Mean absolute error of ensemble mean vs. obs.
+        """
+        return spatial_ensemble_metrics.spread_error(self._obj, obs, axis=ensemble_dim, dim=dim)
 
     def verify(
         self,
