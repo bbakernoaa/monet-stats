@@ -7,7 +7,7 @@ from typing import Iterable, List, Optional, Tuple, Union
 import numpy as np
 import xarray as xr
 
-from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, matchmasks
+from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, ensure_single_chunk, matchmasks
 
 ############################################################
 # 1. Basic Error Metrics
@@ -221,10 +221,9 @@ def MdnNB(
         if dim is None:
             dim = list(obs.dims)
         diff = (mod - obs) / obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnNB")
     else:
         result = np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
@@ -266,10 +265,9 @@ def MdnNE(
         if dim is None:
             dim = list(obs.dims)
         diff = abs(mod - obs) / obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnNE")
     else:
         result = np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=axis) * 100.0
@@ -320,10 +318,9 @@ def NMdnGE(
         if dim is None:
             dim = list(obs.dims)
         diff = abs(mod - obs)
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = (diff.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore") / obs.mean(dim=dim)) * 100.0
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "NMdnGE")
     else:
         result = (
@@ -572,10 +569,9 @@ def MdnO(
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnO")
     else:
         result = np.median(np.subtract(mod, obs), axis=axis)
@@ -611,10 +607,9 @@ def MdnP(
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnP")
     else:
         result = np.median(np.subtract(mod, obs), axis=axis)
@@ -683,10 +678,9 @@ def RMdn(
         if dim is None:
             dim = list(obs.dims)
         diff_sq = (obs - mod) ** 2
-        if hasattr(diff_sq.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff_sq = diff_sq.chunk({d: -1 for d in dims_to_chunk if d in diff_sq.dims})
+        diff_sq = ensure_single_chunk(diff_sq, dim)
         result = np.sqrt(diff_sq.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore"))
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "RMdn")
     else:
         squared_errors = (np.subtract(obs, mod)) ** 2
@@ -756,10 +750,9 @@ def MdnB(
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnB")
     else:
         result = np.ma.median(np.subtract(mod, obs), axis=axis)
@@ -829,10 +822,9 @@ def WDMdnB(
         if dim is None:
             dim = list(obs.dims)
         diff = circlebias(mod - obs)
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "WDMdnB")
     else:
         result = np.ma.median(circlebias(np.subtract(mod, obs)), axis=axis)
@@ -970,10 +962,9 @@ def MedAE(
         if dim is None:
             dim = list(obs.dims)
         diff_abs = abs(mod - obs)
-        if hasattr(diff_abs.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff_abs = diff_abs.chunk({d: -1 for d in dims_to_chunk if d in diff_abs.dims})
+        diff_abs = ensure_single_chunk(diff_abs, dim)
         result = diff_abs.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MedAE")
     else:
         result = np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)

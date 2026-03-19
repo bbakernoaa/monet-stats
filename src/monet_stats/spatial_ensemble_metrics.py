@@ -628,7 +628,7 @@ def rank_histogram(
             hist, _ = da.histogram(obs_rank.data, bins=bins)
             res = xr.DataArray(hist, dims="rank", coords={"rank": np.arange(n_ens + 1)})
         else:
-            hist, _ = np.histogram(obs_rank.values, bins=bins)
+            hist, _ = np.histogram(obs_rank.data, bins=bins)
             res = xr.DataArray(hist, dims="rank", coords={"rank": np.arange(n_ens + 1)})
         return _update_history(res, "Rank Histogram")
 
