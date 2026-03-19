@@ -25,6 +25,25 @@ def test_csi_max_threshold():
     assert 0 <= max_val <= 1
 
 
+@pytest.mark.skipif(da is None, reason="Dask not installed")
+def test_csi_max_threshold_lazy():
+    obs_data = np.array([1, 2, 3, 4, 5])
+    mod_data = np.array([1.5, 2.5, 3.5, 4.5, 5.5])
+    obs = xr.DataArray(da.from_array(obs_data, chunks=2), dims="x")
+    mod = xr.DataArray(da.from_array(mod_data, chunks=2), dims="x")
+
+    opt_t, max_val = CSI_max_threshold(obs, mod, 1, 5, 0.5)
+    assert isinstance(opt_t, xr.DataArray)
+    assert isinstance(max_val, xr.DataArray)
+    # Verify laziness: DataArray backed by dask should have chunks
+    # Note: argmax/isel might result in a 0-dim dask array
+    assert hasattr(opt_t.data, "chunks")
+    assert hasattr(max_val.data, "chunks")
+
+    assert 1 <= float(opt_t.compute()) <= 5
+    assert 0 <= float(max_val.compute()) <= 1
+
+
 def test_tss_max_threshold():
     obs = np.array([1, 2, 3, 4, 5])
     mod = np.array([1.5, 2.5, 3.5, 4.5, 5.5])
