@@ -122,13 +122,19 @@ def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     if arr.size == 0:
         return []
 
-    # Vectorized chunking using np.array_split
-    # We split along the first axis to preserve dimensionality of chunks.
-    # Note: To maintain backward compatibility with the original implementation,
-    # we use arr.size to determine the number of chunks, which may result in
-    # empty arrays if arr.size > len(arr).
-    num_chunks = max(1, int(np.ceil(arr.size / chunk_size)))
-    return np.array_split(arr, num_chunks)
+    # Calculate elements per row (first axis)
+    n_rows = len(arr)
+    if n_rows == 0:
+        return [arr]
+
+    elements_per_row = arr.size // n_rows
+
+    # Determine how many rows to include in each chunk to target chunk_size
+    # Ensure at least one row per chunk even if it exceeds chunk_size
+    rows_per_chunk = max(1, chunk_size // elements_per_row)
+
+    # Use slicing to create chunks, ensuring no empty arrays are returned
+    return [arr[i : i + rows_per_chunk] for i in range(0, n_rows, rows_per_chunk)]
 
 
 def apply_lazy_threshold(

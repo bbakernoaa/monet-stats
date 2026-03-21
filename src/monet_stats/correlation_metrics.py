@@ -984,6 +984,12 @@ def spearmanr(
     """
     Spearman rank correlation coefficient (Aero Protocol: Vectorized).
 
+    Typical Use Cases
+    -----------------
+    - Quantifying monotonic relationships between model and observations.
+    - Used when data is not normally distributed or when rank-order is more
+      important than exact values.
+
     Parameters
     ----------
     obs : numpy.ndarray or xarray.DataArray
@@ -991,7 +997,7 @@ def spearmanr(
     mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
     axis : int, str, or iterable of such, optional
-        Axis along which to compute the coefficient.
+        Axis or dimension along which to compute the coefficient.
 
     Returns
     -------
@@ -1008,13 +1014,22 @@ def spearmanr(
     0.8660254037844387
     """
     # Handle Xarray/NumPy alignment and dimension resolution
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    is_xr = isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray)
+
+    if is_xr:
+        # Standardize to DataArray for alignment and metadata handling
+        if not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, dims=mod.dims, coords=mod.coords)
+        if not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, dims=obs.dims, coords=obs.coords)
+
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
     else:
         dim = axis
 
-    if axis is None:
+    # For NumPy, maintain matchedcompressed behavior for axis=None
+    if dim is None and not is_xr:
         obsc, modc = matchedcompressed(obs, mod)
         if len(obsc) < 2:
             return np.nan
@@ -1027,8 +1042,12 @@ def spearmanr(
 
     # Apply pairwise masking to ensure ranks are computed on the same set of points
     mask = np.isnan(obs) | np.isnan(mod)
-    obs = xr.where(mask, np.nan, obs) if isinstance(obs, xr.DataArray) else np.where(mask, np.nan, obs)
-    mod = xr.where(mask, np.nan, mod) if isinstance(mod, xr.DataArray) else np.where(mask, np.nan, mod)
+    if is_xr:
+        obs_masked = xr.where(mask, np.nan, obs)
+        mod_masked = xr.where(mask, np.nan, mod)
+    else:
+        obs_masked = np.where(mask, np.nan, obs)
+        mod_masked = np.where(mask, np.nan, mod)
 
     def _rank_wrapper(data, axis):
         # Handle all-NaN slices to avoid Scipy warnings or errors
@@ -1037,11 +1056,12 @@ def spearmanr(
         return rankdata(data, axis=axis, nan_policy="omit")
 
     # Use apply_ufunc for rankdata to support both NumPy and Xarray/Dask
-    if isinstance(obs, xr.DataArray):
-        icd = [dim] if isinstance(dim, (str, int)) else list(dim)
+    if is_xr:
+        # If dim is None (global reduction), use all dimensions as core dimensions
+        icd = list(obs.dims) if dim is None else ([dim] if isinstance(dim, (str, int)) else list(dim))
         obs_ranked = xr.apply_ufunc(
             _rank_wrapper,
-            obs,
+            obs_masked,
             input_core_dims=[icd],
             output_core_dims=[icd],
             kwargs={"axis": -1},
@@ -1052,7 +1072,7 @@ def spearmanr(
         )
         mod_ranked = xr.apply_ufunc(
             _rank_wrapper,
-            mod,
+            mod_masked,
             input_core_dims=[icd],
             output_core_dims=[icd],
             kwargs={"axis": -1},
@@ -1061,10 +1081,11 @@ def spearmanr(
             output_dtypes=[float],
             keep_attrs=True,
         )
-        return pearsonr(obs_ranked, mod_ranked, axis=dim)
+        result = pearsonr(obs_ranked, mod_ranked, axis=dim)
+        return _update_history(result, "spearmanr")
     else:
-        obs_ranked = _rank_wrapper(obs, axis=axis)
-        mod_ranked = _rank_wrapper(mod, axis=axis)
+        obs_ranked = _rank_wrapper(obs_masked, axis=axis)
+        mod_ranked = _rank_wrapper(mod_masked, axis=axis)
         return pearsonr(obs_ranked, mod_ranked, axis=axis)
 
 
@@ -1075,6 +1096,12 @@ def kendalltau(
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Kendall tau correlation coefficient (Aero Protocol: Standardized).
+
+    Typical Use Cases
+    -----------------
+    - Measuring the correspondence between the ranking of two variables.
+    - Useful for assessing model skill in predicting relative rankings
+      when values span several orders of magnitude.
 
     Parameters
     ----------
@@ -1101,18 +1128,23 @@ def kendalltau(
     """
     from scipy.stats import kendalltau as _kendalltau
 
-    # Standardize to DataArray to leverage Xarray's apply_ufunc vectorization
-    is_numpy = not isinstance(obs, xr.DataArray)
-    if is_numpy:
-        obs = xr.DataArray(obs)
-        mod = xr.DataArray(mod)
+    # Handle Xarray/NumPy alignment and dimension resolution
+    is_xr = isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray)
+
+    if is_xr:
+        # Standardize to DataArray for alignment and metadata handling
+        if not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, dims=mod.dims, coords=mod.coords)
+        if not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, dims=obs.dims, coords=obs.coords)
+
+        obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
     else:
-        if isinstance(mod, xr.DataArray):
-            obs, mod = xr.align(obs, mod, join="inner")
-        dim = _resolve_axis_to_dim(obs, axis)
+        dim = axis
 
-    if axis is None:
+    # For NumPy, maintain matchedcompressed behavior for axis=None
+    if dim is None and not is_xr:
         obsc, modc = matchedcompressed(obs, mod)
         if len(obsc) < 2:
             return np.nan
@@ -1127,22 +1159,38 @@ def kendalltau(
         return _kendalltau(a_flat[mask], b_flat[mask])[0]
 
     # Use apply_ufunc to eliminate manual loops and support Dask
-    icd = [dim] if isinstance(dim, (str, int)) else list(dim)
-    result = xr.apply_ufunc(
-        _kendalltau_onlytau,
-        obs,
-        mod,
-        input_core_dims=[icd] * 2,
-        output_core_dims=[[]],
-        vectorize=True,
-        dask="parallelized",
-        dask_gufunc_kwargs={"allow_rechunk": True},
-        output_dtypes=[float],
-    )
+    if is_xr:
+        # If dim is None (global reduction), use all dimensions as core dimensions
+        icd = list(obs.dims) if dim is None else ([dim] if isinstance(dim, (str, int)) else list(dim))
 
-    if is_numpy:
+        result = xr.apply_ufunc(
+            _kendalltau_onlytau,
+            obs,
+            mod,
+            input_core_dims=[icd] * 2,
+            output_core_dims=[[]],
+            vectorize=True,
+            dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
+            output_dtypes=[float],
+        )
+        return _update_history(result, "kendalltau")
+    else:
+        # Wrap in dummy DataArray to use the vectorized logic via apply_ufunc
+        obs_da = xr.DataArray(obs)
+        mod_da = xr.DataArray(mod)
+        icd = list(obs_da.dims)
+
+        result = xr.apply_ufunc(
+            _kendalltau_onlytau,
+            obs_da,
+            mod_da,
+            input_core_dims=[icd] * 2,
+            output_core_dims=[[]],
+            vectorize=True,
+            output_dtypes=[float],
+        )
         return result.values
-    return _update_history(result, "kendalltau")
 
 
 def CCC(
