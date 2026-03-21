@@ -1084,8 +1084,43 @@ def spearmanr(
         result = pearsonr(obs_ranked, mod_ranked, axis=dim)
         return _update_history(result, "spearmanr")
     else:
-        obs_ranked = _rank_wrapper(obs_masked, axis=axis)
-        mod_ranked = _rank_wrapper(mod_masked, axis=axis)
+        # For NumPy path, we ensure multi-dimensional axis handling by using rankdata's axis parameter
+        # but rankdata expects a single axis for reduction. If axis is a tuple/None, we must flatten appropriately.
+        if axis is None:
+            obs_ranked = _rank_wrapper(obs_masked.ravel(), axis=0).reshape(obs_masked.shape)
+            mod_ranked = _rank_wrapper(mod_masked.ravel(), axis=0).reshape(mod_masked.shape)
+        elif isinstance(axis, (list, tuple)) and len(axis) > 1:
+            # Multi-axis reduction in NumPy requires careful handling.
+            # We wrap in DataArray temporarily to leverage standardized logic.
+            obs_da = xr.DataArray(obs_masked)
+            mod_da = xr.DataArray(mod_masked)
+            icd = [obs_da.dims[a] if isinstance(a, int) else a for a in axis]
+
+            def _multi_rank_wrapper(x):
+                orig_shape = x.shape
+                ranks = _rank_wrapper(x.ravel(), axis=0).reshape(orig_shape)
+                return ranks
+
+            obs_ranked = xr.apply_ufunc(
+                _multi_rank_wrapper,
+                obs_da,
+                input_core_dims=[icd],
+                output_core_dims=[icd],
+                vectorize=True,
+                output_dtypes=[float],
+            ).values
+            mod_ranked = xr.apply_ufunc(
+                _multi_rank_wrapper,
+                mod_da,
+                input_core_dims=[icd],
+                output_core_dims=[icd],
+                vectorize=True,
+                output_dtypes=[float],
+            ).values
+        else:
+            obs_ranked = _rank_wrapper(obs_masked, axis=axis)
+            mod_ranked = _rank_wrapper(mod_masked, axis=axis)
+
         return pearsonr(obs_ranked, mod_ranked, axis=axis)
 
 
@@ -1159,6 +1194,7 @@ def kendalltau(
         return _kendalltau(a_flat[mask], b_flat[mask])[0]
 
     # Use apply_ufunc to eliminate manual loops and support Dask
+    # For both Xarray and NumPy paths, we use apply_ufunc to handle vectorization over axes
     if is_xr:
         # If dim is None (global reduction), use all dimensions as core dimensions
         icd = list(obs.dims) if dim is None else ([dim] if isinstance(dim, (str, int)) else list(dim))
@@ -1176,10 +1212,20 @@ def kendalltau(
         )
         return _update_history(result, "kendalltau")
     else:
-        # Wrap in dummy DataArray to use the vectorized logic via apply_ufunc
+        # For NumPy path, we wrap in DataArray temporarily to leverage apply_ufunc's
+        # multi-dimensional axis/dimension handling logic consistently.
         obs_da = xr.DataArray(obs)
         mod_da = xr.DataArray(mod)
-        icd = list(obs_da.dims)
+
+        # Resolve axis to pseudo-dimensions for the dummy DataArrays
+        if axis is None:
+            icd = list(obs_da.dims)
+        elif isinstance(axis, int):
+            icd = [obs_da.dims[axis]]
+        else:
+            icd = [
+                obs_da.dims[a] if isinstance(a, int) else a for a in (axis if isinstance(axis, Iterable) else [axis])
+            ]
 
         result = xr.apply_ufunc(
             _kendalltau_onlytau,

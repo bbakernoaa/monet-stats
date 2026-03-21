@@ -18,13 +18,16 @@ def test_chunk_array_robustness():
     chunks = chunk_array(arr1d, chunk_size=3)
     assert len(chunks) == 4
     assert all(len(c) > 0 for c in chunks)
+    # Balanced behavior: 3, 3, 2, 2
+    assert chunks[0].size == 3
+    assert chunks[3].size == 2
     assert np.array_equal(np.concatenate(chunks), arr1d)
 
     # Test 2D array
     arr2d = np.ones((5, 10))  # 50 elements
     # Requested chunk_size smaller than one row (10 elements)
     chunks = chunk_array(arr2d, chunk_size=5)
-    # Should get 5 chunks of 1 row each (10 elements)
+    # Should get 5 chunks of 1 row each (10 elements) because we split along axis 0
     assert len(chunks) == 5
     assert all(c.shape == (1, 10) for c in chunks)
 
@@ -57,6 +60,11 @@ def test_spearmanr_global_laziness():
 
 def test_spearmanr_mixed_inputs():
     """Verify spearmanr handles mixed DataArray and NumPy inputs lazily."""
+    try:
+        import dask.array as da  # noqa: F401
+    except ImportError:
+        pytest.skip("Dask not installed")
+
     obs = xr.DataArray(np.random.rand(10, 10), dims=["x", "y"], name="obs").chunk({"x": 5, "y": 5})
     mod_np = np.random.rand(10, 10)
 
@@ -92,6 +100,11 @@ def test_kendalltau_global_laziness():
 
 def test_kendalltau_mixed_inputs():
     """Verify kendalltau handles mixed DataArray and NumPy inputs lazily."""
+    try:
+        import dask.array as da  # noqa: F401
+    except ImportError:
+        pytest.skip("Dask not installed")
+
     obs = xr.DataArray(np.random.rand(4, 4), dims=["x", "y"], name="obs").chunk({"x": 2, "y": 2})
     mod_np = np.random.rand(4, 4)
 
@@ -108,6 +121,11 @@ def test_kendalltau_mixed_inputs():
 
 def test_spearmanr_math_parity():
     """Verify spearmanr lazy result matches eager result."""
+    try:
+        import dask.array as da  # noqa: F401
+    except ImportError:
+        pytest.skip("Dask not installed")
+
     obs_raw = np.random.rand(20)
     mod_raw = obs_raw + np.random.normal(0, 0.1, 20)
 
