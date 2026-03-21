@@ -9,6 +9,63 @@ import xarray as xr
 
 from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, ensure_single_chunk, matchmasks
 
+__all__ = [
+    "STDO",
+    "STDP",
+    "MNB",
+    "MNE",
+    "MdnNB",
+    "MdnNE",
+    "NMdnGE",
+    "NO",
+    "NOP",
+    "NP",
+    "MO",
+    "MP",
+    "MdnO",
+    "MdnP",
+    "RM",
+    "RMdn",
+    "MB",
+    "MdnB",
+    "WDMB",
+    "WDMB_m",
+    "WDMdnB",
+    "MSE",
+    "MAE",
+    "MedAE",
+    "CRMSE",
+    "MAPE",
+    "sMAPE",
+    "NRMSE",
+    "MASE",
+    "MASEm",
+    "RMSPE",
+    "MAPEm",
+    "sMAPEm",
+    "NSC",
+    "NSE_alpha",
+    "NSE_beta",
+    "MAE_m",
+    "MedAE_m",
+    "RMSE",
+    "RMSE_m",
+    "IOA",
+    "IOA_m",
+    "MAPE_mod",
+    "MASE_mod",
+    "RMSE_norm",
+    "MAE_norm",
+    "bias_fraction",
+    "NMSE",
+    "LOG_ERROR",
+    "COE",
+    "VOLUMETRIC_ERROR",
+    "CORR_INDEX",
+    "FAC2",
+    "RMSLE",
+]
+
 ############################################################
 # 1. Basic Error Metrics
 ############################################################
@@ -2178,3 +2235,117 @@ def CORR_INDEX(
             den = np.sqrt(np.sum(obs_std**2, axis=axis) * np.sum(mod_std**2, axis=axis))
             result = num / den
             return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def FAC2(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Fraction of predictions within a factor of two (FAC2).
+
+    Typical Use Cases
+    -----------------
+    - Air quality model evaluation (e.g., PM2.5, NO2).
+    - Robust to outliers as it only cares about the ratio.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute FAC2.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Fraction of data where 0.5 <= mod/obs <= 2.0.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import FAC2
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([1.5, 5, 2.5])
+    >>> FAC2(obs, mod)
+    0.6666666666666666
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        mask = obs.notnull() & mod.notnull()
+        # Avoid division by zero warnings
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = mod / obs
+            in_range = (ratio >= 0.5) & (ratio <= 2.0)
+        # Only count valid pairs in the fraction
+        result = in_range.where(mask).mean(dim=dim)
+        return _update_history(result, "FAC2")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        mask = ~np.isnan(obs) & ~np.isnan(mod)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = mod / obs
+            in_range = (ratio >= 0.5) & (ratio <= 2.0)
+            # Use float conversion to allow np.nan insertion for correct nanmean behavior
+            res_data = np.where(mask, in_range.astype(float), np.nan)
+            result = np.nanmean(res_data, axis=axis)
+        return result.item() if np.ndim(result) == 0 else result
+
+
+def RMSLE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Root Mean Square Logarithmic Error (RMSLE).
+
+    Typical Use Cases
+    -----------------
+    - When you don't want to penalize huge differences when both values are very large.
+    - Useful for variables spanning several orders of magnitude.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute RMSLE.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Root mean square logarithmic error.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import RMSLE
+    >>> obs = np.array([1, 10, 100])
+    >>> mod = np.array([1.1, 15, 80])
+    >>> RMSLE(obs, mod)
+    0.2520847936171813
+    """
+    # Ensure positive values
+    epsilon = 1e-10
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        log_obs = np.log1p(xr.where(obs < 0, 0, obs) + epsilon)
+        log_mod = np.log1p(xr.where(mod < 0, 0, mod) + epsilon)
+        result = ((log_mod - log_obs) ** 2).mean(dim=dim) ** 0.5
+        return _update_history(result, "RMSLE")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        log_obs = np.log1p(np.where(obs < 0, 0, obs) + epsilon)
+        log_mod = np.log1p(np.where(mod < 0, 0, mod) + epsilon)
+        result = np.sqrt(np.nanmean((log_mod - log_obs) ** 2, axis=axis))
+        return result.item() if np.ndim(result) == 0 else result

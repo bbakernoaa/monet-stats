@@ -1020,6 +1020,45 @@ def CSI_max_threshold(
         return float(thresholds[max_idx]), float(max_val)
 
 
+def BS(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Brier Score (BS).
+
+    Typical Use Cases
+    -----------------
+    - Evaluating the accuracy of probabilistic binary forecasts.
+    - Measure of the mean squared error of probability forecasts.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed binary outcomes (0 or 1).
+    mod : numpy.ndarray or xarray.DataArray
+        Forecast probabilities (0 to 1).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the score.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Brier Score.
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = ((mod - obs) ** 2).mean(dim=dim)
+        return _update_history(result, "Brier Score (BS)")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        result = np.nanmean((mod - obs) ** 2, axis=axis)
+        return result.item() if np.ndim(result) == 0 else result
+
+
 def TSS_max_threshold(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],

@@ -691,6 +691,42 @@ class MonetDataArrayAccessor:
         """
         return relative_metrics.NMB(obs, self._obj, axis=dim)
 
+    def mg(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Geometric Mean Bias (MG).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Geometric mean bias.
+        """
+        return relative_metrics.MG(obs, self._obj, axis=dim)
+
+    def vg(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Geometric Variance (VG).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Geometric variance.
+        """
+        return relative_metrics.VG(obs, self._obj, axis=dim)
+
     def fb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute Fractional Bias (FB).
@@ -762,6 +798,42 @@ class MonetDataArrayAccessor:
             Nash-Sutcliffe efficiency.
         """
         return efficiency_metrics.NSE(obs, self._obj, axis=dim)
+
+    def fac2(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute fraction of predictions within a factor of two (FAC2).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            FAC2.
+        """
+        return error_metrics.FAC2(obs, self._obj, axis=dim)
+
+    def rmsle(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Root Mean Square Logarithmic Error (RMSLE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            RMSLE.
+        """
+        return error_metrics.RMSLE(obs, self._obj, axis=dim)
 
     def hss(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -924,6 +996,24 @@ class MonetDataArrayAccessor:
             Binary Brier Skill Score.
         """
         return contingency_metrics.BSS_binary(obs, self._obj, threshold=threshold, axis=dim)
+
+    def bs(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Brier Score (BS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed binary outcomes.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Brier Score.
+        """
+        return contingency_metrics.BS(obs, self._obj, axis=dim)
 
     def fss(
         self,
@@ -1099,6 +1189,7 @@ class MonetDataArrayAccessor:
             "MNE": error_metrics.MNE(obs, self._obj, axis=dim),
             "NSE": efficiency_metrics.NSE(obs, self._obj, axis=dim),
             "R2": correlation_metrics.R2(obs, self._obj, axis=dim),
+            "FAC2": error_metrics.FAC2(obs, self._obj, axis=dim),
         }
 
         if threshold is not None:

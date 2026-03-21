@@ -277,6 +277,7 @@ def evaluate_model(observed, modeled):
         'NSE': ms.NSE(observed, modeled),
         'KGE': ms.KGE(observed, modeled),
         'IOA': ms.IOA(observed, modeled),
+        'FAC2': ms.FAC2(observed, modeled),
 
         # Relative measures
         'MPE': ms.MPE(observed, modeled),

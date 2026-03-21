@@ -46,6 +46,8 @@ __all__ = [
     "PSUTNMdnPE",
     "MPE",
     "MdnPE",
+    "MG",
+    "VG",
 ]
 
 
@@ -886,6 +888,91 @@ def MdnNPB(
             * 100.0
         )
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def MG(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
+    """
+    Geometric Mean Bias (MG).
+
+    Typical Use Cases
+    -----------------
+    - Air quality model evaluation, especially for variables with log-normal
+      distributions.
+    - Provides a measure of central tendency for ratios mod/obs.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values (must be positive).
+    mod : xarray.DataArray or numpy.ndarray
+        Model values (must be positive).
+    axis : int or str or None, optional
+        Axis along which to compute the statistic.
+
+    Returns
+    -------
+    MG : xarray.DataArray or numpy.ndarray or float
+        Geometric Mean Bias. MG = exp(mean(log(mod) - log(obs)))
+    """
+    epsilon = 1e-10
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        log_ratio = np.log(xr.where(mod <= 0, epsilon, mod)) - np.log(xr.where(obs <= 0, epsilon, obs))
+        res = np.exp(log_ratio.mean(dim=dim))
+        return _update_history(res, "Geometric Mean Bias (MG)")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        log_ratio = np.log(np.where(mod <= 0, epsilon, mod)) - np.log(np.where(obs <= 0, epsilon, obs))
+        res = np.exp(np.nanmean(log_ratio, axis=axis))
+        return res.item() if np.ndim(res) == 0 else res
+
+
+def VG(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
+    """
+    Geometric Variance (VG).
+
+    Typical Use Cases
+    -----------------
+    - Air quality model evaluation for log-normally distributed variables.
+    - Measures the spread of the ratios mod/obs.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values (must be positive).
+    mod : xarray.DataArray or numpy.ndarray
+        Model values (must be positive).
+    axis : int or str or None, optional
+        Axis along which to compute the statistic.
+
+    Returns
+    -------
+    VG : xarray.DataArray or numpy.ndarray or float
+        Geometric Variance. VG = exp(mean((log(mod) - log(obs))^2))
+    """
+    epsilon = 1e-10
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        log_ratio_sq = (np.log(xr.where(mod <= 0, epsilon, mod)) - np.log(xr.where(obs <= 0, epsilon, obs))) ** 2
+        res = np.exp(log_ratio_sq.mean(dim=dim))
+        return _update_history(res, "Geometric Variance (VG)")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        log_ratio_sq = (np.log(np.where(mod <= 0, epsilon, mod)) - np.log(np.where(obs <= 0, epsilon, obs))) ** 2
+        res = np.exp(np.nanmean(log_ratio_sq, axis=axis))
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def MNPE(

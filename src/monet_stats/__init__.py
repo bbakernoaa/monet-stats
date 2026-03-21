@@ -27,7 +27,7 @@ from .analysis import (
     rolling_mean_24h,
     weighted_spatial_mean,
 )
-from .contingency_metrics import CSI, ETS, FAR, FBI, HSS, POD, TSS, BSS_binary, scores
+from .contingency_metrics import BS, CSI, ETS, FAR, FBI, HSS, POD, TSS, BSS_binary, scores
 from .correlation_metrics import (
     AC,
     CCC,
@@ -52,6 +52,7 @@ from .error_metrics import (
     COE,
     CORR_INDEX,
     CRMSE,
+    FAC2,
     IOA,
     LOG_ERROR,
     MAE,
@@ -65,6 +66,7 @@ from .error_metrics import (
     NP,
     NRMSE,
     RMSE,
+    RMSLE,
     STDO,
     STDP,
     VOLUMETRIC_ERROR,
@@ -102,7 +104,7 @@ from .performance import (
     parallel_compute,
     vectorize_function,
 )
-from .relative_metrics import FB, FE, MPE, NMB, NMB_ABS, NMdnB
+from .relative_metrics import FB, FE, MG, MPE, NMB, NMB_ABS, VG, NMdnB
 from .spatial_ensemble_metrics import BSS, CRPS, EDS, SAL, ensemble_mean, ensemble_std, rank_histogram, spread_error
 from .spatial_skill_metrics import FSS, VETS
 from .utils_stats import (
@@ -146,6 +148,7 @@ __all__ = [
     "POD",
     "TSS",
     "BSS_binary",
+    "BS",
     "scores",
     # correlation_metrics
     "R2",
@@ -204,6 +207,8 @@ __all__ = [
     "MASE_mod",
     "RMSE_norm",
     "MAE_norm",
+    "FAC2",
+    "RMSLE",
     "bias_fraction",
     "VOLUMETRIC_ERROR",
     # efficiency_metrics
@@ -222,6 +227,8 @@ __all__ = [
     "NMdnB",
     "FB",
     "FE",
+    "MG",
+    "VG",
     "MPE",
     # spatial_ensemble_metrics
     "EDS",
@@ -324,6 +331,7 @@ def stats(
         - CCC: Concordance Correlation Coefficient
         - MNE: Mean Normalized Gross Error
         - NMSE: Normalized Mean Square Error
+        - FAC2: Fraction of predictions within a factor of two
         - CSI: Critical Success Index (at threshold)
         - TSS: True Skill Statistic (at threshold)
         - ETS: Equitable Threat Score (at threshold)
@@ -381,6 +389,7 @@ def stats(
         res["R2"] = R2(obs, mod, axis=axis)
         res["CCC"] = CCC(obs, mod, axis=axis)
         res["NMSE"] = NMSE(obs, mod, axis=axis)
+        res["FAC2"] = FAC2(obs, mod, axis=axis)
 
         # Include plugins
         if plugins:
@@ -438,6 +447,7 @@ def stats(
             "R2": R2(obs, mod, axis=axis),
             "CCC": CCC(obs, mod, axis=axis),
             "NMSE": NMSE(obs, mod, axis=axis),
+            "FAC2": FAC2(obs, mod, axis=axis),
         }
 
         # Include plugins (lazy evaluation)
