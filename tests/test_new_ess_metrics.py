@@ -1,7 +1,8 @@
 import numpy as np
 import xarray as xr
-import pytest
-from monet_stats import FAC2, RMSLE, MG, VG, BS, stats
+
+from monet_stats import BS, FAC2, MG, RMSLE, VG, stats
+
 
 def test_fac2():
     obs = np.array([1, 2, 3, 4])
@@ -18,6 +19,7 @@ def test_fac2():
     assert float(res) == expected
     assert "history" in res.attrs
 
+
 def test_rmsle():
     obs = np.array([1, 10, 100])
     mod = np.array([1.1, 15, 80])
@@ -30,6 +32,7 @@ def test_rmsle():
     res_xr = RMSLE(obs_da, mod_da)
     assert np.allclose(float(res_xr), res)
     assert "history" in res_xr.attrs
+
 
 def test_geometric_metrics():
     obs = np.array([1, 2, 3])
@@ -49,11 +52,12 @@ def test_geometric_metrics():
     assert "history" in mg_xr.attrs
     assert "history" in vg_xr.attrs
 
+
 def test_brier_score():
     obs = np.array([0, 1, 1, 0])
     mod = np.array([0.1, 0.9, 0.2, 0.3])
     res = BS(obs, mod)
-    expected = np.mean((mod - obs)**2)
+    expected = np.mean((mod - obs) ** 2)
     assert np.allclose(res, expected)
 
     # Test xarray
@@ -63,14 +67,13 @@ def test_brier_score():
     assert np.allclose(float(res_xr), expected)
     assert "history" in res_xr.attrs
 
+
 def test_stats_with_fac2():
-    df = xr.Dataset({
-        "Obs": (("x",), [1, 2, 3, 4]),
-        "Mod": (("x",), [1.5, 5, 2.5, 1])
-    })
+    df = xr.Dataset({"Obs": (("x",), [1, 2, 3, 4]), "Mod": (("x",), [1.5, 5, 2.5, 1])})
     res = stats(df)
     assert "FAC2" in res
     assert res["FAC2"] == 0.5
+
 
 def test_fac2_with_nans():
     obs = np.array([1, 2, 3, np.nan])
@@ -78,7 +81,7 @@ def test_fac2_with_nans():
     # ratios: 1.5, 2.5, 0.833, NaN
     # in range: Yes, No, Yes, (Excluded)
     # expected: 2/3 approx 0.666
-    expected = 2/3.0
+    expected = 2 / 3.0
     assert np.allclose(FAC2(obs, mod), expected)
 
     # Test xarray
@@ -87,8 +90,10 @@ def test_fac2_with_nans():
     res = FAC2(obs_da, mod_da)
     assert np.allclose(float(res), expected)
 
+
 def test_dask_laziness():
     import dask.array as da
+
     obs = da.from_array([1.0, 2.0, 3.0, 4.0], chunks=2)
     mod = da.from_array([1.5, 5.0, 2.5, 1.0], chunks=2)
     obs_da = xr.DataArray(obs, dims="x")
@@ -113,6 +118,7 @@ def test_dask_laziness():
     res = BS(obs_da, mod_da)
     assert hasattr(res.data, "dask")
     assert float(res.compute()) > 0
+
 
 def test_accessor_new_metrics():
     obs = xr.DataArray([1.0, 2.0, 3.0], dims="x", name="Obs")

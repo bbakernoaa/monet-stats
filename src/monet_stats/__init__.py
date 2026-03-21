@@ -52,6 +52,7 @@ from .error_metrics import (
     COE,
     CORR_INDEX,
     CRMSE,
+    FAC2,
     IOA,
     LOG_ERROR,
     MAE,
@@ -65,11 +66,11 @@ from .error_metrics import (
     NP,
     NRMSE,
     RMSE,
+    RMSLE,
     STDO,
     STDP,
     VOLUMETRIC_ERROR,
     WDMB,
-    FAC2,
     IOA_m,
     MAE_m,
     MAE_norm,
@@ -88,7 +89,6 @@ from .error_metrics import (
     RMdn,
     RMSE_m,
     RMSE_norm,
-    RMSLE,
     WDMB_m,
     WDMdnB,
     bias_fraction,
@@ -104,7 +104,7 @@ from .performance import (
     parallel_compute,
     vectorize_function,
 )
-from .relative_metrics import FB, FE, MG, MPE, NMB, NMB_ABS, NMdnB, VG
+from .relative_metrics import FB, FE, MG, MPE, NMB, NMB_ABS, VG, NMdnB
 from .spatial_ensemble_metrics import BSS, CRPS, EDS, SAL, ensemble_mean, ensemble_std, rank_histogram, spread_error
 from .spatial_skill_metrics import FSS, VETS
 from .utils_stats import (
