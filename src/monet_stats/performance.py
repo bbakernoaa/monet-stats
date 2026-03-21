@@ -122,12 +122,11 @@ def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     if arr.size == 0:
         return []
 
-    # Vectorized chunking using np.array_split
-    # We split along the first axis to preserve dimensionality of chunks.
-    # Note: To maintain backward compatibility with the original implementation,
-    # we use arr.size to determine the number of chunks, which may result in
-    # empty arrays if arr.size > len(arr).
-    num_chunks = max(1, int(np.ceil(arr.size / chunk_size)))
+    # Vectorized chunking using np.array_split for balanced chunks.
+    # Note: We split along the first axis to preserve dimensionality of chunks.
+    # We use len(arr) as the upper limit for num_chunks to avoid empty arrays
+    # if the array is small or has fewer rows than requested chunks.
+    num_chunks = min(len(arr), max(1, int(np.ceil(arr.size / chunk_size))))
     return np.array_split(arr, num_chunks)
 
 
