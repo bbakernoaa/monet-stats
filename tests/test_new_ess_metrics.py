@@ -1,7 +1,12 @@
 import numpy as np
+import pytest
 import xarray as xr
 
 from monet_stats import BS, FAC2, MG, RMSLE, VG, stats
+
+
+def import_pytest():
+    return pytest
 
 
 def test_fac2():
@@ -92,7 +97,8 @@ def test_fac2_with_nans():
 
 
 def test_dask_laziness():
-    import dask.array as da
+    pytest = import_pytest()
+    da = pytest.importorskip("dask.array")
 
     obs = da.from_array([1.0, 2.0, 3.0, 4.0], chunks=2)
     mod = da.from_array([1.5, 5.0, 2.5, 1.0], chunks=2)
