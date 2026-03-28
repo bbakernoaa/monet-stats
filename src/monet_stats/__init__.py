@@ -307,8 +307,9 @@ def stats(
         Axis or dimension along which to compute the statistics. If None,
         reduces over all dimensions.
     weights : numpy.ndarray or xarray.DataArray, optional
-        Weights to apply for area-weighted statistics. If provided, `Obs`, `Mod`,
-        `MB`, `MAE`, `RMSE`, and `NMB` will be calculated using weighted means.
+        Weights to apply for area-weighted statistics (e.g., grid cell area).
+        If provided, `Obs`, `Mod`, `MB`, `MAE`, `RMSE`, and `NMB` will be calculated
+        using weighted means. Supports both absolute areas and normalized weights.
         For xarray inputs, this uses `xr.DataArray.weighted()`. For pandas/numpy,
         it uses `np.ma.average()`.
 
