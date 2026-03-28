@@ -955,6 +955,8 @@ def MSE(
         return _update_history(result, "MSE")
     else:
         diff_sq = (np.subtract(mod, obs)) ** 2
+        if diff_sq.size == 0:
+            return np.nan
         if weights is not None:
             result = np.ma.average(np.ma.masked_invalid(diff_sq), axis=axis, weights=weights)
         else:
@@ -1651,6 +1653,8 @@ def RMSE(
         return _update_history(result, "RMSE")
     else:
         diff_sq = (np.subtract(mod, obs)) ** 2
+        if diff_sq.size == 0:
+            return np.nan
         if weights is not None:
             mse = np.ma.average(np.ma.masked_invalid(diff_sq), axis=axis, weights=weights)
         else:
