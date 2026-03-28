@@ -55,6 +55,7 @@ def NMB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Bias (%)
@@ -72,6 +73,8 @@ def NMB(
         Model predicted values.
     axis : int or str or None, optional
         Axis or dimension along which to compute the statistic.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply. For NMB, this weights the sums in the numerator and denominator.
 
     Returns
     -------
@@ -89,13 +92,26 @@ def NMB(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
-        res = (mod - obs).sum(dim=dim) / obs.sum(dim=dim) * 100.0
+        diff = mod - obs
+        if weights is not None:
+            res = (diff * weights).sum(dim=dim) / (obs * weights).sum(dim=dim) * 100.0
+            return _update_history(res, "Weighted Normalized Mean Bias (NMB)")
+        res = diff.sum(dim=dim) / obs.sum(dim=dim) * 100.0
         return _update_history(res, "Normalized Mean Bias (NMB)")
     else:
         obs_arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
-        res = (mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis) * 100.0
-        return res.item() if np.ndim(res) == 0 else res
+        if obs_arr.size == 0:
+            return np.nan
+        diff_arr = mod_arr - obs_arr
+        if weights is not None:
+            res = np.nansum(diff_arr * weights, axis=axis) / np.nansum(obs_arr * weights, axis=axis) * 100.0
+        else:
+            res = np.nansum(diff_arr, axis=axis) / np.nansum(obs_arr, axis=axis) * 100.0
+        # If denominator was zero or all NaN, return NaN instead of 0.0 or inf
+        if np.ndim(res) == 0:
+            return res.item() if np.isfinite(res) else np.nan
+        return np.where(np.isfinite(res), res, np.nan)
 
 
 def WDNMB_m(
@@ -601,6 +617,8 @@ def NME(
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
+        if obs_arr.size == 0:
+            return np.nan
         res = (np.ma.abs(mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis)) * 100
         return res.item() if np.ndim(res) == 0 else res
 

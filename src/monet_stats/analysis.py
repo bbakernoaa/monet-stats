@@ -563,17 +563,22 @@ def weighted_spatial_mean(
             weights = data.coords["cell_area"]
         elif isinstance(data, xr.Dataset) and "cell_area" in data.data_vars:
             weights = data["cell_area"]
-        elif lat_dim in data.coords or lat_dim in data.dims:
-            # Fall back to cosine of latitude
-            weights = np.cos(np.deg2rad(data[lat_dim]))
         else:
-            warnings.warn(
-                f"No weights found and '{lat_dim}' not in coordinates. "
-                "Falling back to equal weights (unweighted mean).",
-                UserWarning,
-                stacklevel=2,
-            )
-            weights = xr.DataArray(1.0)
+            try:
+                # Try to calculate area accurately (supporting regular and curvilinear)
+                weights = calculate_grid_area(data, lat_dim=lat_dim, lon_dim=lon_dim)
+            except Exception:
+                # Last resort fallback to cosine-latitude or equal weights
+                if lat_dim in data.coords or lat_dim in data.dims:
+                    weights = np.cos(np.deg2rad(data[lat_dim]))
+                else:
+                    warnings.warn(
+                        f"No weights found and '{lat_dim}' not in coordinates. "
+                        "Falling back to equal weights (unweighted mean).",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                    weights = xr.DataArray(1.0)
 
     # 3. Robust Weight Broadcasting
     # If weights is NumPy, wrap it intelligently based on detected spatial dimensions
@@ -916,6 +921,85 @@ def anomalies(
     res = data.groupby(group) - climo
 
     return _update_history(res, f"Anomalies ({freq})")
+
+
+def calculate_grid_area(
+    data: Union[xr.DataArray, xr.Dataset],
+    lat_dim: str = "lat",
+    lon_dim: str = "lon",
+    radius: float = 6371000.0,
+) -> xr.DataArray:
+    """
+    Calculate grid cell areas for regular or curvilinear grids (Aero Protocol).
+
+    For regular lat/lon grids, it uses spherical geometry.
+    For curvilinear grids (where lat/lon are 2D), it approximates area using
+    the Jacobian of the coordinate transformation.
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        Input data with spatial coordinates.
+    lat_dim : str, optional
+        Name of the latitude dimension or coordinate. Default is 'lat'.
+    lon_dim : str, optional
+        Name of the longitude dimension or coordinate. Default is 'lon'.
+    radius : float, optional
+        Earth radius in meters. Default is 6371000.0.
+
+    Returns
+    -------
+    xarray.DataArray
+        Grid cell areas in square meters.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> lats = np.arange(-90, 91, 1)
+    >>> lons = np.arange(-180, 181, 1)
+    >>> ds = xr.Dataset(coords={"lat": lats, "lon": lons})
+    >>> areas = calculate_grid_area(ds)
+    """
+    lat = data[lat_dim]
+    lon = data[lon_dim]
+
+    # Case 1: Regular Lat/Lon (1D coordinates)
+    if lat.ndim == 1 and lon.ndim == 1:
+        dlat_val = np.deg2rad(np.gradient(lat))
+        dlon_val = np.deg2rad(np.gradient(lon))
+
+        # Convert back to DataArrays for automatic broadcasting
+        dlat = xr.DataArray(dlat_val, coords={lat_dim: lat}, dims=(lat_dim,))
+        dlon = xr.DataArray(dlon_val, coords={lon_dim: lon}, dims=(lon_dim,))
+
+        # Area = R^2 * cos(lat) * dlat * dlon
+        lat_rad = np.deg2rad(lat)
+        area = (radius**2) * np.cos(lat_rad) * dlat * dlon
+        # Handle negative areas from descending coordinates
+        area = abs(area)
+
+        return _update_history(area, "Calculated grid area (spherical regular)")
+
+    # Case 2: Curvilinear (2D coordinates)
+    elif lat.ndim == 2 and lon.ndim == 2:
+        # Approximate using Jacobian: Area = R^2 * cos(lat) * |(dlat/dx * dlon/dy) - (dlat/dy * dlon/dx)|
+        # where x, y are the underlying logical dimensions
+        y_dim, x_dim = lat.dims
+        lat_rad = np.deg2rad(lat)
+
+        dlat_dy, dlat_dx = np.gradient(np.deg2rad(lat))
+        dlon_dy, dlon_dx = np.gradient(np.deg2rad(lon))
+
+        jacobian = np.abs(dlat_dx * dlon_dy - dlat_dy * dlon_dx)
+        area = (radius**2) * np.cos(lat_rad) * jacobian
+
+        if isinstance(area, np.ndarray):
+            area = xr.DataArray(area, coords=lat.coords, dims=lat.dims)
+        return _update_history(area, "Calculated grid area (curvilinear Jacobian)")
+
+    else:
+        raise ValueError(f"Unsupported coordinate dimensions: lat={lat.ndim}, lon={lon.ndim}")
 
 
 def detrend(

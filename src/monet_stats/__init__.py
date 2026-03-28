@@ -11,6 +11,7 @@ import xarray as xr
 # Explicit imports for all public API symbols (for lint compliance)
 from .analysis import (
     anomalies,
+    calculate_grid_area,
     climatology,
     detrend,
     diurnal_cycle,
@@ -136,6 +137,7 @@ __all__ = [
     "exceedance_count",
     "percentile",
     "peak_timing",
+    "calculate_grid_area",
     "weighted_spatial_mean",
     "fft_analysis",
     "power_spectrum",
@@ -279,6 +281,7 @@ def stats(
     maxval: Optional[float] = None,
     plugins: Optional[List[str]] = None,
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Dict[str, Any]:
     """
     Calculate summary statistics for observations and model results (Aero Protocol).
@@ -305,6 +308,12 @@ def stats(
     axis : int, str, or iterable, optional
         Axis or dimension along which to compute the statistics. If None,
         reduces over all dimensions.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply for area-weighted statistics (e.g., grid cell area).
+        If provided, `Obs`, `Mod`, `MB`, `MAE`, `RMSE`, and `NMB` will be calculated
+        using weighted means. Supports both absolute areas and normalized weights.
+        For xarray inputs, this uses `xr.DataArray.weighted()`. For pandas/numpy,
+        it uses `np.ma.average()`.
 
     Returns
     -------
@@ -372,14 +381,25 @@ def stats(
         res: Dict[str, Any] = {}
         # Pandas path: use provided axis if possible
         res["N"] = obs_s.dropna().count()  # Pandas count doesn't easily map to axis for verification pairs
-        res["Obs"] = np.nanmean(obs, axis=axis)
-        res["Mod"] = np.nanmean(mod, axis=axis)
-        res["MB"] = MB(obs, mod, axis=axis)
-        res["MAE"] = MAE(obs, mod, axis=axis)
-        res["RMSE"] = RMSE(obs, mod, axis=axis)
+        if weights is not None:
+            # Mask NaNs before applying weights to ensure consistent behavior
+            obs_m = np.ma.masked_invalid(obs)
+            mod_m = np.ma.masked_invalid(mod)
+            # Find common mask to ensure Obs/Mod means are comparable
+            common_mask = np.ma.getmaskarray(obs_m) | np.ma.getmaskarray(mod_m)
+            obs_m.mask = common_mask
+            mod_m.mask = common_mask
+            res["Obs"] = np.ma.average(obs_m, axis=axis, weights=weights)
+            res["Mod"] = np.ma.average(mod_m, axis=axis, weights=weights)
+        else:
+            res["Obs"] = np.nanmean(obs, axis=axis)
+            res["Mod"] = np.nanmean(mod, axis=axis)
+        res["MB"] = MB(obs, mod, axis=axis, weights=weights)
+        res["MAE"] = MAE(obs, mod, axis=axis, weights=weights)
+        res["RMSE"] = RMSE(obs, mod, axis=axis, weights=weights)
         res["R"] = pearsonr(obs, mod, axis=axis)
         res["IOA"] = IOA(obs, mod, axis=axis)
-        res["NMB"] = NMB(obs, mod, axis=axis)
+        res["NMB"] = NMB(obs, mod, axis=axis, weights=weights)
         res["MNB"] = MNB(obs, mod, axis=axis)
         res["MNE"] = MNE(obs, mod, axis=axis)
         res["NSE"] = NSE(obs, mod, axis=axis)
@@ -425,19 +445,22 @@ def stats(
         obs = data[obs_name]
         mod = data[mod_name]
 
+        # Handle align for Xarray to ensure Obs/Mod means are comparable
+        obs, mod = xr.align(obs, mod, join="inner")
+
         dim = _resolve_axis_to_dim(obs, axis)
 
         # Gather all metrics that can be computed together to optimize dask graph
         metrics_lazy = {
             "N": obs.count(dim=dim),
-            "Obs": obs.mean(dim=dim),
-            "Mod": mod.mean(dim=dim),
-            "MB": MB(obs, mod, axis=axis),
-            "MAE": MAE(obs, mod, axis=axis),
-            "RMSE": RMSE(obs, mod, axis=axis),
+            "Obs": obs.weighted(weights).mean(dim=dim) if weights is not None else obs.mean(dim=dim),
+            "Mod": mod.weighted(weights).mean(dim=dim) if weights is not None else mod.mean(dim=dim),
+            "MB": MB(obs, mod, axis=axis, weights=weights),
+            "MAE": MAE(obs, mod, axis=axis, weights=weights),
+            "RMSE": RMSE(obs, mod, axis=axis, weights=weights),
             "R": pearsonr(obs, mod, axis=axis),
             "IOA": IOA(obs, mod, axis=axis),
-            "NMB": NMB(obs, mod, axis=axis),
+            "NMB": NMB(obs, mod, axis=axis, weights=weights),
             "MNB": MNB(obs, mod, axis=axis),
             "MNE": MNE(obs, mod, axis=axis),
             "NSE": NSE(obs, mod, axis=axis),
