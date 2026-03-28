@@ -573,7 +573,7 @@ def weighted_spatial_mean(
                     weights = np.cos(np.deg2rad(data[lat_dim]))
                 else:
                     warnings.warn(
-                        f"Could not calculate weights and '{lat_dim}' not in coordinates. "
+                        f"No weights found and '{lat_dim}' not in coordinates. "
                         "Falling back to equal weights (unweighted mean).",
                         UserWarning,
                         stacklevel=2,

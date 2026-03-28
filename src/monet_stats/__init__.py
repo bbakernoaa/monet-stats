@@ -11,6 +11,7 @@ import xarray as xr
 # Explicit imports for all public API symbols (for lint compliance)
 from .analysis import (
     anomalies,
+    calculate_grid_area,
     climatology,
     detrend,
     diurnal_cycle,
@@ -136,6 +137,7 @@ __all__ = [
     "exceedance_count",
     "percentile",
     "peak_timing",
+    "calculate_grid_area",
     "weighted_spatial_mean",
     "fft_analysis",
     "power_spectrum",
