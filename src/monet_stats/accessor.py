@@ -475,7 +475,12 @@ class MonetDataArrayAccessor:
         )
         return _update_history(res, "Taylor statistics components")
 
-    def mae(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+    def mae(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
         """
         Compute Mean Absolute Error (MAE).
 
@@ -485,15 +490,22 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
 
         Returns
         -------
         xarray.DataArray
             Mean absolute error.
         """
-        return error_metrics.MAE(obs, self._obj, axis=dim)
+        return error_metrics.MAE(obs, self._obj, axis=dim, weights=weights)
 
-    def rmse(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+    def rmse(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
         """
         Compute Root Mean Square Error (RMSE).
 
@@ -503,15 +515,22 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
 
         Returns
         -------
         xarray.DataArray
             Root mean square error.
         """
-        return error_metrics.RMSE(obs, self._obj, axis=dim)
+        return error_metrics.RMSE(obs, self._obj, axis=dim, weights=weights)
 
-    def mb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+    def mb(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
         """
         Compute Mean Bias (MB).
 
@@ -521,13 +540,15 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
 
         Returns
         -------
         xarray.DataArray
             Mean bias.
         """
-        return error_metrics.MB(obs, self._obj, axis=dim)
+        return error_metrics.MB(obs, self._obj, axis=dim, weights=weights)
 
     def ioa(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1159,6 +1180,7 @@ class MonetDataArrayAccessor:
         obs: xr.DataArray,
         dim: Optional[Union[str, List[str]]] = None,
         threshold: Optional[float] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
     ) -> xr.Dataset:
         """
         Calculate a bundle of common evaluation metrics (Aero Protocol).
@@ -1172,6 +1194,8 @@ class MonetDataArrayAccessor:
         threshold : float, optional
             Threshold for categorical metrics (POD, FAR, HSS, etc.).
             If provided, categorical metrics are included in the bundle.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted metrics.
 
         Returns
         -------
@@ -1179,9 +1203,9 @@ class MonetDataArrayAccessor:
             Dataset containing common evaluation metrics.
         """
         metrics = {
-            "MAE": error_metrics.MAE(obs, self._obj, axis=dim),
-            "RMSE": error_metrics.RMSE(obs, self._obj, axis=dim),
-            "MB": error_metrics.MB(obs, self._obj, axis=dim),
+            "MAE": error_metrics.MAE(obs, self._obj, axis=dim, weights=weights),
+            "RMSE": error_metrics.RMSE(obs, self._obj, axis=dim, weights=weights),
+            "MB": error_metrics.MB(obs, self._obj, axis=dim, weights=weights),
             "R": correlation_metrics.pearsonr(obs, self._obj, axis=dim),
             "IOA": error_metrics.IOA(obs, self._obj, axis=dim),
             "NMB": relative_metrics.NMB(obs, self._obj, axis=dim),
@@ -1274,6 +1298,7 @@ class MonetDatasetAccessor:
         maxval: Optional[float] = None,
         dim: Optional[Union[str, List[str]]] = None,
         plugins: Optional[List[str]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
     ) -> dict:
         """
         Calculate summary statistics for observations and model results.
@@ -1311,6 +1336,7 @@ class MonetDatasetAccessor:
             maxval=maxval,
             axis=dim,
             plugins=plugins,
+            weights=weights,
         )
 
     def climatology(self, freq: str = "season", method: str = "mean", dim: str = "time") -> xr.Dataset:

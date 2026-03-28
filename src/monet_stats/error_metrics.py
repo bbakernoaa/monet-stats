@@ -749,6 +749,7 @@ def MB(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Mean Bias (MB).
@@ -761,20 +762,41 @@ def MB(
         Model predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute the mean bias.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
         Mean bias value(s) = mean(model - observation).
         Positive values indicate model overestimation.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> obs = xr.DataArray([1.0, 2.0], dims="lat", coords={"lat": [0, 45]})
+    >>> mod = xr.DataArray([1.1, 2.2], dims="lat", coords={"lat": [0, 45]})
+    >>> weights = np.cos(np.deg2rad(obs.lat))
+    >>> MB(obs, mod, weights=weights)
+    <xarray.DataArray ()>
+    array(0.17071068)
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
-        result = (mod - obs).mean(dim=dim, keep_attrs=True)
+        diff = mod - obs
+        if weights is not None:
+            result = diff.weighted(weights).mean(dim=dim, keep_attrs=True)
+            return _update_history(result, "Weighted MB")
+        result = diff.mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MB")
     else:
-        result = np.ma.mean(np.subtract(mod, obs), axis=axis)
+        diff = np.subtract(mod, obs)
+        if weights is not None:
+            result = np.ma.average(np.ma.masked_invalid(diff), axis=axis, weights=weights)
+        else:
+            result = np.ma.mean(np.ma.masked_invalid(diff), axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -892,6 +914,7 @@ def MSE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Mean Squared Error (MSE).
@@ -904,6 +927,8 @@ def MSE(
         Model predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute the error.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
@@ -922,10 +947,18 @@ def MSE(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
-        result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True)
+        diff_sq = (mod - obs) ** 2
+        if weights is not None:
+            result = diff_sq.weighted(weights).mean(dim=dim, keep_attrs=True)
+            return _update_history(result, "Weighted MSE")
+        result = diff_sq.mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MSE")
     else:
-        result = np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis)
+        diff_sq = (np.subtract(mod, obs)) ** 2
+        if weights is not None:
+            result = np.ma.average(np.ma.masked_invalid(diff_sq), axis=axis, weights=weights)
+        else:
+            result = np.ma.mean(np.ma.masked_invalid(diff_sq), axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -933,6 +966,7 @@ def MAE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Mean Absolute Error (MAE).
@@ -951,6 +985,8 @@ def MAE(
         Model or predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute MAE.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
@@ -969,10 +1005,20 @@ def MAE(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
-        result = abs(mod - obs).mean(dim=dim, keep_attrs=True)
+        diff_abs = abs(mod - obs)
+        if weights is not None:
+            result = diff_abs.weighted(weights).mean(dim=dim, keep_attrs=True)
+            return _update_history(result, "Weighted MAE")
+        result = diff_abs.mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MAE")
     else:
-        result = np.ma.abs(np.subtract(mod, obs)).mean(axis=axis)
+        diff_abs = np.ma.abs(np.subtract(mod, obs))
+        if diff_abs.size == 0:
+            return np.nan
+        if weights is not None:
+            result = np.ma.average(np.ma.masked_invalid(diff_abs), axis=axis, weights=weights)
+        else:
+            result = np.ma.mean(np.ma.masked_invalid(diff_abs), axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -1558,6 +1604,7 @@ def RMSE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Root Mean Square Error (RMSE).
@@ -1576,6 +1623,8 @@ def RMSE(
         Model or predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute RMSE.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
@@ -1594,10 +1643,19 @@ def RMSE(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
-        result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
+        diff_sq = (mod - obs) ** 2
+        if weights is not None:
+            result = diff_sq.weighted(weights).mean(dim=dim, keep_attrs=True) ** 0.5
+            return _update_history(result, "Weighted RMSE")
+        result = diff_sq.mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "RMSE")
     else:
-        result = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        diff_sq = (np.subtract(mod, obs)) ** 2
+        if weights is not None:
+            mse = np.ma.average(np.ma.masked_invalid(diff_sq), axis=axis, weights=weights)
+        else:
+            mse = np.ma.mean(np.ma.masked_invalid(diff_sq), axis=axis)
+        result = np.ma.sqrt(mse)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 

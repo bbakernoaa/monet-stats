@@ -279,6 +279,7 @@ def stats(
     maxval: Optional[float] = None,
     plugins: Optional[List[str]] = None,
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Dict[str, Any]:
     """
     Calculate summary statistics for observations and model results (Aero Protocol).
@@ -305,6 +306,9 @@ def stats(
     axis : int, str, or iterable, optional
         Axis or dimension along which to compute the statistics. If None,
         reduces over all dimensions.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply for area-weighted statistics. If provided, `Obs`, `Mod`,
+        `MB`, `MAE`, `RMSE`, and `NMB` will be calculated using weighted means.
 
     Returns
     -------
@@ -372,14 +376,18 @@ def stats(
         res: Dict[str, Any] = {}
         # Pandas path: use provided axis if possible
         res["N"] = obs_s.dropna().count()  # Pandas count doesn't easily map to axis for verification pairs
-        res["Obs"] = np.nanmean(obs, axis=axis)
-        res["Mod"] = np.nanmean(mod, axis=axis)
-        res["MB"] = MB(obs, mod, axis=axis)
-        res["MAE"] = MAE(obs, mod, axis=axis)
-        res["RMSE"] = RMSE(obs, mod, axis=axis)
+        if weights is not None:
+            res["Obs"] = np.ma.average(np.ma.masked_invalid(obs), axis=axis, weights=weights)
+            res["Mod"] = np.ma.average(np.ma.masked_invalid(mod), axis=axis, weights=weights)
+        else:
+            res["Obs"] = np.nanmean(obs, axis=axis)
+            res["Mod"] = np.nanmean(mod, axis=axis)
+        res["MB"] = MB(obs, mod, axis=axis, weights=weights)
+        res["MAE"] = MAE(obs, mod, axis=axis, weights=weights)
+        res["RMSE"] = RMSE(obs, mod, axis=axis, weights=weights)
         res["R"] = pearsonr(obs, mod, axis=axis)
         res["IOA"] = IOA(obs, mod, axis=axis)
-        res["NMB"] = NMB(obs, mod, axis=axis)
+        res["NMB"] = NMB(obs, mod, axis=axis, weights=weights)
         res["MNB"] = MNB(obs, mod, axis=axis)
         res["MNE"] = MNE(obs, mod, axis=axis)
         res["NSE"] = NSE(obs, mod, axis=axis)
@@ -430,14 +438,14 @@ def stats(
         # Gather all metrics that can be computed together to optimize dask graph
         metrics_lazy = {
             "N": obs.count(dim=dim),
-            "Obs": obs.mean(dim=dim),
-            "Mod": mod.mean(dim=dim),
-            "MB": MB(obs, mod, axis=axis),
-            "MAE": MAE(obs, mod, axis=axis),
-            "RMSE": RMSE(obs, mod, axis=axis),
+            "Obs": obs.weighted(weights).mean(dim=dim) if weights is not None else obs.mean(dim=dim),
+            "Mod": mod.weighted(weights).mean(dim=dim) if weights is not None else mod.mean(dim=dim),
+            "MB": MB(obs, mod, axis=axis, weights=weights),
+            "MAE": MAE(obs, mod, axis=axis, weights=weights),
+            "RMSE": RMSE(obs, mod, axis=axis, weights=weights),
             "R": pearsonr(obs, mod, axis=axis),
             "IOA": IOA(obs, mod, axis=axis),
-            "NMB": NMB(obs, mod, axis=axis),
+            "NMB": NMB(obs, mod, axis=axis, weights=weights),
             "MNB": MNB(obs, mod, axis=axis),
             "MNE": MNE(obs, mod, axis=axis),
             "NSE": NSE(obs, mod, axis=axis),
