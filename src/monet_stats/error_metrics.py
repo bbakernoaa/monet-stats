@@ -199,7 +199,10 @@ def MNB(
         result = ((mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
         return _update_history(result, "MNB")
     else:
-        result = np.ma.masked_invalid((mod - obs) / obs).mean(axis=axis) * 100.0
+        diff = np.asanyarray(mod) - np.asanyarray(obs)
+        if diff.size == 0:
+            return np.nan
+        result = np.ma.masked_invalid(diff / obs).mean(axis=axis) * 100.0
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -239,7 +242,10 @@ def MNE(
         result = (abs(mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
         return _update_history(result, "MNE")
     else:
-        result = np.ma.masked_invalid(np.ma.abs(mod - obs) / obs).mean(axis=axis) * 100.0
+        diff = np.asanyarray(mod) - np.asanyarray(obs)
+        if diff.size == 0:
+            return np.nan
+        result = np.ma.masked_invalid(np.ma.abs(diff) / obs).mean(axis=axis) * 100.0
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -754,6 +760,11 @@ def MB(
     """
     Mean Bias (MB).
 
+    Typical Use Cases
+    -----------------
+    - Quantifying the average difference between model and observations.
+    - Identifying systematic over- or under-estimation in model predictions.
+
     Parameters
     ----------
     obs : numpy.ndarray or xarray.DataArray
@@ -792,7 +803,9 @@ def MB(
         result = diff.mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MB")
     else:
-        diff = np.subtract(mod, obs)
+        diff = np.asanyarray(mod) - np.asanyarray(obs)
+        if diff.size == 0:
+            return np.nan
         if weights is not None:
             result = np.ma.average(np.ma.masked_invalid(diff), axis=axis, weights=weights)
         else:

@@ -101,12 +101,17 @@ def NMB(
     else:
         obs_arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
+        if obs_arr.size == 0:
+            return np.nan
         diff_arr = mod_arr - obs_arr
         if weights is not None:
             res = np.nansum(diff_arr * weights, axis=axis) / np.nansum(obs_arr * weights, axis=axis) * 100.0
         else:
             res = np.nansum(diff_arr, axis=axis) / np.nansum(obs_arr, axis=axis) * 100.0
-        return res.item() if np.ndim(res) == 0 else res
+        # If denominator was zero or all NaN, return NaN instead of 0.0 or inf
+        if np.ndim(res) == 0:
+            return res.item() if np.isfinite(res) else np.nan
+        return np.where(np.isfinite(res), res, np.nan)
 
 
 def WDNMB_m(

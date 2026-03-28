@@ -694,7 +694,12 @@ class MonetDataArrayAccessor:
         """
         return correlation_metrics.CCC(obs, self._obj, axis=dim)
 
-    def nmb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+    def nmb(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
         """
         Compute Normalized Mean Bias (NMB).
 
@@ -704,13 +709,15 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
 
         Returns
         -------
         xarray.DataArray
             Normalized mean bias.
         """
-        return relative_metrics.NMB(obs, self._obj, axis=dim)
+        return relative_metrics.NMB(obs, self._obj, axis=dim, weights=weights)
 
     def mg(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1208,7 +1215,7 @@ class MonetDataArrayAccessor:
             "MB": error_metrics.MB(obs, self._obj, axis=dim, weights=weights),
             "R": correlation_metrics.pearsonr(obs, self._obj, axis=dim),
             "IOA": error_metrics.IOA(obs, self._obj, axis=dim),
-            "NMB": relative_metrics.NMB(obs, self._obj, axis=dim),
+            "NMB": relative_metrics.NMB(obs, self._obj, axis=dim, weights=weights),
             "MNB": error_metrics.MNB(obs, self._obj, axis=dim),
             "MNE": error_metrics.MNE(obs, self._obj, axis=dim),
             "NSE": efficiency_metrics.NSE(obs, self._obj, axis=dim),

@@ -309,6 +309,8 @@ def stats(
     weights : numpy.ndarray or xarray.DataArray, optional
         Weights to apply for area-weighted statistics. If provided, `Obs`, `Mod`,
         `MB`, `MAE`, `RMSE`, and `NMB` will be calculated using weighted means.
+        For xarray inputs, this uses `xr.DataArray.weighted()`. For pandas/numpy,
+        it uses `np.ma.average()`.
 
     Returns
     -------
@@ -377,8 +379,15 @@ def stats(
         # Pandas path: use provided axis if possible
         res["N"] = obs_s.dropna().count()  # Pandas count doesn't easily map to axis for verification pairs
         if weights is not None:
-            res["Obs"] = np.ma.average(np.ma.masked_invalid(obs), axis=axis, weights=weights)
-            res["Mod"] = np.ma.average(np.ma.masked_invalid(mod), axis=axis, weights=weights)
+            # Mask NaNs before applying weights to ensure consistent behavior
+            obs_m = np.ma.masked_invalid(obs)
+            mod_m = np.ma.masked_invalid(mod)
+            # Find common mask to ensure Obs/Mod means are comparable
+            common_mask = np.ma.getmaskarray(obs_m) | np.ma.getmaskarray(mod_m)
+            obs_m.mask = common_mask
+            mod_m.mask = common_mask
+            res["Obs"] = np.ma.average(obs_m, axis=axis, weights=weights)
+            res["Mod"] = np.ma.average(mod_m, axis=axis, weights=weights)
         else:
             res["Obs"] = np.nanmean(obs, axis=axis)
             res["Mod"] = np.nanmean(mod, axis=axis)
@@ -432,6 +441,9 @@ def stats(
         data = apply_lazy_threshold(data)
         obs = data[obs_name]
         mod = data[mod_name]
+
+        # Handle align for Xarray to ensure Obs/Mod means are comparable
+        obs, mod = xr.align(obs, mod, join="inner")
 
         dim = _resolve_axis_to_dim(obs, axis)
 
