@@ -112,7 +112,8 @@ def KLDivergence(
 
     Typical Use Cases
     -----------------
-    - Measuring how much information is lost when the model's distribution is used to approximate the observed distribution.
+    - Measuring how much information is lost when the model's distribution is used
+      to approximate the observed distribution.
     - Quantifying the difference between two probability distributions.
 
     Parameters
