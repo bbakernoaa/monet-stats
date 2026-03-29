@@ -16,7 +16,9 @@ Monet Stats is organized into several functional modules:
 - **[Relative Metrics](relative-metrics.md)**: Normalized and relative error measures
 - **[Spatial & Ensemble Metrics](spatial-ensemble-metrics.md)**: Spatial verification and ensemble analysis
 - **[Utility Functions](utils-stats.md)**: Helper functions and data processing utilities
-- **[Visualization](visualize.md)**: Spatial plotting and data visualization (Aero Protocol)
+- **[Distributional Metrics](distribution-metrics.md)**: PDF and distribution comparison (Aero Protocol)
+- **[Temporal Metrics](temporal-metrics.md)**: Time-series alignment and frequency analysis (Aero Protocol)
+- **[Uncertainty Metrics](uncertainty.md)**: Confidence intervals and bootstrapping (Aero Protocol)
 
 ## Import Conventions
 
@@ -337,8 +339,14 @@ The following sections provide auto-generated documentation for each core module
 ### Utility Functions
 ::: monet_stats.utils_stats
 
-### Visualization
-::: monet_stats.visualize
+### Distributional Metrics
+::: monet_stats.distribution_metrics
+
+### Temporal Metrics
+::: monet_stats.temporal_metrics
+
+### Uncertainty Metrics
+::: monet_stats.uncertainty
 
 ## Contributing to API Documentation
 
