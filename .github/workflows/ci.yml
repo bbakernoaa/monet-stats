@@ -15,7 +15,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.9"
+          python-version: "3.11"
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
@@ -24,7 +24,7 @@ jobs:
     needs: pre-commit
     strategy:
       matrix:
-        python-version: [3.8, 3.9, "3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12"]
         dask-enabled: [true, false]
     name: test (py${{ matrix.python-version }}, dask=${{ matrix.dask-enabled }})
     steps:

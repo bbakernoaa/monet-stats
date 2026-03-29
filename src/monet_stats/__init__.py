@@ -48,6 +48,7 @@ from .correlation_metrics import (
     spearmanr,
     taylor_skill,
 )
+from .distribution_metrics import KLDivergence, WassersteinDistance
 from .efficiency_metrics import MAPE, MASE, NSE, PC, NSElog, NSEm, mNSE, rNSE
 from .error_metrics import (
     COE,
@@ -106,8 +107,20 @@ from .performance import (
     vectorize_function,
 )
 from .relative_metrics import FB, FE, MG, MPE, NMB, NMB_ABS, VG, NMdnB
-from .spatial_ensemble_metrics import BSS, CRPS, EDS, SAL, ensemble_mean, ensemble_std, rank_histogram, spread_error
+from .spatial_ensemble_metrics import (
+    BSS,
+    CRPS,
+    EDS,
+    SAL,
+    ensemble_mean,
+    ensemble_std,
+    rank_histogram,
+    reliability_diagram,
+    spread_error,
+)
 from .spatial_skill_metrics import FSS, VETS
+from .temporal_metrics import CrossWaveletTransform, DynamicTimeWarping
+from .uncertainty import block_bootstrap
 from .utils_stats import (
     _resolve_axis_to_dim,
     _update_history,
@@ -120,7 +133,6 @@ from .utils_stats import (
     matchmasks,
     rmse,
 )
-from .visualize import plot_spatial
 
 __all__ = [
     # analysis
@@ -232,6 +244,14 @@ __all__ = [
     "MG",
     "VG",
     "MPE",
+    # distribution_metrics
+    "WassersteinDistance",
+    "KLDivergence",
+    # temporal_metrics
+    "DynamicTimeWarping",
+    "CrossWaveletTransform",
+    # uncertainty
+    "block_bootstrap",
     # spatial_ensemble_metrics
     "EDS",
     "CRPS",
@@ -241,6 +261,7 @@ __all__ = [
     "ensemble_mean",
     "ensemble_std",
     "rank_histogram",
+    "reliability_diagram",
     # spatial_skill_metrics
     "FSS",
     "VETS",
@@ -263,8 +284,6 @@ __all__ = [
     "memory_efficient_correlation",
     "fast_rmse",
     "fast_mae",
-    # visualize
-    "plot_spatial",
 ]
 
 # Register xarray accessors

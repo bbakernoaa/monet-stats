@@ -11,12 +11,15 @@ from . import (
     analysis,
     contingency_metrics,
     correlation_metrics,
+    distribution_metrics,
     efficiency_metrics,
     error_metrics,
     performance,
     relative_metrics,
     spatial_ensemble_metrics,
     spatial_skill_metrics,
+    temporal_metrics,
+    uncertainty,
 )
 
 
@@ -1043,6 +1046,118 @@ class MonetDataArrayAccessor:
         """
         return contingency_metrics.BS(obs, self._obj, axis=dim)
 
+    def wasserstein_distance(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Wasserstein Distance.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the distance.
+
+        Returns
+        -------
+        xarray.DataArray
+            Wasserstein distance.
+        """
+        return distribution_metrics.WassersteinDistance(obs, self._obj, dim=dim)
+
+    def kl_divergence(
+        self, obs: xr.DataArray, bins: int = 100, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute KL Divergence.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        bins : int, optional
+            Number of bins.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the divergence.
+
+        Returns
+        -------
+        xarray.DataArray
+            KL divergence.
+        """
+        return distribution_metrics.KLDivergence(obs, self._obj, bins=bins, dim=dim)
+
+    def dtw(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Dynamic Time Warping (DTW) distance.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension along which to compute DTW.
+
+        Returns
+        -------
+        xarray.DataArray
+            DTW distance.
+        """
+        return temporal_metrics.DynamicTimeWarping(obs, self._obj, dim=dim)
+
+    def xwt(self, obs: xr.DataArray, widths: Optional[np.ndarray] = None, dim: str = "time") -> xr.DataArray:
+        """
+        Compute Cross-Wavelet Transform (XWT).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        widths : numpy.ndarray, optional
+            Wavelet widths.
+        dim : str, optional
+            Dimension along which to compute XWT.
+
+        Returns
+        -------
+        xarray.DataArray
+            XWT.
+        """
+        return temporal_metrics.CrossWaveletTransform(obs, self._obj, widths=widths, dim=dim)
+
+    def bootstrap(
+        self,
+        obs: xr.DataArray,
+        metric_func: Any,
+        n_boot: int = 1000,
+        block_size: int = 1,
+        dim: str = "time",
+        **kwargs: Any,
+    ) -> xr.Dataset:
+        """
+        Perform block-bootstrapping for a metric.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        metric_func : callable
+            Metric function.
+        n_boot : int, optional
+            Number of bootstrap samples.
+        block_size : int, optional
+            Block size.
+        dim : str, optional
+            Dimension along which to bootstrap.
+
+        Returns
+        -------
+        xarray.Dataset
+            Bootstrapped results (mean, lower, upper).
+        """
+        return uncertainty.block_bootstrap(
+            obs, self._obj, metric_func=metric_func, n_boot=n_boot, block_size=block_size, dim=dim, **kwargs
+        )
+
     def fss(
         self,
         obs: xr.DataArray,
@@ -1182,6 +1297,34 @@ class MonetDataArrayAccessor:
         """
         return spatial_ensemble_metrics.spread_error(self._obj, obs, axis=ensemble_dim, dim=dim)
 
+    def reliability_diagram(
+        self,
+        obs: xr.DataArray,
+        threshold: float = 0.5,
+        n_bins: int = 10,
+        dim: Optional[Union[str, List[str]]] = None,
+    ) -> xr.Dataset:
+        """
+        Compute Reliability Diagram.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float, optional
+            Event threshold.
+        n_bins : int, optional
+            Number of probability bins.
+        dim : str or list of str, optional
+            Dimension(s) along which to aggregate.
+
+        Returns
+        -------
+        xarray.Dataset
+            Reliability diagram components.
+        """
+        return spatial_ensemble_metrics.reliability_diagram(obs, self._obj, threshold=threshold, n_bins=n_bins, dim=dim)
+
     def verify(
         self,
         obs: xr.DataArray,
@@ -1240,51 +1383,6 @@ class MonetDataArrayAccessor:
         from .utils_stats import _update_history
 
         return _update_history(res, "Verification metrics bundle (verify)")
-
-    def plot_spatial(
-        self,
-        method: str = "matplotlib",
-        lat_dim: str = "lat",
-        lon_dim: str = "lon",
-        title: Optional[str] = None,
-        cmap: str = "viridis",
-        **kwargs: Any,
-    ) -> Any:
-        """
-        Plot spatial data following the Aero Protocol's Two-Track Rule.
-
-        Parameters
-        ----------
-        method : str, optional
-            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
-            Default is 'matplotlib'.
-        lat_dim : str, optional
-            Latitude dimension name. Default is 'lat'.
-        lon_dim : str, optional
-            Longitude dimension name. Default is 'lon'.
-        title : str, optional
-            Plot title.
-        cmap : str, optional
-            Colormap. Default is 'viridis'.
-        **kwargs : Any
-            Additional keyword arguments.
-
-        Returns
-        -------
-        Any
-            The plot object.
-        """
-        from .visualize import plot_spatial
-
-        return plot_spatial(
-            self._obj,
-            method=method,
-            lat_dim=lat_dim,
-            lon_dim=lon_dim,
-            title=title,
-            cmap=cmap,
-            **kwargs,
-        )
 
 
 @xr.register_dataset_accessor("monet_stats")

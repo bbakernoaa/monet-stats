@@ -2,12 +2,12 @@
 Spatial and Ensemble Metrics for Atmospheric Sciences (Aero Protocol Compliant)
 """
 
-from typing import Any, Iterable, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
 
-from .utils_stats import _update_history
+from .utils_stats import _resolve_axis_to_dim, _update_history
 
 
 def EDS(
@@ -633,3 +633,113 @@ def rank_histogram(
         return _update_history(res, "Rank Histogram")
 
     return _rank_numpy(np.asarray(ensemble), np.asarray(obs), ens_axis=axis)
+
+
+def reliability_diagram(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod_prob: Union[xr.DataArray, np.ndarray],
+    threshold: float = 0.5,
+    n_bins: int = 10,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[xr.Dataset, Dict[str, np.ndarray]]:
+    """
+    Compute reliability diagram components (Aero Protocol).
+
+    Typical Use Cases
+    -----------------
+    - Evaluating the calibration of probabilistic forecasts.
+    - Assessing whether the forecast probabilities match the observed frequencies.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed binary outcomes (0 or 1) or continuous values (will be binarized).
+    mod_prob : xarray.DataArray or numpy.ndarray
+        Forecast probabilities (0 to 1).
+    threshold : float, optional
+        Threshold for binarizing observations if they are continuous, by default 0.5.
+    n_bins : int, optional
+        Number of probability bins, by default 10.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to aggregate (xarray only).
+    axis : int, str, or iterable of int or str, optional
+        Axis or axes along which to aggregate (numpy only).
+
+    Returns
+    -------
+    xarray.Dataset or dict
+        Reliability diagram components:
+        - forecast_prob: Mean forecast probability in each bin.
+        - observed_freq: Observed frequency in each bin.
+        - bin_counts: Number of samples in each bin.
+    """
+
+    def _reliability_numpy(o: np.ndarray, m_p: np.ndarray, bins: int) -> np.ndarray:
+        o_bin = (o >= threshold).astype(float)
+        m_p = np.clip(m_p, 0, 1)
+
+        bin_edges = np.linspace(0, 1, bins + 1)
+        # Use digitize to assign each probability to a bin
+        bin_indices = np.digitize(m_p, bin_edges) - 1
+        # Handle 1.0 being assigned to bins index
+        bin_indices[bin_indices == bins] = bins - 1
+
+        forecast_prob = np.zeros(bins)
+        observed_freq = np.zeros(bins)
+        bin_counts = np.zeros(bins)
+
+        for i in range(bins):
+            mask = bin_indices == i
+            count = np.sum(mask)
+            if count > 0:
+                forecast_prob[i] = np.mean(m_p[mask])
+                observed_freq[i] = np.mean(o_bin[mask])
+                bin_counts[i] = count
+            else:
+                forecast_prob[i] = np.nan
+                observed_freq[i] = np.nan
+                bin_counts[i] = 0
+
+        return np.stack([forecast_prob, observed_freq, bin_counts])
+
+    if isinstance(obs, xr.DataArray) and isinstance(mod_prob, xr.DataArray):
+        obs, mod_prob = xr.align(obs, mod_prob, join="inner")
+        reduction_dim = _resolve_axis_to_dim(obs, dim if dim is not None else axis)
+
+        if isinstance(reduction_dim, str):
+            core_dims = [reduction_dim]
+        else:
+            core_dims = list(reduction_dim)
+
+        from .utils_stats import ensure_single_chunk
+
+        obs = ensure_single_chunk(obs, core_dims)
+        mod_prob = ensure_single_chunk(mod_prob, core_dims)
+
+        res = xr.apply_ufunc(
+            _reliability_numpy,
+            obs,
+            mod_prob,
+            input_core_dims=[core_dims, core_dims],
+            output_core_dims=[["component", "bin"]],
+            kwargs={"bins": n_bins},
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[float],
+            dask_gufunc_kwargs={"output_sizes": {"component": 3, "bin": n_bins}},
+        )
+
+        ds = xr.Dataset(
+            {
+                "forecast_prob": res.isel(component=0),
+                "observed_freq": res.isel(component=1),
+                "bin_counts": res.isel(component=2),
+            }
+        )
+        ds = ds.assign_coords(bin=np.arange(n_bins))
+        return _update_history(ds, "Reliability Diagram")
+
+    # NumPy path
+    res = _reliability_numpy(np.asarray(obs), np.asarray(mod_prob), n_bins)
+    return {"forecast_prob": res[0], "observed_freq": res[1], "bin_counts": res[2]}

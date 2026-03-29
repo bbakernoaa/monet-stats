@@ -26,7 +26,9 @@ nav:
     - Relative Metrics: api/relative-metrics.md
     - Spatial & Ensemble Metrics: api/spatial-ensemble-metrics.md
     - Utility Functions: api/utils-stats.md
-    - Visualization: api/visualize.md
+    - Distributional Metrics: api/distribution-metrics.md
+    - Temporal Metrics: api/temporal-metrics.md
+    - Uncertainty Metrics: api/uncertainty.md
   - Math:
     - Overview: math/overview.md
   - Workflows:
