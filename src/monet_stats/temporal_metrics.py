@@ -142,11 +142,16 @@ def CrossWaveletTransform(
         # we can use the private _cwt and _ricker or implement a basic one.
         # However, it seems _cwt is available in _peak_finding.
         try:
-            from scipy.signal._peak_finding import _cwt
-            from scipy.signal._wavelets import _ricker as ricker
-        except ImportError:
-            # Fallback or manual implementation if needed
-            raise ImportError("Could not import required wavelet functions from scipy.signal")
+            import scipy.signal._peak_finding as pf
+            import scipy.signal._wavelets as wv
+            _cwt = pf._cwt
+            ricker = wv._ricker
+        except (ImportError, AttributeError):
+            try:
+                # Some versions might have it elsewhere
+                from scipy.signal import _cwt, ricker
+            except (ImportError, AttributeError):
+                raise ImportError("Could not import required wavelet functions from scipy.signal")
 
         # Compute Continuous Wavelet Transform (CWT) for both
         cwt_obs = _cwt(o, ricker, w)
