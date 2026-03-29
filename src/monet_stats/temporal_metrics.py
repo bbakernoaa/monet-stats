@@ -144,6 +144,7 @@ def CrossWaveletTransform(
         try:
             import scipy.signal._peak_finding as pf
             import scipy.signal._wavelets as wv
+
             _cwt = pf._cwt
             ricker = wv._ricker
         except (ImportError, AttributeError):
