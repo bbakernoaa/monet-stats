@@ -1,8 +1,9 @@
-
+import dask.array as da
 import numpy as np
 import xarray as xr
-import dask.array as da
-from monet_stats.temporal_metrics import DynamicTimeWarping, CrossWaveletTransform
+
+from monet_stats.temporal_metrics import CrossWaveletTransform, DynamicTimeWarping
+
 
 def test_dtw_numpy():
     obs = np.array([1, 2, 3, 4, 5])
@@ -10,6 +11,7 @@ def test_dtw_numpy():
     # DTW should handle the shift [0] at the beginning
     res = DynamicTimeWarping(obs, mod)
     assert res < 5.0
+
 
 def test_dtw_xarray_lazy():
     obs = xr.DataArray(da.from_array(np.array([1, 2, 3, 4, 5]), chunks=5), dims="time")
@@ -20,6 +22,7 @@ def test_dtw_xarray_lazy():
     # Distance between [1,2,3,4,5] and [0,1,2,3,4,5] should be 1.0 (matching 1 with 0, then 1-1, 2-2...)
     assert np.isclose(val, 1.0)
 
+
 def test_xwt_numpy():
     t = np.linspace(0, 10, 100)
     obs = np.sin(2 * np.pi * t)
@@ -28,6 +31,7 @@ def test_xwt_numpy():
     res = CrossWaveletTransform(obs, mod, widths=widths)
     assert res.shape == (len(widths), len(obs))
     assert np.iscomplexobj(res)
+
 
 def test_xwt_xarray_lazy():
     t = np.linspace(0, 10, 100)
@@ -43,6 +47,7 @@ def test_xwt_xarray_lazy():
     assert hasattr(res.data, "chunks")
     val = res.compute()
     assert np.iscomplexobj(val.values)
+
 
 if __name__ == "__main__":
     test_dtw_numpy()

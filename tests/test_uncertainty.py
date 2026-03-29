@@ -1,9 +1,10 @@
-
+import dask.array as da
 import numpy as np
 import xarray as xr
-import dask.array as da
-from monet_stats.uncertainty import block_bootstrap
+
 from monet_stats.error_metrics import MAE
+from monet_stats.uncertainty import block_bootstrap
+
 
 def test_bootstrap_numpy():
     obs = np.random.normal(0, 1, 100)
@@ -11,6 +12,7 @@ def test_bootstrap_numpy():
     res = block_bootstrap(obs, mod, metric_func=MAE, n_boot=100)
     assert "mean" in res
     assert res["lower"] < res["mean"] < res["upper"]
+
 
 def test_bootstrap_xarray_lazy():
     obs_data = np.random.normal(0, 1, 100)
@@ -22,6 +24,7 @@ def test_bootstrap_xarray_lazy():
     assert hasattr(res["mean"].data, "chunks")
     val = res.compute()
     assert val["lower"] < val["mean"] < val["upper"]
+
 
 if __name__ == "__main__":
     test_bootstrap_numpy()

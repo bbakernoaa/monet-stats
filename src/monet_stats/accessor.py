@@ -11,13 +11,13 @@ from . import (
     analysis,
     contingency_metrics,
     correlation_metrics,
+    distribution_metrics,
     efficiency_metrics,
     error_metrics,
     performance,
     relative_metrics,
     spatial_ensemble_metrics,
     spatial_skill_metrics,
-    distribution_metrics,
     temporal_metrics,
     uncertainty,
 )
@@ -1046,9 +1046,7 @@ class MonetDataArrayAccessor:
         """
         return contingency_metrics.BS(obs, self._obj, axis=dim)
 
-    def wasserstein_distance(
-        self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None
-    ) -> xr.DataArray:
+    def wasserstein_distance(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute Wasserstein Distance.
 
@@ -1106,9 +1104,7 @@ class MonetDataArrayAccessor:
         """
         return temporal_metrics.DynamicTimeWarping(obs, self._obj, dim=dim)
 
-    def xwt(
-        self, obs: xr.DataArray, widths: Optional[np.ndarray] = None, dim: str = "time"
-    ) -> xr.DataArray:
+    def xwt(self, obs: xr.DataArray, widths: Optional[np.ndarray] = None, dim: str = "time") -> xr.DataArray:
         """
         Compute Cross-Wavelet Transform (XWT).
 
@@ -1327,9 +1323,7 @@ class MonetDataArrayAccessor:
         xarray.Dataset
             Reliability diagram components.
         """
-        return spatial_ensemble_metrics.reliability_diagram(
-            obs, self._obj, threshold=threshold, n_bins=n_bins, dim=dim
-        )
+        return spatial_ensemble_metrics.reliability_diagram(obs, self._obj, threshold=threshold, n_bins=n_bins, dim=dim)
 
     def verify(
         self,
@@ -1388,7 +1382,7 @@ class MonetDataArrayAccessor:
         res = xr.Dataset(metrics)
         from .utils_stats import _update_history
 
-        return _update_history(res, f"Verification metrics bundle (verify)")
+        return _update_history(res, "Verification metrics bundle (verify)")
 
 
 @xr.register_dataset_accessor("monet_stats")

@@ -48,6 +48,7 @@ from .correlation_metrics import (
     spearmanr,
     taylor_skill,
 )
+from .distribution_metrics import KLDivergence, WassersteinDistance
 from .efficiency_metrics import MAPE, MASE, NSE, PC, NSElog, NSEm, mNSE, rNSE
 from .error_metrics import (
     COE,
@@ -105,7 +106,6 @@ from .performance import (
     parallel_compute,
     vectorize_function,
 )
-from .distribution_metrics import KLDivergence, WassersteinDistance
 from .relative_metrics import FB, FE, MG, MPE, NMB, NMB_ABS, VG, NMdnB
 from .spatial_ensemble_metrics import (
     BSS,

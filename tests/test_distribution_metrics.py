@@ -1,8 +1,9 @@
-
+import dask.array as da
 import numpy as np
 import xarray as xr
-import dask.array as da
-from monet_stats.distribution_metrics import WassersteinDistance, KLDivergence
+
+from monet_stats.distribution_metrics import KLDivergence, WassersteinDistance
+
 
 def test_wasserstein_numpy():
     obs = np.array([1, 2, 3])
@@ -11,6 +12,7 @@ def test_wasserstein_numpy():
     res = WassersteinDistance(obs, mod)
     assert np.isclose(res, 1.0)
 
+
 def test_wasserstein_xarray_lazy():
     obs = xr.DataArray(da.from_array(np.array([1, 2, 3]), chunks=3), dims="x")
     mod = xr.DataArray(da.from_array(np.array([2, 3, 4]), chunks=3), dims="x")
@@ -18,12 +20,14 @@ def test_wasserstein_xarray_lazy():
     assert hasattr(res.data, "chunks")
     assert np.isclose(res.compute(), 1.0)
 
+
 def test_kl_numpy():
     obs = np.random.normal(0, 1, 1000)
     mod = np.random.normal(0, 1, 1000)
     res = KLDivergence(obs, mod, bins=10)
     # KL divergence of identical distributions should be small
     assert res < 0.1
+
 
 def test_kl_xarray_lazy():
     obs_data = np.random.normal(0, 1, 1000)
@@ -34,6 +38,7 @@ def test_kl_xarray_lazy():
     assert hasattr(res.data, "chunks")
     val = res.compute()
     assert val > 0
+
 
 if __name__ == "__main__":
     test_wasserstein_numpy()

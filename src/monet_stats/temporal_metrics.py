@@ -6,7 +6,6 @@ from typing import Iterable, Optional, Union
 
 import numpy as np
 import xarray as xr
-from scipy.signal import find_peaks_cwt
 
 from .utils_stats import _resolve_axis_to_dim, _update_history, ensure_single_chunk
 

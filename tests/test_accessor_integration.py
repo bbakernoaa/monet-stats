@@ -1,8 +1,8 @@
-
 import numpy as np
 import xarray as xr
-import monet_stats
+
 from monet_stats.error_metrics import MAE
+
 
 def test_accessor_new_metrics():
     obs = xr.DataArray(np.random.normal(0, 1, 100), dims="time", coords={"time": np.arange(100)})
@@ -31,6 +31,7 @@ def test_accessor_new_metrics():
     # Test Reliability
     res_rel = mod.monet_stats.reliability_diagram(obs, threshold=0, dim="time")
     assert "observed_freq" in res_rel.data_vars
+
 
 if __name__ == "__main__":
     test_accessor_new_metrics()

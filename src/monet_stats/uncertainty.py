@@ -2,12 +2,12 @@
 Uncertainty quantification tools for model evaluation (Aero Protocol Compliant).
 """
 
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Any, Callable, Dict, Union
 
 import numpy as np
 import xarray as xr
 
-from .utils_stats import _resolve_axis_to_dim, _update_history, ensure_single_chunk
+from .utils_stats import _update_history, ensure_single_chunk
 
 
 def block_bootstrap(
@@ -107,11 +107,7 @@ def block_bootstrap(
         res_low = res.quantile(alpha, dim="bootstrap").drop_vars("quantile", errors="ignore")
         res_high = res.quantile(1 - alpha, dim="bootstrap").drop_vars("quantile", errors="ignore")
 
-        ds = xr.Dataset({
-            "mean": res_mean,
-            "lower": res_low,
-            "upper": res_high
-        })
+        ds = xr.Dataset({"mean": res_mean, "lower": res_low, "upper": res_high})
         return _update_history(ds, f"Block-Bootstrap ({metric_func.__name__}, n={n_boot})")
 
     # NumPy path
@@ -120,5 +116,5 @@ def block_bootstrap(
     return {
         "mean": float(np.nanmean(boot_samples)),
         "lower": float(np.nanquantile(boot_samples, alpha)),
-        "upper": float(np.nanquantile(boot_samples, 1 - alpha))
+        "upper": float(np.nanquantile(boot_samples, 1 - alpha)),
     }
