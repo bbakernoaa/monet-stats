@@ -9,6 +9,7 @@ from monet_stats.uncertainty import block_bootstrap
 def test_bootstrap_xarray_lazy():
     pytest.importorskip("dask.array")
     import dask.array as da
+
     obs_data = np.random.normal(0, 1, 100)
     mod_data = obs_data + np.random.normal(0, 0.1, 100)
     obs = xr.DataArray(da.from_array(obs_data, chunks=50), dims="time")

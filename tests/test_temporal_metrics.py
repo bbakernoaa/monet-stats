@@ -8,6 +8,7 @@ from monet_stats.temporal_metrics import CrossWaveletTransform, DynamicTimeWarpi
 def test_dtw_xarray_lazy():
     pytest.importorskip("dask.array")
     import dask.array as da
+
     obs = xr.DataArray(da.from_array(np.array([1, 2, 3, 4, 5]), chunks=5), dims="time")
     mod = xr.DataArray(da.from_array(np.array([0, 1, 2, 3, 4, 5]), chunks=6), dims="time")
     res = DynamicTimeWarping(obs, mod)
@@ -20,6 +21,7 @@ def test_dtw_xarray_lazy():
 def test_xwt_xarray_lazy():
     pytest.importorskip("dask.array")
     import dask.array as da
+
     t = np.linspace(0, 10, 100)
     obs_data = np.sin(2 * np.pi * t)
     mod_data = np.sin(2 * np.pi * t + 0.5)

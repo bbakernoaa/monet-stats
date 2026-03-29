@@ -8,6 +8,7 @@ from monet_stats.distribution_metrics import KLDivergence, WassersteinDistance
 def test_wasserstein_xarray_lazy():
     pytest.importorskip("dask.array")
     import dask.array as da
+
     obs = xr.DataArray(da.from_array(np.array([1, 2, 3]), chunks=3), dims="x")
     mod = xr.DataArray(da.from_array(np.array([2, 3, 4]), chunks=3), dims="x")
     res = WassersteinDistance(obs, mod)
@@ -18,6 +19,7 @@ def test_wasserstein_xarray_lazy():
 def test_kl_xarray_lazy():
     pytest.importorskip("dask.array")
     import dask.array as da
+
     obs_data = np.random.normal(0, 1, 1000)
     mod_data = np.random.normal(0.5, 1, 1000)
     obs = xr.DataArray(da.from_array(obs_data, chunks=500), dims="x")
