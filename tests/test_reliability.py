@@ -18,10 +18,17 @@ def test_reliability_numpy():
 def test_reliability_xarray():
     obs = xr.DataArray([0, 1, 0, 1, 0], dims="x")
     mod_prob = xr.DataArray([0.1, 0.9, 0.2, 0.8, 0.3], dims="x")
+    # Test with dim
     res = reliability_diagram(obs, mod_prob, n_bins=2, dim="x")
     assert "bin" in res.coords
     assert np.isclose(res["observed_freq"].isel(bin=0), 0.0)
     assert np.isclose(res["observed_freq"].isel(bin=1), 1.0)
+
+    # Test without dim (all)
+    res_all = reliability_diagram(obs, mod_prob, n_bins=2)
+    assert "bin" in res_all.coords
+    assert np.isclose(res_all["observed_freq"].isel(bin=0), 0.0)
+    assert np.isclose(res_all["observed_freq"].isel(bin=1), 1.0)
 
 
 if __name__ == "__main__":
