@@ -149,7 +149,8 @@ def CrossWaveletTransform(
         except ImportError:
             # Fallback to private internals for compatibility
             try:
-                from scipy.signal._wavelets import _cwt as cwt, _ricker as ricker
+                from scipy.signal._wavelets import _cwt as cwt
+                from scipy.signal._wavelets import _ricker as ricker
             except ImportError:
                 raise ImportError(
                     "CrossWaveletTransform requires wavelet functions from scipy.signal. "

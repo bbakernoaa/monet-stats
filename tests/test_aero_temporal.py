@@ -1,8 +1,9 @@
-import numpy as np
-import pytest
-import xarray as xr
 import dask.array as da
-from monet_stats.temporal_metrics import DynamicTimeWarping, CrossWaveletTransform, PhaseError
+import numpy as np
+import xarray as xr
+
+from monet_stats.temporal_metrics import CrossWaveletTransform, DynamicTimeWarping, PhaseError
+
 
 def test_dtw_numpy():
     # Simple cases
@@ -24,6 +25,7 @@ def test_dtw_numpy():
     # Alignment: 1-1, 3-2, 3-3 cost=1
     assert DynamicTimeWarping(obs, mod) == 1.0
 
+
 def test_dtw_xarray():
     obs = xr.DataArray([1, 2, 3], dims="time", coords={"time": [0, 1, 2]})
     mod = xr.DataArray([1, 2, 3], dims="time", coords={"time": [0, 1, 2]})
@@ -33,6 +35,7 @@ def test_dtw_xarray():
     assert "history" in res.attrs
     assert "Dynamic Time Warping (DTW)" in res.attrs["history"]
 
+
 def test_dtw_dask():
     obs = xr.DataArray(da.from_array([1, 2, 3], chunks=3), dims="time")
     mod = xr.DataArray(da.from_array([1, 2, 3], chunks=3), dims="time")
@@ -41,17 +44,19 @@ def test_dtw_dask():
     assert hasattr(res.data, "dask")
     assert float(res.compute()) == 0.0
 
+
 def test_phase_error_numpy():
-    obs = np.array([0, 1, 0]) # peak at index 1
-    mod = np.array([0, 0, 1]) # peak at index 2
+    obs = np.array([0, 1, 0])  # peak at index 1
+    mod = np.array([0, 0, 1])  # peak at index 2
     assert PhaseError(obs, mod) == 1.0
 
     # Multidimensional
-    obs = np.array([[0, 1, 0], [1, 0, 0]]) # peaks at 1, 0
-    mod = np.array([[0, 0, 1], [0, 1, 0]]) # peaks at 2, 1
+    obs = np.array([[0, 1, 0], [1, 0, 0]])  # peaks at 1, 0
+    mod = np.array([[0, 0, 1], [0, 1, 0]])  # peaks at 2, 1
     res = PhaseError(obs, mod, axis=1)
     # Obs peaks: [1, 0], Mod peaks: [2, 1] -> Phase Error: [2-1, 1-0] = [1, 1]
     np.testing.assert_array_equal(res, [1.0, 1.0])
+
 
 def test_phase_error_numpy_nans():
     # Test all-NaN slice robust logic
@@ -59,6 +64,7 @@ def test_phase_error_numpy_nans():
     mod = np.array([[np.nan, np.nan], [0, 1]])
     res = PhaseError(obs, mod, axis=1)
     np.testing.assert_array_equal(res, [np.nan, 0.0])
+
 
 def test_phase_error_xarray():
     obs = xr.DataArray([[0, 1, 0], [1, 0, 0]], dims=("lat", "time"))
@@ -69,6 +75,7 @@ def test_phase_error_xarray():
     np.testing.assert_array_equal(res.values, [1.0, 1.0])
     assert "history" in res.attrs
 
+
 def test_phase_error_dask():
     obs = xr.DataArray(da.from_array([[0, 1, 0], [1, 0, 0]], chunks=(2, 3)), dims=("lat", "time"))
     mod = xr.DataArray(da.from_array([[0, 0, 1], [0, 1, 0]], chunks=(2, 3)), dims=("lat", "time"))
@@ -77,6 +84,7 @@ def test_phase_error_dask():
     assert hasattr(res.data, "dask")
     np.testing.assert_array_equal(res.compute().values, [1.0, 1.0])
 
+
 def test_xwt_numpy():
     obs = np.sin(np.linspace(0, 10, 100))
     mod = np.sin(np.linspace(0, 10, 100))
@@ -84,6 +92,7 @@ def test_xwt_numpy():
     res = CrossWaveletTransform(obs, mod, widths=widths)
     assert res.shape == (len(widths), 100)
     assert res.dtype == complex
+
 
 def test_xwt_xarray():
     obs = xr.DataArray(np.sin(np.linspace(0, 10, 100)), dims="time")
@@ -95,6 +104,7 @@ def test_xwt_xarray():
     assert res.shape == (len(widths), 100)
     assert "scale" in res.coords
     assert "history" in res.attrs
+
 
 def test_xwt_dask():
     obs = xr.DataArray(da.from_array(np.sin(np.linspace(0, 10, 100)), chunks=50), dims="time")
