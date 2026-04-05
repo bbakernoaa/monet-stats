@@ -9,6 +9,8 @@ import xarray as xr
 
 from .utils_stats import _resolve_axis_to_dim, _update_history, ensure_single_chunk
 
+__all__ = ["DynamicTimeWarping", "CrossWaveletTransform", "PhaseError"]
+
 
 def DynamicTimeWarping(
     obs: Union[xr.DataArray, np.ndarray],
@@ -49,15 +51,18 @@ def DynamicTimeWarping(
         if n == 0 or mm == 0:
             return np.nan
 
-        dtw_matrix = np.full((n + 1, mm + 1), np.inf)
-        dtw_matrix[0, 0] = 0
+        # Use two rows to optimize space complexity from O(N*M) to O(M)
+        prev_row = np.full(mm + 1, np.inf)
+        prev_row[0] = 0
 
         for i in range(1, n + 1):
+            curr_row = np.full(mm + 1, np.inf)
             for j in range(1, mm + 1):
                 cost = abs(o_valid[i - 1] - m_valid[j - 1])
-                dtw_matrix[i, j] = cost + min(dtw_matrix[i - 1, j], dtw_matrix[i, j - 1], dtw_matrix[i - 1, j - 1])
+                curr_row[j] = cost + min(prev_row[j], curr_row[j - 1], prev_row[j - 1])
+            prev_row = curr_row
 
-        return float(dtw_matrix[n, mm])
+        return float(prev_row[mm])
 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         # Determine core dimensions first
@@ -138,25 +143,22 @@ def CrossWaveletTransform(
         widths = np.arange(1, 31)
 
     def _xwt_numpy(o: np.ndarray, m: np.ndarray, w: np.ndarray) -> np.ndarray:
-        # Since cwt and morlet2 are not directly exposed in some scipy versions,
-        # we can use the private _cwt and _ricker or implement a basic one.
-        # However, it seems _cwt is available in _peak_finding.
         try:
-            import scipy.signal._peak_finding as pf
-            import scipy.signal._wavelets as wv
-
-            _cwt = pf._cwt
-            ricker = wv._ricker
-        except (ImportError, AttributeError):
+            # Try public API (available in Scipy < 1.15)
+            from scipy.signal import cwt, ricker
+        except ImportError:
+            # Fallback to private internals for compatibility
             try:
-                # Some versions might have it elsewhere
-                from scipy.signal import _cwt, ricker
-            except (ImportError, AttributeError):
-                raise ImportError("Could not import required wavelet functions from scipy.signal")
+                from scipy.signal._wavelets import _cwt as cwt, _ricker as ricker
+            except ImportError:
+                raise ImportError(
+                    "CrossWaveletTransform requires wavelet functions from scipy.signal. "
+                    "Ensure scipy is installed and compatible."
+                )
 
         # Compute Continuous Wavelet Transform (CWT) for both
-        cwt_obs = _cwt(o, ricker, w)
-        cwt_mod = _cwt(m, ricker, w)
+        cwt_obs = cwt(o, ricker, w)
+        cwt_mod = cwt(m, ricker, w)
         # Cross-Wavelet Transform is W_xy = W_x * W_y*
         # Ensure complex multiplication
         return cwt_obs.astype(complex) * np.conj(cwt_mod.astype(complex))
@@ -185,3 +187,93 @@ def CrossWaveletTransform(
     o_arr = np.asarray(obs)
     m_arr = np.asarray(mod)
     return _xwt_numpy(o_arr, m_arr, widths)
+
+
+def PhaseError(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
+    """
+    Compute the Phase Error (timing offset of peaks) (Aero Protocol).
+
+    Typical Use Cases
+    -----------------
+    - Quantifying the temporal shift between observed and modeled diurnal peaks.
+    - Evaluating the timing accuracy of seasonal cycles or extreme events.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed temporal sequence.
+    mod : xarray.DataArray or numpy.ndarray
+        Model or predicted temporal sequence.
+    dim : str or iterable of str, optional
+        Dimension along which to find the peak (xarray only).
+    axis : int, str, or iterable of int or str, optional
+        Axis or axes along which to find the peak (numpy only).
+
+    Returns
+    -------
+    xarray.DataArray, numpy.ndarray, or float
+        The timing offset (Mod_peak_index - Obs_peak_index).
+    """
+
+    def _phase_error_numpy(o: np.ndarray, m: np.ndarray) -> float:
+        if np.all(np.isnan(o)) or np.all(np.isnan(m)):
+            return np.nan
+        # Identify index of maximum value
+        o_idx = np.nanargmax(o)
+        m_idx = np.nanargmax(m)
+        return float(m_idx - o_idx)
+
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        # Determine reduction dimension
+        reduction_dim = _resolve_axis_to_dim(obs, dim if dim is not None else axis)
+        if isinstance(reduction_dim, str):
+            core_dims = [reduction_dim]
+        else:
+            core_dims = list(reduction_dim)
+
+        # Ensure laziness and apply ufunc
+        obs = ensure_single_chunk(obs, core_dims)
+        mod = ensure_single_chunk(mod, core_dims)
+
+        res = xr.apply_ufunc(
+            _phase_error_numpy,
+            obs,
+            mod,
+            input_core_dims=[core_dims, core_dims],
+            output_core_dims=[[]],
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[float],
+        )
+        return _update_history(res, "Phase Error")
+
+    # NumPy path
+    o_arr = np.asarray(obs)
+    m_arr = np.asarray(mod)
+
+    if axis is None:
+        return _phase_error_numpy(o_arr.flatten(), m_arr.flatten())
+
+    # Handle all-NaN slices by checking where all are NaN
+    # (nanargmax raises ValueError on all-NaN slices, so we must mask before)
+    mask = np.all(np.isnan(o_arr), axis=axis) | np.all(np.isnan(m_arr), axis=axis)
+
+    # Pre-mask all-NaN slices with a dummy value (e.g., 0) to avoid ValueError
+    # The actual result for these slices will be replaced with NaN afterwards.
+    o_safe = np.where(np.all(np.isnan(o_arr), axis=axis, keepdims=True), 0, o_arr)
+    m_safe = np.where(np.all(np.isnan(m_arr), axis=axis, keepdims=True), 0, m_arr)
+
+    # Use np.nanargmax with axis for vectorized performance
+    o_idx = np.nanargmax(o_safe, axis=axis)
+    m_idx = np.nanargmax(m_safe, axis=axis)
+    res = (m_idx - o_idx).astype(float)
+
+    if np.any(mask):
+        res = np.where(mask, np.nan, res)
+
+    return res.item() if np.ndim(res) == 0 else res
