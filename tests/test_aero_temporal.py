@@ -1,5 +1,5 @@
-import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
 
 from monet_stats.temporal_metrics import CrossWaveletTransform, DynamicTimeWarping, PhaseError
@@ -37,6 +37,7 @@ def test_dtw_xarray():
 
 
 def test_dtw_dask():
+    da = pytest.importorskip("dask.array")
     obs = xr.DataArray(da.from_array([1, 2, 3], chunks=3), dims="time")
     mod = xr.DataArray(da.from_array([1, 2, 3], chunks=3), dims="time")
 
@@ -77,6 +78,7 @@ def test_phase_error_xarray():
 
 
 def test_phase_error_dask():
+    da = pytest.importorskip("dask.array")
     obs = xr.DataArray(da.from_array([[0, 1, 0], [1, 0, 0]], chunks=(2, 3)), dims=("lat", "time"))
     mod = xr.DataArray(da.from_array([[0, 0, 1], [0, 1, 0]], chunks=(2, 3)), dims=("lat", "time"))
 
@@ -107,6 +109,7 @@ def test_xwt_xarray():
 
 
 def test_xwt_dask():
+    da = pytest.importorskip("dask.array")
     obs = xr.DataArray(da.from_array(np.sin(np.linspace(0, 10, 100)), chunks=50), dims="time")
     mod = xr.DataArray(da.from_array(np.sin(np.linspace(0, 10, 100)), chunks=50), dims="time")
     widths = np.arange(1, 5)
