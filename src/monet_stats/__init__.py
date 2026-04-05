@@ -119,7 +119,7 @@ from .spatial_ensemble_metrics import (
     spread_error,
 )
 from .spatial_skill_metrics import FSS, VETS
-from .temporal_metrics import CrossWaveletTransform, DynamicTimeWarping
+from .temporal_metrics import CrossWaveletTransform, DynamicTimeWarping, PhaseError
 from .uncertainty import block_bootstrap
 from .utils_stats import (
     _resolve_axis_to_dim,
@@ -250,6 +250,7 @@ __all__ = [
     # temporal_metrics
     "DynamicTimeWarping",
     "CrossWaveletTransform",
+    "PhaseError",
     # uncertainty
     "block_bootstrap",
     # spatial_ensemble_metrics
