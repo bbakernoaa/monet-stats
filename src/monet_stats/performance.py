@@ -204,8 +204,9 @@ def apply_lazy_threshold(
         if backend == "dask":
             if not _has_dask():
                 warnings.warn(
-                    f"Laziness requested (force_lazy={force_lazy} or size={size_mb:.2f}MB > threshold={threshold_mb}MB), "
-                    "but Dask is not installed. Continuing with eager computation.",
+                    f"Laziness requested (force_lazy={force_lazy} or size={size_mb:.2f}MB > "
+                    f"threshold={threshold_mb}MB), but Dask is not installed. "
+                    "Continuing with eager computation.",
                     UserWarning,
                     stacklevel=2,
                 )
@@ -213,8 +214,9 @@ def apply_lazy_threshold(
         elif backend == "cubed":
             if not _has_cubed():
                 warnings.warn(
-                    f"Laziness requested (force_lazy={force_lazy} or size={size_mb:.2f}MB > threshold={threshold_mb}MB), "
-                    "but Cubed is not installed. Continuing with eager computation.",
+                    f"Laziness requested (force_lazy={force_lazy} or size={size_mb:.2f}MB > "
+                    f"threshold={threshold_mb}MB), but Cubed is not installed. "
+                    "Continuing with eager computation.",
                     UserWarning,
                     stacklevel=2,
                 )
@@ -342,7 +344,8 @@ def parallel_compute(
                 # Use recommendation to calculate chunks for Cubed
                 # This ensures consistent chunk sizes between Dask and Cubed backends
                 dummy_da = xr.DataArray(data_arr)
-                recommendation = get_chunk_recommendation(dummy_da, target_mb=chunk_size * data_arr.itemsize / (1024**2))
+                target_mb = chunk_size * data_arr.itemsize / (1024**2)
+                recommendation = get_chunk_recommendation(dummy_da, target_mb=target_mb)
                 chunks = tuple(recommendation.get(f"dim_{i}", data_arr.shape[i]) for i in range(data_arr.ndim))
                 # Fallback if dummy_da doesn't use dim_0, etc.
                 if any(isinstance(v, int) for v in recommendation.values()):
@@ -350,7 +353,6 @@ def parallel_compute(
                     # but here we didn't specify any.
                     # Let's re-calculate more carefully.
                     total_elements = data_arr.size
-                    itemsize = data_arr.itemsize
                     target_elements = chunk_size
                     if target_elements >= total_elements:
                         chunks = data_arr.shape

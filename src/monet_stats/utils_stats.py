@@ -80,7 +80,12 @@ def ensure_single_chunk(
                 for d in dims_to_rechunk:
                     axis = obj.get_axis_num(d)
                     new_chunks[axis] = obj.sizes[d]
-                return xr.DataArray(obj.data.rechunk(tuple(new_chunks)), coords=obj.coords, dims=obj.dims, attrs=obj.attrs)
+                return xr.DataArray(
+                    obj.data.rechunk(tuple(new_chunks)),
+                    coords=obj.coords,
+                    dims=obj.dims,
+                    attrs=obj.attrs,
+                )
             else:
                 # For Dataset, rechunk each variable that is cubed
                 new_vars = {}
