@@ -8,7 +8,7 @@ A comprehensive statistics and utility library for atmospheric sciences, optimiz
 ## Core Mission
 
 Architect scientific pipelines that balance three competing goals:
-- **Speed**: Aggressive vectorization (Numpy/Xarray) and lazy evaluation (Dask).
+- **Speed**: Aggressive vectorization (Numpy/Xarray) and lazy evaluation (Dask/Cubed).
 - **Maintainability**: Strictly typed code with NumPy-style docstrings.
 - **Provenance**: Automatically track data lineage (what happened to the data) via `attrs['history']`.
 
@@ -20,7 +20,7 @@ pip install monet-stats
 
 Optional dependencies for Pangeo stack:
 ```bash
-pip install monet-stats[dask,docs,test]
+pip install monet-stats[dask,cubed,docs,test]
 ```
 
 ## Quick Start
