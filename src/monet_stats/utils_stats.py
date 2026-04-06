@@ -13,7 +13,7 @@ from numpy.typing import ArrayLike
 
 def is_lazy(obj: Any) -> bool:
     """
-    Check if an xarray object or numpy-like array is Dask-backed (Aero Protocol).
+    Check if an xarray object or array is lazy (Dask or Cubed-backed) (Aero Protocol).
 
     Parameters
     ----------
@@ -23,10 +23,11 @@ def is_lazy(obj: Any) -> bool:
     Returns
     -------
     bool
-        True if the object contains Dask chunks, False otherwise.
+        True if the object contains chunks (Dask or Cubed), False otherwise.
     """
     if isinstance(obj, xr.DataArray):
-        return hasattr(obj.data, "chunks") and obj.data.chunks is not None
+        data = obj.data
+        return hasattr(data, "chunks") and data.chunks is not None
     if isinstance(obj, xr.Dataset):
         return any(hasattr(obj[v].data, "chunks") and obj[v].data.chunks is not None for v in obj.data_vars)
     return hasattr(obj, "chunks") and obj.chunks is not None
@@ -36,10 +37,10 @@ def ensure_single_chunk(
     obj: Union[xr.DataArray, xr.Dataset], dim: Union[str, Iterable[str]]
 ) -> Union[xr.DataArray, xr.Dataset]:
     """
-    Ensure specific dimensions are in a single chunk for Dask objects (Aero Protocol).
+    Ensure specific dimensions are in a single chunk for lazy objects (Aero Protocol).
 
     Required for operations like apply_ufunc(dask='parallelized') that cannot
-    handle chunks along core dimensions.
+    handle chunks along core dimensions. Supports both Dask and Cubed backends.
 
     Parameters
     ----------
@@ -57,10 +58,56 @@ def ensure_single_chunk(
         return obj
 
     if isinstance(dim, str):
-        dims_to_chunk = {dim: -1}
+        dims_to_rechunk = [dim]
     else:
-        dims_to_chunk = {d: -1 for d in dim}
+        dims_to_rechunk = list(dim)
 
+    # Check for Cubed backend
+    is_cubed = False
+    try:
+        import cubed
+
+        if isinstance(obj, xr.DataArray):
+            if isinstance(obj.data, cubed.array_api.array_object.Array):
+                is_cubed = True
+        elif isinstance(obj, xr.Dataset):
+            if any(isinstance(obj[v].data, cubed.array_api.array_object.Array) for v in obj.data_vars):
+                is_cubed = True
+
+        if is_cubed:
+            if isinstance(obj, xr.DataArray):
+                new_chunks = list(obj.data.chunks)
+                for d in dims_to_rechunk:
+                    axis = obj.get_axis_num(d)
+                    new_chunks[axis] = obj.sizes[d]
+                return xr.DataArray(
+                    obj.data.rechunk(tuple(new_chunks)),
+                    coords=obj.coords,
+                    dims=obj.dims,
+                    attrs=obj.attrs,
+                )
+            else:
+                # For Dataset, rechunk each variable that is cubed
+                new_vars = {}
+                for v in obj.data_vars:
+                    var = obj[v]
+                    if isinstance(var.data, cubed.array_api.array_object.Array):
+                        new_chunks = list(var.data.chunks)
+                        for d in dims_to_rechunk:
+                            if d in var.dims:
+                                axis = var.get_axis_num(d)
+                                new_chunks[axis] = var.sizes[d]
+                        new_vars[v] = xr.DataArray(
+                            var.data.rechunk(tuple(new_chunks)), coords=var.coords, dims=var.dims, attrs=var.attrs
+                        )
+                    else:
+                        new_vars[v] = var
+                return xr.Dataset(new_vars, coords=obj.coords, attrs=obj.attrs)
+    except ImportError:
+        pass
+
+    # Default to Dask/Xarray rechunking
+    dims_to_chunk = {d: -1 for d in dims_to_rechunk}
     return obj.chunk(dims_to_chunk)
 
 
