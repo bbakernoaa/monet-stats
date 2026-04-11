@@ -430,6 +430,8 @@ def stats(
         res["CCC"] = CCC(obs, mod, axis=axis)
         res["NMSE"] = NMSE(obs, mod, axis=axis)
         res["FAC2"] = FAC2(obs, mod, axis=axis)
+        res["MG"] = MG(obs, mod, axis=axis, weights=weights)
+        res["VG"] = VG(obs, mod, axis=axis, weights=weights)
 
         # Include plugins
         if plugins:
@@ -491,6 +493,8 @@ def stats(
             "CCC": CCC(obs, mod, axis=axis),
             "NMSE": NMSE(obs, mod, axis=axis),
             "FAC2": FAC2(obs, mod, axis=axis),
+            "MG": MG(obs, mod, axis=axis, weights=weights),
+            "VG": VG(obs, mod, axis=axis, weights=weights),
         }
 
         # Include plugins (lazy evaluation)

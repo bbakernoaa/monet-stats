@@ -722,7 +722,12 @@ class MonetDataArrayAccessor:
         """
         return relative_metrics.NMB(obs, self._obj, axis=dim, weights=weights)
 
-    def mg(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+    def mg(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
         """
         Compute Geometric Mean Bias (MG).
 
@@ -732,15 +737,22 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
 
         Returns
         -------
         xarray.DataArray
             Geometric mean bias.
         """
-        return relative_metrics.MG(obs, self._obj, axis=dim)
+        return relative_metrics.MG(obs, self._obj, axis=dim, weights=weights)
 
-    def vg(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+    def vg(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
         """
         Compute Geometric Variance (VG).
 
@@ -750,13 +762,15 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
 
         Returns
         -------
         xarray.DataArray
             Geometric variance.
         """
-        return relative_metrics.VG(obs, self._obj, axis=dim)
+        return relative_metrics.VG(obs, self._obj, axis=dim, weights=weights)
 
     def fb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
