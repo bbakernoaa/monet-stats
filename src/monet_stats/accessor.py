@@ -1060,6 +1060,160 @@ class MonetDataArrayAccessor:
         """
         return contingency_metrics.BS(obs, self._obj, axis=dim)
 
+    def stdo(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Standard deviation of Observation Errors (obs - mod).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Standard deviation of errors.
+
+        Examples
+        --------
+        >>> stdo = mod.monet_stats.stdo(obs)
+        """
+        return error_metrics.STDO(obs, self._obj, axis=dim)
+
+    def stdp(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Standard deviation of Prediction Errors (mod - obs).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Standard deviation of errors.
+
+        Examples
+        --------
+        >>> stdp = mod.monet_stats.stdp(obs)
+        """
+        return error_metrics.STDP(obs, self._obj, axis=dim)
+
+    def coe(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Center of Mass Error (COE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed field.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the centroid.
+
+        Returns
+        -------
+        xarray.DataArray
+            Center of mass error.
+
+        Examples
+        --------
+        >>> coe = mod.monet_stats.coe(obs, dim=['lat', 'lon'])
+        """
+        return error_metrics.COE(obs, self._obj, axis=dim)
+
+    def corr_index(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Correlation Index.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Correlation index.
+
+        Examples
+        --------
+        >>> r_index = mod.monet_stats.corr_index(obs)
+        """
+        return error_metrics.CORR_INDEX(obs, self._obj, axis=dim)
+
+    def bias_fraction(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Bias Fraction.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Bias fraction.
+
+        Examples
+        --------
+        >>> bf = mod.monet_stats.bias_fraction(obs)
+        """
+        return error_metrics.bias_fraction(obs, self._obj, axis=dim)
+
+    def log_error(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Logarithmic Error.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Logarithmic error.
+
+        Examples
+        --------
+        >>> log_err = mod.monet_stats.log_error(obs)
+        """
+        return error_metrics.LOG_ERROR(obs, self._obj, axis=dim)
+
+    def volumetric_error(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Volumetric Error.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Volumetric error.
+
+        Examples
+        --------
+        >>> vol_err = mod.monet_stats.volumetric_error(obs)
+        """
+        return error_metrics.VOLUMETRIC_ERROR(obs, self._obj, axis=dim)
+
     def wasserstein_distance(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
         Compute Wasserstein Distance.
@@ -1099,6 +1253,32 @@ class MonetDataArrayAccessor:
             KL divergence.
         """
         return distribution_metrics.KLDivergence(obs, self._obj, bins=bins, dim=dim)
+
+    def mutual_information(
+        self, obs: xr.DataArray, bins: int = 30, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Mutual Information.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        bins : int, optional
+            Number of bins.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the MI.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mutual information.
+
+        Examples
+        --------
+        >>> mi = mod.monet_stats.mutual_information(obs, bins=20)
+        """
+        return distribution_metrics.MutualInformation(obs, self._obj, bins=bins, dim=dim)
 
     def dtw(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """

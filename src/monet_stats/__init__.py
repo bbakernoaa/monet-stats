@@ -48,7 +48,7 @@ from .correlation_metrics import (
     spearmanr,
     taylor_skill,
 )
-from .distribution_metrics import KLDivergence, WassersteinDistance
+from .distribution_metrics import KLDivergence, MutualInformation, WassersteinDistance
 from .efficiency_metrics import MAPE, MASE, NSE, PC, NSElog, NSEm, mNSE, rNSE
 from .error_metrics import (
     COE,
@@ -247,6 +247,7 @@ __all__ = [
     # distribution_metrics
     "WassersteinDistance",
     "KLDivergence",
+    "MutualInformation",
     # temporal_metrics
     "DynamicTimeWarping",
     "CrossWaveletTransform",
