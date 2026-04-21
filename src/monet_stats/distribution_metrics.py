@@ -103,7 +103,7 @@ def KLDivergence(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
     bins: int = 100,
-    range: Optional[tuple] = None,
+    bin_range: Optional[tuple] = None,
     dim: Optional[Union[str, Iterable[str]]] = None,
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
@@ -124,7 +124,7 @@ def KLDivergence(
         Model or predicted values (Approximating distribution).
     bins : int, optional
         Number of bins for estimating the PDF, by default 100.
-    range : tuple, optional
+    bin_range : tuple, optional
         The lower and upper range of the bins. If None, uses the min/max of the data.
     dim : str or iterable of str, optional
         Dimension(s) along which to compute the divergence (xarray only).
@@ -136,12 +136,20 @@ def KLDivergence(
     xarray.DataArray, numpy.ndarray, or float
         The KL divergence.
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.random.normal(0, 1, 1000)
+    >>> mod = np.random.normal(0.1, 1.1, 1000)
+    >>> KLDivergence(obs, mod)
+    0.01
+
     Notes
     -----
     A small constant (epsilon) is added to the PDFs to avoid division by zero or log(0).
     """
 
-    def _kl_numpy(o: np.ndarray, m: np.ndarray, bins: int, range_val: Optional[tuple]) -> float:
+    def _kl_numpy(o: np.ndarray, m: np.ndarray, bins: int, r_val: Optional[tuple]) -> float:
         o_flat = o.flatten()
         m_flat = m.flatten()
         o_valid = o_flat[~np.isnan(o_flat)]
@@ -149,12 +157,12 @@ def KLDivergence(
         if o_valid.size == 0 or m_valid.size == 0:
             return np.nan
 
-        if range_val is None:
-            range_val = (min(o_valid.min(), m_valid.min()), max(o_valid.max(), m_valid.max()))
+        if r_val is None:
+            r_val = (min(o_valid.min(), m_valid.min()), max(o_valid.max(), m_valid.max()))
 
         # Estimate PDFs
-        p_o, _ = np.histogram(o_valid, bins=bins, range=range_val, density=True)
-        p_m, _ = np.histogram(m_valid, bins=bins, range=range_val, density=True)
+        p_o, _ = np.histogram(o_valid, bins=bins, range=r_val, density=True)
+        p_m, _ = np.histogram(m_valid, bins=bins, range=r_val, density=True)
 
         # Add epsilon to avoid zeros
         eps = 1e-10
@@ -185,7 +193,7 @@ def KLDivergence(
             mod,
             input_core_dims=[core_dims, core_dims],
             output_core_dims=[[]],
-            kwargs={"bins": bins, "range_val": range},
+            kwargs={"bins": bins, "r_val": bin_range},
             vectorize=True,
             dask="parallelized",
             output_dtypes=[float],
@@ -197,8 +205,149 @@ def KLDivergence(
     m_arr = np.asarray(mod)
 
     if axis is None:
-        return _kl_numpy(o_arr.flatten(), m_arr.flatten(), bins, range)
+        return _kl_numpy(o_arr, m_arr, bins, bin_range)
 
-    # For multi-dimensional numpy with axis
-    res = np.apply_along_axis(lambda x, y: _kl_numpy(x, y, bins, range), axis, o_arr, m_arr)
-    return res.item() if np.ndim(res) == 0 else res
+    # For multi-dimensional numpy with axis, use manual iteration for correct pairing
+    # Standard library pattern for 2-array axis reduction:
+    def _wrapper(o_slice, m_slice):
+        return _kl_numpy(o_slice, m_slice, bins, bin_range)
+
+    o_rolled = np.rollaxis(o_arr, axis, -1)
+    m_rolled = np.rollaxis(m_arr, axis, -1)
+    shape_other = o_rolled.shape[:-1]
+    o_flat = o_rolled.reshape(-1, o_rolled.shape[-1])
+    m_flat = m_rolled.reshape(-1, m_rolled.shape[-1])
+    results = np.array([_wrapper(o, m) for o, m in zip(o_flat, m_flat)])
+    return results.reshape(shape_other) if shape_other else results.item()
+
+
+def MutualInformation(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    bins: int = 30,
+    bin_range: Optional[tuple] = None,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
+    """
+    Compute the Mutual Information (MI) (Aero Protocol).
+
+    Mutual Information quantifies the amount of information obtained about one
+    variable through observing the other. Unlike Pearson correlation, it captures
+    non-linear dependencies.
+
+    Typical Use Cases
+    -----------------
+    - Quantifying non-linear relationships in Earth System Science (e.g., aerosol-cloud).
+    - Evaluating how much information the model shares with observations.
+    - Robust alternative to correlation for non-Gaussian distributions.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    mod : xarray.DataArray or numpy.ndarray
+        Model or predicted values.
+    bins : int, optional
+        Number of bins for estimating the joint PDF, by default 30.
+    bin_range : tuple, optional
+        The lower and upper range of the bins for both variables.
+        If None, uses the min/max of the data.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the MI (xarray only).
+    axis : int, str, or iterable of int or str, optional
+        Axis or axes along which to compute the MI (numpy only).
+
+    Returns
+    -------
+    xarray.DataArray, numpy.ndarray, or float
+        The Mutual Information (in nats).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.random.normal(0, 1, 1000)
+    >>> mod = obs + np.random.normal(0, 0.1, 1000)
+    >>> MutualInformation(obs, mod)
+    1.5
+
+    Notes
+    -----
+    The calculation uses a binned joint-histogram approach.
+    """
+
+    def _mi_numpy(o: np.ndarray, m: np.ndarray, bins: int, r_val: Optional[tuple]) -> float:
+        o_flat = o.flatten()
+        m_flat = m.flatten()
+        mask = ~np.isnan(o_flat) & ~np.isnan(m_flat)
+        o_valid = o_flat[mask]
+        m_valid = m_flat[mask]
+        if o_valid.size == 0:
+            return np.nan
+
+        if r_val is None:
+            # Common range for both to maintain symmetry
+            vmin = min(o_valid.min(), m_valid.min())
+            vmax = max(o_valid.max(), m_valid.max())
+            r_val = [[vmin, vmax], [vmin, vmax]]
+        else:
+            # If a single tuple is provided, use it for both
+            r_val = [r_val, r_val]
+
+        c_xy, _, _ = np.histogram2d(o_valid, m_valid, bins=bins, range=r_val)
+        p_xy = c_xy / np.sum(c_xy)
+
+        p_x = np.sum(p_xy, axis=1)
+        p_y = np.sum(p_xy, axis=0)
+
+        # MI = sum(p(x,y) * log(p(x,y) / (p(x)p(y))))
+        # Avoid log(0) using a mask
+        px_py = p_x[:, None] * p_y[None, :]
+        nonzero = (p_xy > 0) & (px_py > 0)
+
+        mi = np.sum(p_xy[nonzero] * np.log(p_xy[nonzero] / px_py[nonzero]))
+        return float(mi)
+
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        reduction_dim = _resolve_axis_to_dim(obs, dim if dim is not None else axis)
+
+        if isinstance(reduction_dim, str):
+            core_dims = [reduction_dim]
+        else:
+            core_dims = list(reduction_dim)
+
+        obs = ensure_single_chunk(obs, core_dims)
+        mod = ensure_single_chunk(mod, core_dims)
+
+        res = xr.apply_ufunc(
+            _mi_numpy,
+            obs,
+            mod,
+            input_core_dims=[core_dims, core_dims],
+            output_core_dims=[[]],
+            kwargs={"bins": bins, "r_val": bin_range},
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[float],
+        )
+        return _update_history(res, "Mutual Information")
+
+    # NumPy path
+    o_arr = np.asarray(obs)
+    m_arr = np.asarray(mod)
+
+    if axis is None:
+        return _mi_numpy(o_arr, m_arr, bins, bin_range)
+
+    # For multi-dimensional numpy with axis, use manual iteration for correct pairing
+    def _wrapper(o_slice, m_slice):
+        return _mi_numpy(o_slice, m_slice, bins, bin_range)
+
+    o_rolled = np.rollaxis(o_arr, axis, -1)
+    m_rolled = np.rollaxis(m_arr, axis, -1)
+    shape_other = o_rolled.shape[:-1]
+    o_flat = o_rolled.reshape(-1, o_rolled.shape[-1])
+    m_flat = m_rolled.reshape(-1, m_rolled.shape[-1])
+    results = np.array([_wrapper(o, m) for o, m in zip(o_flat, m_flat)])
+    return results.reshape(shape_other) if shape_other else results.item()
