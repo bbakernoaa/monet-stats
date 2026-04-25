@@ -214,25 +214,79 @@ def _vectorized_regression_stats(
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
     mode: str = "RMSEs",
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """Internal helper for vectorized regression metrics."""
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    """
+    Internal helper for vectorized regression metrics (Aero Protocol).
+
+    Typical Use Cases
+    -----------------
+    - Internal calculation of systematic (RMSEs) and unsystematic (RMSEu)
+      linear regression errors.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the statistic.
+    mode : str, optional
+        Regression metric to compute ('RMSEs' or 'RMSEu'). Default is 'RMSEs'.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Computed regression statistic.
+    """
+    # Xarray path (handles DataArray, including mixed types with ndarray)
+    if isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray):
+        # Convert mixed types to DataArray to preserve metadata and laziness
+        if isinstance(obs, xr.DataArray) and not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, coords=obs.coords, dims=obs.dims)
+        elif isinstance(mod, xr.DataArray) and not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, coords=mod.coords, dims=mod.dims)
+
         obs, mod = xr.align(obs, mod, join="inner")
-        orig_axis = axis
         dim = _resolve_axis_to_dim(obs, axis)
-        if dim is None:
-            axis = tuple(range(obs.ndim))
-        elif isinstance(dim, str):
-            axis = (obs.get_axis_num(dim),)
-        else:
-            axis = tuple(obs.get_axis_num(d) for d in dim)
+
+        # Use native Xarray for lazy-friendliness (Aero Protocol)
+        mask = obs.notnull() & mod.notnull()
+        xv = obs.where(mask, 0.0)
+        yv = mod.where(mask, 0.0)
+
+        n = mask.sum(dim=dim)
+        s_x = xv.sum(dim=dim)
+        s_y = yv.sum(dim=dim)
+        s_xx = (xv * xv).sum(dim=dim)
+        s_yy = (yv * yv).sum(dim=dim)
+        s_xy = (xv * yv).sum(dim=dim)
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ss_xx = s_xx - (s_x**2) / n
+            ss_xy = s_xy - (s_x * s_y) / n
+            m = xr.where(ss_xx != 0, ss_xy / ss_xx, 0.0)
+            b = xr.where(n != 0, (s_y - m * s_x) / n, 0.0)
+
+            if mode == "RMSEs":
+                # sum((m*x + b - x)^2) = sum(((m-1)*x + b)^2)
+                sse = (m - 1) ** 2 * s_xx + 2 * b * (m - 1) * s_x + n * b**2
+                res = xr.where(n > 0, np.sqrt(xr.where(sse > 0, sse, 0.0) / n), np.nan)
+            else:  # RMSEu
+                # Residual sum of squares: SSyy - (SSxy^2 / SSxx)
+                ss_yy = s_yy - (s_y**2) / n
+                rss = xr.where(ss_xx != 0, ss_yy - (ss_xy**2) / ss_xx, ss_yy)
+                res = xr.where(n > 0, np.sqrt(xr.where(rss > 0, rss, 0.0) / n), np.nan)
+
+        res.attrs = obs.attrs.copy()
+        return _update_history(res, mode)
+
+    # NumPy path
+    if axis is None:
+        axis = None  # numpy handles None as all axes
+    elif isinstance(axis, (int, str)):
+        axis = (int(axis),)
     else:
-        orig_axis = axis
-        if axis is None:
-            axis = None  # numpy handles None as all axes
-        elif isinstance(axis, (int, str)):
-            axis = (int(axis),)
-        else:
-            axis = tuple(int(a) for a in axis)
+        axis = tuple(int(a) for a in axis)
 
     # Core logic using NumPy broadcasting
     x = np.asarray(obs)
@@ -264,15 +318,6 @@ def _vectorized_regression_stats(
             rss = np.where(ss_xx != 0, ss_yy - (ss_xy**2) / ss_xx, ss_yy)
             res = np.where(n > 0, np.sqrt(np.maximum(rss, 0) / n), np.nan)
 
-    if isinstance(obs, xr.DataArray):
-        # Create DataArray with same dims as input minus axis
-        if orig_axis is None or (isinstance(orig_axis, (list, tuple)) and len(orig_axis) == len(obs.dims)):
-            res_da = xr.DataArray(res, attrs=obs.attrs)
-        else:
-            # Handle dim reduction
-            dummy = obs.mean(dim=orig_axis)
-            res_da = xr.DataArray(res, coords=dummy.coords, dims=dummy.dims, attrs=obs.attrs)
-        return res_da
     return res.item() if np.ndim(res) == 0 else res
 
 
@@ -292,6 +337,11 @@ def RMSEs(
       model predictions.
     - Used in model evaluation to assess how well a regression fit to the model
       matches the observations.
+
+    Typical Values and Range
+    ------------------------
+    - Range: 0 to ∞
+    - 0: Perfect agreement between observations and regression fit
 
     Parameters
     ----------
@@ -336,6 +386,11 @@ def RMSEu(
       the model predictions.
     - Used in model evaluation to assess how well a regression fit to obs
       matches the model output.
+
+    Typical Values and Range
+    ------------------------
+    - Range: 0 to ∞
+    - 0: Perfect agreement between model predictions and regression fit
 
     Parameters
     ----------
