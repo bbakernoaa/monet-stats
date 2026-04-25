@@ -7,7 +7,7 @@ import pytest
 import xarray as xr
 from xarray.testing import assert_allclose
 
-from monet_stats.efficiency_metrics import NSE, NSElog, PC, mNSE, rNSE
+from monet_stats.efficiency_metrics import NSE, PC, NSElog, mNSE, rNSE
 
 
 def test_nse_mixed_types():
