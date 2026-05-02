@@ -1,8 +1,9 @@
-import numpy as np
-import pytest
-import xarray as xr
 import dask.array as da
-import monet_stats  # Ensure accessors are registered
+import numpy as np
+import xarray as xr
+
+import monet_stats  # noqa: F401
+
 
 def test_accessor_expansion_numpy():
     obs = xr.DataArray([1.0, 2.0, 3.0, 4.0], dims="time", coords={"time": [0, 1, 2, 3]})
@@ -23,6 +24,7 @@ def test_accessor_expansion_numpy():
     assert np.isclose(mod.monet_stats.nme(obs), 6.0)
     assert np.isclose(mod.monet_stats.phase_error(obs), 0.0)
 
+
 def test_accessor_expansion_dask():
     obs_data = da.from_array([1.0, 2.0, 3.0, 4.0], chunks=2)
     mod_data = da.from_array([1.1, 1.9, 3.2, 3.8], chunks=2)
@@ -38,6 +40,7 @@ def test_accessor_expansion_dask():
     assert hasattr(res_spearman.data, "dask")
     assert np.isclose(res_spearman.compute(), 1.0)
 
+
 def test_accessor_verify_expansion():
     obs = xr.DataArray([1.0, 2.0, 3.0, 4.0], dims="time", coords={"time": [0, 1, 2, 3]})
     mod = xr.DataArray([1.1, 1.9, 3.2, 3.8], dims="time", coords={"time": [0, 1, 2, 3]})
@@ -52,6 +55,7 @@ def test_accessor_verify_expansion():
 
     # Verify history is present in the bundle
     assert "history" in ds.attrs
+
 
 def test_accessor_peak_metrics():
     obs = xr.DataArray([[1, 2, 3], [4, 5, 6]], dims=("site", "time"))
