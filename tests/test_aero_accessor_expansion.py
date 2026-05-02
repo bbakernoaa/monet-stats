@@ -1,5 +1,5 @@
-import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
 
 import monet_stats  # noqa: F401
@@ -26,6 +26,7 @@ def test_accessor_expansion_numpy():
 
 
 def test_accessor_expansion_dask():
+    da = pytest.importorskip("dask.array")
     obs_data = da.from_array([1.0, 2.0, 3.0, 4.0], chunks=2)
     mod_data = da.from_array([1.1, 1.9, 3.2, 3.8], chunks=2)
     obs = xr.DataArray(obs_data, dims="time", coords={"time": [0, 1, 2, 3]})
