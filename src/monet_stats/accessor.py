@@ -21,6 +21,7 @@ from . import (
     temporal_metrics,
     uncertainty,
 )
+from .utils_stats import _update_history
 
 
 @xr.register_dataarray_accessor("monet_stats")
@@ -1080,7 +1081,8 @@ class MonetDataArrayAccessor:
         --------
         >>> stdo = mod.monet_stats.stdo(obs)
         """
-        return error_metrics.STDO(obs, self._obj, axis=dim)
+        res = error_metrics.STDO(obs, self._obj, axis=dim)
+        return _update_history(res, "STDO")
 
     def stdp(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1102,7 +1104,8 @@ class MonetDataArrayAccessor:
         --------
         >>> stdp = mod.monet_stats.stdp(obs)
         """
-        return error_metrics.STDP(obs, self._obj, axis=dim)
+        res = error_metrics.STDP(obs, self._obj, axis=dim)
+        return _update_history(res, "STDP")
 
     def coe(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1124,7 +1127,8 @@ class MonetDataArrayAccessor:
         --------
         >>> coe = mod.monet_stats.coe(obs, dim=['lat', 'lon'])
         """
-        return error_metrics.COE(obs, self._obj, axis=dim)
+        res = error_metrics.COE(obs, self._obj, axis=dim)
+        return _update_history(res, "COE")
 
     def corr_index(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1146,7 +1150,8 @@ class MonetDataArrayAccessor:
         --------
         >>> r_index = mod.monet_stats.corr_index(obs)
         """
-        return error_metrics.CORR_INDEX(obs, self._obj, axis=dim)
+        res = error_metrics.CORR_INDEX(obs, self._obj, axis=dim)
+        return _update_history(res, "CORR_INDEX")
 
     def bias_fraction(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1168,7 +1173,8 @@ class MonetDataArrayAccessor:
         --------
         >>> bf = mod.monet_stats.bias_fraction(obs)
         """
-        return error_metrics.bias_fraction(obs, self._obj, axis=dim)
+        res = error_metrics.bias_fraction(obs, self._obj, axis=dim)
+        return _update_history(res, "bias_fraction")
 
     def log_error(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1190,7 +1196,8 @@ class MonetDataArrayAccessor:
         --------
         >>> log_err = mod.monet_stats.log_error(obs)
         """
-        return error_metrics.LOG_ERROR(obs, self._obj, axis=dim)
+        res = error_metrics.LOG_ERROR(obs, self._obj, axis=dim)
+        return _update_history(res, "LOG_ERROR")
 
     def volumetric_error(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1212,7 +1219,8 @@ class MonetDataArrayAccessor:
         --------
         >>> vol_err = mod.monet_stats.volumetric_error(obs)
         """
-        return error_metrics.VOLUMETRIC_ERROR(obs, self._obj, axis=dim)
+        res = error_metrics.VOLUMETRIC_ERROR(obs, self._obj, axis=dim)
+        return _update_history(res, "VOLUMETRIC_ERROR")
 
     def wasserstein_distance(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1278,7 +1286,8 @@ class MonetDataArrayAccessor:
         --------
         >>> mi = mod.monet_stats.mutual_information(obs, bins=20)
         """
-        return distribution_metrics.MutualInformation(obs, self._obj, bins=bins, dim=dim)
+        res = distribution_metrics.MutualInformation(obs, self._obj, bins=bins, dim=dim)
+        return _update_history(res, "Mutual Information")
 
     def dtw(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -1519,6 +1528,326 @@ class MonetDataArrayAccessor:
         """
         return spatial_ensemble_metrics.reliability_diagram(obs, self._obj, threshold=threshold, n_bins=n_bins, dim=dim)
 
+    def mse(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Mean Squared Error (MSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean squared error.
+        """
+        res = error_metrics.MSE(obs, self._obj, axis=dim, weights=weights)
+        return _update_history(res, "MSE")
+
+    def mape(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Mean Absolute Percentage Error (MAPE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean absolute percentage error.
+        """
+        res = error_metrics.MAPE(obs, self._obj, axis=dim)
+        return _update_history(res, "MAPE")
+
+    def mase(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Mean Absolute Scaled Error (MASE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean absolute scaled error.
+        """
+        res = error_metrics.MASE(obs, self._obj, axis=dim)
+        return _update_history(res, "MASE")
+
+    def pc(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        tolerance: float = 0.1,
+    ) -> xr.DataArray:
+        """
+        Compute Percent Correct (PC).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+        tolerance : float, optional
+            Fraction of observed value used as tolerance.
+
+        Returns
+        -------
+        xarray.DataArray
+            Percent correct.
+        """
+        res = efficiency_metrics.PC(obs, self._obj, axis=dim, tolerance=tolerance)
+        return _update_history(res, "PC")
+
+    def rnse(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Relative Nash-Sutcliffe Efficiency (rNSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
+
+        Returns
+        -------
+        xarray.DataArray
+            Relative NSE.
+        """
+        res = efficiency_metrics.rNSE(obs, self._obj, axis=dim, weights=weights)
+        return _update_history(res, "rNSE")
+
+    def mnse(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Modified Nash-Sutcliffe Efficiency (mNSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
+
+        Returns
+        -------
+        xarray.DataArray
+            Modified NSE.
+        """
+        res = efficiency_metrics.mNSE(obs, self._obj, axis=dim, weights=weights)
+        return _update_history(res, "mNSE")
+
+    def spearmanr(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Spearman rank correlation coefficient.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Spearman rank correlation.
+        """
+        res = correlation_metrics.spearmanr(obs, self._obj, axis=dim)
+        return _update_history(res, "Spearman rank correlation")
+
+    def kendalltau(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Kendall tau rank correlation coefficient.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Kendall tau rank correlation.
+        """
+        res = correlation_metrics.kendalltau(obs, self._obj, axis=dim)
+        return _update_history(res, "Kendall tau rank correlation")
+
+    def nme(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Normalized Mean Error (NME).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Normalized mean error.
+        """
+        res = relative_metrics.NME(obs, self._obj, axis=dim)
+        return _update_history(res, "NME")
+
+    def mdnnb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Median Normalized Bias (MdnNB).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Median normalized bias.
+        """
+        res = error_metrics.MdnNB(obs, self._obj, axis=dim)
+        return _update_history(res, "MdnNB")
+
+    def mdnne(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Median Normalized Gross Error (MdnNE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Median normalized gross error.
+        """
+        res = error_metrics.MdnNE(obs, self._obj, axis=dim)
+        return _update_history(res, "MdnNE")
+
+    def phase_error(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Phase Error (timing offset).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension along which to compute the phase error.
+
+        Returns
+        -------
+        xarray.DataArray
+            Phase error.
+        """
+        res = temporal_metrics.PhaseError(obs, self._obj, axis=dim)
+        return _update_history(res, "Phase error")
+
+    def nrmse(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Normalized Root Mean Square Error (NRMSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Normalized root mean square error.
+        """
+        res = error_metrics.NRMSE(obs, self._obj, axis=dim)
+        return _update_history(res, "NRMSE")
+
+    def mpe(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Mean Peak Error (MPE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the peak and mean error.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean peak error.
+        """
+        res = relative_metrics.MPE(obs, self._obj, axis=dim)
+        return _update_history(res, "MPE")
+
+    def nmpe(
+        self,
+        obs: xr.DataArray,
+        paxis: Union[int, str, List[str]],
+        dim: Optional[Union[str, List[str]]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Normalized Mean Peak Error (NMPE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        paxis : int or str or list of str
+            Axis or dimension along which to compute the peak.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the mean error.
+
+        Returns
+        -------
+        xarray.DataArray
+            Normalized mean peak error.
+        """
+        res = relative_metrics.NMPE(obs, self._obj, paxis=paxis, axis=dim)
+        return _update_history(res, "NMPE")
+
     def verify(
         self,
         obs: xr.DataArray,
@@ -1549,10 +1878,13 @@ class MonetDataArrayAccessor:
         metrics = {
             "MAE": error_metrics.MAE(obs, self._obj, axis=dim, weights=weights),
             "RMSE": error_metrics.RMSE(obs, self._obj, axis=dim, weights=weights),
+            "MSE": error_metrics.MSE(obs, self._obj, axis=dim, weights=weights),
             "MB": error_metrics.MB(obs, self._obj, axis=dim, weights=weights),
             "R": correlation_metrics.pearsonr(obs, self._obj, axis=dim),
+            "SpearmanR": correlation_metrics.spearmanr(obs, self._obj, axis=dim),
             "IOA": error_metrics.IOA(obs, self._obj, axis=dim),
             "NMB": relative_metrics.NMB(obs, self._obj, axis=dim, weights=weights),
+            "NME": relative_metrics.NME(obs, self._obj, axis=dim),
             "MNB": error_metrics.MNB(obs, self._obj, axis=dim),
             "MNE": error_metrics.MNE(obs, self._obj, axis=dim),
             "NSE": efficiency_metrics.NSE(obs, self._obj, axis=dim),
