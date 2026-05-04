@@ -816,7 +816,7 @@ DOCUMENTATION_AUTOMATION:
 CI_CD_PIPELINE:
 
     // Build Matrix
-    PYTHON_VERSIONS = [3.8, 3.9, 3.10, 3.11, 3.12]
+    PYTHON_VERSIONS = [3.11, 3.12]
     OS_PLATFORMS = [ubuntu-latest, windows-latest, macos-latest]
     DEPENDENCY_VARIANTS = [minimal, full, development]
 

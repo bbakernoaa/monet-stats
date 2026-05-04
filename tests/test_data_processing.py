@@ -115,7 +115,7 @@ class TestDataProcessing:
         except ValueError as e:
             assert "Unknown normalization method" in str(e)
         else:
-            assert False, "Expected ValueError for invalid normalization method"
+            raise AssertionError("Expected ValueError for invalid normalization method")
 
     def test_handle_missing_values_listwise(self) -> None:
         """Test handle_missing_values with 'listwise' strategy."""
@@ -134,7 +134,7 @@ class TestDataProcessing:
         except ValueError as e:
             assert "Unknown strategy" in str(e)
         else:
-            assert False, "Expected ValueError for invalid strategy"
+            raise AssertionError("Expected ValueError for invalid strategy")
 
     def test_align_arrays_shape_mismatch(self) -> None:
         """Test align_arrays raises on shape mismatch for numpy arrays."""
@@ -145,4 +145,4 @@ class TestDataProcessing:
         except ValueError as e:
             assert "Arrays must have the same shape" in str(e)
         else:
-            assert False, "Expected ValueError for shape mismatch"
+            raise AssertionError("Expected ValueError for shape mismatch")

@@ -620,7 +620,7 @@ class TestCorrelationMetrics:
         except ValueError as e:
             assert "Not ready yet" in str(e)
         else:
-            assert False, "Expected ValueError for unsupported axis"
+            raise AssertionError("Expected ValueError for unsupported axis")
 
     def test_r2_xarray_importerror(self) -> None:
         """Test R2 xarray branch ImportError handling."""

@@ -6,7 +6,7 @@ This guide covers the installation process, system requirements, and setup instr
 
 ### System Requirements
 
-- **Python**: 3.8 or higher
+- **Python**: 3.11 or higher
 - **Operating System**: Windows, macOS, or Linux
 - **Memory**: 512 MB minimum (2GB recommended for large datasets)
 - **Storage**: 100 MB for installation

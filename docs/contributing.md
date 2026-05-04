@@ -6,7 +6,7 @@ We welcome contributions to the Monet Stats library! This guide provides instruc
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.11+
 - Git
 - Virtual environment (recommended)
 

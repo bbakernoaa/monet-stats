@@ -24,8 +24,6 @@ class TestPerformanceBenchmark:
         benchmark = PerformanceBenchmark()
         obs, mod = benchmark.generate_test_data(5, data_type="xarray")
         try:
-            import xarray as xr
-
             assert hasattr(obs, "dims") and hasattr(mod, "dims")
         except ImportError:
             assert obs is not None and mod is not None
