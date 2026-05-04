@@ -2,19 +2,26 @@
 Xarray accessors for the MONET Stats package (Aero Protocol Compliant).
 """
 
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
 
 from . import (
     analysis,
+    contingency_metrics,
     correlation_metrics,
+    distribution_metrics,
     efficiency_metrics,
     error_metrics,
     performance,
     relative_metrics,
+    spatial_ensemble_metrics,
+    spatial_skill_metrics,
+    temporal_metrics,
+    uncertainty,
 )
+from .utils_stats import _update_history
 
 
 @xr.register_dataarray_accessor("monet_stats")
@@ -472,7 +479,12 @@ class MonetDataArrayAccessor:
         )
         return _update_history(res, "Taylor statistics components")
 
-    def mae(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+    def mae(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
         """
         Compute Mean Absolute Error (MAE).
 
@@ -482,15 +494,22 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
 
         Returns
         -------
         xarray.DataArray
             Mean absolute error.
         """
-        return error_metrics.MAE(obs, self._obj, axis=dim)
+        return error_metrics.MAE(obs, self._obj, axis=dim, weights=weights)
 
-    def rmse(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+    def rmse(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
         """
         Compute Root Mean Square Error (RMSE).
 
@@ -500,15 +519,22 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
 
         Returns
         -------
         xarray.DataArray
             Root mean square error.
         """
-        return error_metrics.RMSE(obs, self._obj, axis=dim)
+        return error_metrics.RMSE(obs, self._obj, axis=dim, weights=weights)
 
-    def mb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+    def mb(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
         """
         Compute Mean Bias (MB).
 
@@ -518,13 +544,15 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
 
         Returns
         -------
         xarray.DataArray
             Mean bias.
         """
-        return error_metrics.MB(obs, self._obj, axis=dim)
+        return error_metrics.MB(obs, self._obj, axis=dim, weights=weights)
 
     def ioa(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -670,7 +698,12 @@ class MonetDataArrayAccessor:
         """
         return correlation_metrics.CCC(obs, self._obj, axis=dim)
 
-    def nmb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+    def nmb(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
         """
         Compute Normalized Mean Bias (NMB).
 
@@ -680,13 +713,65 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
 
         Returns
         -------
         xarray.DataArray
             Normalized mean bias.
         """
-        return relative_metrics.NMB(obs, self._obj, axis=dim)
+        return relative_metrics.NMB(obs, self._obj, axis=dim, weights=weights)
+
+    def mg(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Geometric Mean Bias (MG).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
+
+        Returns
+        -------
+        xarray.DataArray
+            Geometric mean bias.
+        """
+        return relative_metrics.MG(obs, self._obj, axis=dim, weights=weights)
+
+    def vg(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Geometric Variance (VG).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
+
+        Returns
+        -------
+        xarray.DataArray
+            Geometric variance.
+        """
+        return relative_metrics.VG(obs, self._obj, axis=dim, weights=weights)
 
     def fb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
         """
@@ -760,7 +845,1016 @@ class MonetDataArrayAccessor:
         """
         return efficiency_metrics.NSE(obs, self._obj, axis=dim)
 
-    def verify(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.Dataset:
+    def fac2(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute fraction of predictions within a factor of two (FAC2).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            FAC2.
+        """
+        return error_metrics.FAC2(obs, self._obj, axis=dim)
+
+    def rmsle(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Root Mean Square Logarithmic Error (RMSLE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            RMSLE.
+        """
+        return error_metrics.RMSLE(obs, self._obj, axis=dim)
+
+    def hss(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Heidke Skill Score (HSS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Heidke Skill Score.
+        """
+        return contingency_metrics.HSS(obs, self._obj, minval=threshold, axis=dim)
+
+    def ets(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Equitable Threat Score (ETS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Equitable Threat Score.
+        """
+        return contingency_metrics.ETS(obs, self._obj, minval=threshold, axis=dim)
+
+    def csi(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Critical Success Index (CSI).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Critical Success Index.
+        """
+        return contingency_metrics.CSI(obs, self._obj, minval=threshold, axis=dim)
+
+    def pod(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Probability of Detection (POD).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Probability of Detection.
+        """
+        return contingency_metrics.POD(obs, self._obj, minval=threshold, axis=dim)
+
+    def far(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute False Alarm Rate (FAR).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            False Alarm Rate.
+        """
+        return contingency_metrics.FAR(obs, self._obj, minval=threshold, axis=dim)
+
+    def fbi(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Frequency Bias Index (FBI).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Frequency Bias Index.
+        """
+        return contingency_metrics.FBI(obs, self._obj, minval=threshold, axis=dim)
+
+    def tss(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute True Skill Statistic (TSS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            True Skill Statistic.
+        """
+        return contingency_metrics.TSS(obs, self._obj, minval=threshold, axis=dim)
+
+    def bss_binary(
+        self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Binary Brier Skill Score (BSS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Binary Brier Skill Score.
+        """
+        return contingency_metrics.BSS_binary(obs, self._obj, threshold=threshold, axis=dim)
+
+    def bs(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Brier Score (BS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed binary outcomes.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Brier Score.
+        """
+        return contingency_metrics.BS(obs, self._obj, axis=dim)
+
+    def stdo(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Standard deviation of Observation Errors (obs - mod).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Standard deviation of errors.
+
+        Examples
+        --------
+        >>> stdo = mod.monet_stats.stdo(obs)
+        """
+        res = error_metrics.STDO(obs, self._obj, axis=dim)
+        return _update_history(res, "STDO")
+
+    def stdp(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Standard deviation of Prediction Errors (mod - obs).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Standard deviation of errors.
+
+        Examples
+        --------
+        >>> stdp = mod.monet_stats.stdp(obs)
+        """
+        res = error_metrics.STDP(obs, self._obj, axis=dim)
+        return _update_history(res, "STDP")
+
+    def coe(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Center of Mass Error (COE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed field.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the centroid.
+
+        Returns
+        -------
+        xarray.DataArray
+            Center of mass error.
+
+        Examples
+        --------
+        >>> coe = mod.monet_stats.coe(obs, dim=['lat', 'lon'])
+        """
+        res = error_metrics.COE(obs, self._obj, axis=dim)
+        return _update_history(res, "COE")
+
+    def corr_index(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Correlation Index.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Correlation index.
+
+        Examples
+        --------
+        >>> r_index = mod.monet_stats.corr_index(obs)
+        """
+        res = error_metrics.CORR_INDEX(obs, self._obj, axis=dim)
+        return _update_history(res, "CORR_INDEX")
+
+    def bias_fraction(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Bias Fraction.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Bias fraction.
+
+        Examples
+        --------
+        >>> bf = mod.monet_stats.bias_fraction(obs)
+        """
+        res = error_metrics.bias_fraction(obs, self._obj, axis=dim)
+        return _update_history(res, "bias_fraction")
+
+    def log_error(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Logarithmic Error.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Logarithmic error.
+
+        Examples
+        --------
+        >>> log_err = mod.monet_stats.log_error(obs)
+        """
+        res = error_metrics.LOG_ERROR(obs, self._obj, axis=dim)
+        return _update_history(res, "LOG_ERROR")
+
+    def volumetric_error(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Volumetric Error.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Volumetric error.
+
+        Examples
+        --------
+        >>> vol_err = mod.monet_stats.volumetric_error(obs)
+        """
+        res = error_metrics.VOLUMETRIC_ERROR(obs, self._obj, axis=dim)
+        return _update_history(res, "VOLUMETRIC_ERROR")
+
+    def wasserstein_distance(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Wasserstein Distance.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the distance.
+
+        Returns
+        -------
+        xarray.DataArray
+            Wasserstein distance.
+        """
+        return distribution_metrics.WassersteinDistance(obs, self._obj, dim=dim)
+
+    def kl_divergence(
+        self, obs: xr.DataArray, bins: int = 100, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute KL Divergence.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        bins : int, optional
+            Number of bins.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the divergence.
+
+        Returns
+        -------
+        xarray.DataArray
+            KL divergence.
+        """
+        return distribution_metrics.KLDivergence(obs, self._obj, bins=bins, dim=dim)
+
+    def mutual_information(
+        self, obs: xr.DataArray, bins: int = 30, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Mutual Information.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        bins : int, optional
+            Number of bins.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the MI.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mutual information.
+
+        Examples
+        --------
+        >>> mi = mod.monet_stats.mutual_information(obs, bins=20)
+        """
+        res = distribution_metrics.MutualInformation(obs, self._obj, bins=bins, dim=dim)
+        return _update_history(res, "Mutual Information")
+
+    def dtw(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Dynamic Time Warping (DTW) distance.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension along which to compute DTW.
+
+        Returns
+        -------
+        xarray.DataArray
+            DTW distance.
+        """
+        return temporal_metrics.DynamicTimeWarping(obs, self._obj, dim=dim)
+
+    def xwt(self, obs: xr.DataArray, widths: Optional[np.ndarray] = None, dim: str = "time") -> xr.DataArray:
+        """
+        Compute Cross-Wavelet Transform (XWT).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        widths : numpy.ndarray, optional
+            Wavelet widths.
+        dim : str, optional
+            Dimension along which to compute XWT.
+
+        Returns
+        -------
+        xarray.DataArray
+            XWT.
+        """
+        return temporal_metrics.CrossWaveletTransform(obs, self._obj, widths=widths, dim=dim)
+
+    def bootstrap(
+        self,
+        obs: xr.DataArray,
+        metric_func: Any,
+        n_boot: int = 1000,
+        block_size: int = 1,
+        dim: str = "time",
+        **kwargs: Any,
+    ) -> xr.Dataset:
+        """
+        Perform block-bootstrapping for a metric.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        metric_func : callable
+            Metric function.
+        n_boot : int, optional
+            Number of bootstrap samples.
+        block_size : int, optional
+            Block size.
+        dim : str, optional
+            Dimension along which to bootstrap.
+
+        Returns
+        -------
+        xarray.Dataset
+            Bootstrapped results (mean, lower, upper).
+        """
+        return uncertainty.block_bootstrap(
+            obs, self._obj, metric_func=metric_func, n_boot=n_boot, block_size=block_size, dim=dim, **kwargs
+        )
+
+    def fss(
+        self,
+        obs: xr.DataArray,
+        window_size: int = 3,
+        threshold: Optional[float] = None,
+        dim: Optional[Union[str, List[str]]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Fractions Skill Score (FSS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        window_size : int, optional
+            Size of the square window, by default 3.
+        threshold : float, optional
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the fractions.
+
+        Returns
+        -------
+        xarray.DataArray
+            Fractions Skill Score.
+        """
+        return spatial_skill_metrics.FSS(obs, self._obj, window_size=window_size, threshold=threshold, dim=dim)
+
+    def vets(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Volumetric Equitable Threat Score (VETS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the score.
+
+        Returns
+        -------
+        xarray.DataArray
+            Volumetric Equitable Threat Score.
+        """
+        return spatial_skill_metrics.VETS(obs, self._obj, dim=dim)
+
+    def crps(self, obs: xr.DataArray, dim: Union[int, str] = 0) -> xr.DataArray:
+        """
+        Compute Continuous Ranked Probability Score (CRPS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : int or str, optional
+            Ensemble dimension. Default is 0.
+
+        Returns
+        -------
+        xarray.DataArray
+            CRPS values.
+        """
+        return spatial_ensemble_metrics.CRPS(self._obj, obs, axis=dim)
+
+    def sal(
+        self,
+        obs: xr.DataArray,
+        threshold: Optional[float] = None,
+        lat_dim: str = "lat",
+        lon_dim: str = "lon",
+    ) -> Tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
+        """
+        Compute Structure-Amplitude-Location (SAL) score.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed field.
+        threshold : float, optional
+            Threshold for object identification.
+        lat_dim : str, optional
+            Latitude dimension name.
+        lon_dim : str, optional
+            Longitude dimension name.
+
+        Returns
+        -------
+        S, A, L : xarray.DataArray
+            Structure, Amplitude, and Location components.
+        """
+        return spatial_ensemble_metrics.SAL(obs, self._obj, threshold=threshold, lat_dim=lat_dim, lon_dim=lon_dim)
+
+    def eds(self, obs: xr.DataArray, threshold: float, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Extreme Dependency Score (EDS).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed field.
+        threshold : float
+            Event threshold.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the score.
+
+        Returns
+        -------
+        xarray.DataArray
+            Extreme Dependency Score.
+        """
+        return spatial_ensemble_metrics.EDS(obs, self._obj, threshold=threshold, dim=dim)
+
+    def spread_error(
+        self,
+        obs: xr.DataArray,
+        ensemble_dim: Union[int, str] = 0,
+        dim: Optional[Union[str, List[str]]] = None,
+    ) -> Tuple[xr.DataArray, xr.DataArray]:
+        """
+        Compute Spread-Error Relationship.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        ensemble_dim : int or str, optional
+            Ensemble dimension. Default is 0.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the mean spread and error.
+
+        Returns
+        -------
+        mean_spread : xarray.DataArray
+            Mean ensemble spread.
+        mean_error : xarray.DataArray
+            Mean absolute error of ensemble mean vs. obs.
+        """
+        return spatial_ensemble_metrics.spread_error(self._obj, obs, axis=ensemble_dim, dim=dim)
+
+    def reliability_diagram(
+        self,
+        obs: xr.DataArray,
+        threshold: float = 0.5,
+        n_bins: int = 10,
+        dim: Optional[Union[str, List[str]]] = None,
+    ) -> xr.Dataset:
+        """
+        Compute Reliability Diagram.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        threshold : float, optional
+            Event threshold.
+        n_bins : int, optional
+            Number of probability bins.
+        dim : str or list of str, optional
+            Dimension(s) along which to aggregate.
+
+        Returns
+        -------
+        xarray.Dataset
+            Reliability diagram components.
+        """
+        return spatial_ensemble_metrics.reliability_diagram(obs, self._obj, threshold=threshold, n_bins=n_bins, dim=dim)
+
+    def mse(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Mean Squared Error (MSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean squared error.
+        """
+        res = error_metrics.MSE(obs, self._obj, axis=dim, weights=weights)
+        return _update_history(res, "MSE")
+
+    def mape(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Mean Absolute Percentage Error (MAPE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean absolute percentage error.
+        """
+        res = error_metrics.MAPE(obs, self._obj, axis=dim)
+        return _update_history(res, "MAPE")
+
+    def mase(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Mean Absolute Scaled Error (MASE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean absolute scaled error.
+        """
+        res = error_metrics.MASE(obs, self._obj, axis=dim)
+        return _update_history(res, "MASE")
+
+    def pc(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        tolerance: float = 0.1,
+    ) -> xr.DataArray:
+        """
+        Compute Percent Correct (PC).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+        tolerance : float, optional
+            Fraction of observed value used as tolerance.
+
+        Returns
+        -------
+        xarray.DataArray
+            Percent correct.
+        """
+        res = efficiency_metrics.PC(obs, self._obj, axis=dim, tolerance=tolerance)
+        return _update_history(res, "PC")
+
+    def rnse(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Relative Nash-Sutcliffe Efficiency (rNSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
+
+        Returns
+        -------
+        xarray.DataArray
+            Relative NSE.
+        """
+        res = efficiency_metrics.rNSE(obs, self._obj, axis=dim, weights=weights)
+        return _update_history(res, "rNSE")
+
+    def mnse(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Modified Nash-Sutcliffe Efficiency (mNSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted mean.
+
+        Returns
+        -------
+        xarray.DataArray
+            Modified NSE.
+        """
+        res = efficiency_metrics.mNSE(obs, self._obj, axis=dim, weights=weights)
+        return _update_history(res, "mNSE")
+
+    def spearmanr(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Spearman rank correlation coefficient.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Spearman rank correlation.
+        """
+        res = correlation_metrics.spearmanr(obs, self._obj, axis=dim)
+        return _update_history(res, "Spearman rank correlation")
+
+    def kendalltau(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Kendall tau rank correlation coefficient.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Kendall tau rank correlation.
+        """
+        res = correlation_metrics.kendalltau(obs, self._obj, axis=dim)
+        return _update_history(res, "Kendall tau rank correlation")
+
+    def nme(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Normalized Mean Error (NME).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Normalized mean error.
+        """
+        res = relative_metrics.NME(obs, self._obj, axis=dim)
+        return _update_history(res, "NME")
+
+    def mdnnb(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Median Normalized Bias (MdnNB).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Median normalized bias.
+        """
+        res = error_metrics.MdnNB(obs, self._obj, axis=dim)
+        return _update_history(res, "MdnNB")
+
+    def mdnne(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Median Normalized Gross Error (MdnNE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Median normalized gross error.
+        """
+        res = error_metrics.MdnNE(obs, self._obj, axis=dim)
+        return _update_history(res, "MdnNE")
+
+    def phase_error(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Phase Error (timing offset).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension along which to compute the phase error.
+
+        Returns
+        -------
+        xarray.DataArray
+            Phase error.
+        """
+        res = temporal_metrics.PhaseError(obs, self._obj, axis=dim)
+        return _update_history(res, "Phase error")
+
+    def nrmse(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Normalized Root Mean Square Error (NRMSE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the metric.
+
+        Returns
+        -------
+        xarray.DataArray
+            Normalized root mean square error.
+        """
+        res = error_metrics.NRMSE(obs, self._obj, axis=dim)
+        return _update_history(res, "NRMSE")
+
+    def mpe(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Mean Peak Error (MPE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the peak and mean error.
+
+        Returns
+        -------
+        xarray.DataArray
+            Mean peak error.
+        """
+        res = relative_metrics.MPE(obs, self._obj, axis=dim)
+        return _update_history(res, "MPE")
+
+    def nmpe(
+        self,
+        obs: xr.DataArray,
+        paxis: Union[int, str, List[str]],
+        dim: Optional[Union[str, List[str]]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Normalized Mean Peak Error (NMPE).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        paxis : int or str or list of str
+            Axis or dimension along which to compute the peak.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the mean error.
+
+        Returns
+        -------
+        xarray.DataArray
+            Normalized mean peak error.
+        """
+        res = relative_metrics.NMPE(obs, self._obj, paxis=paxis, axis=dim)
+        return _update_history(res, "NMPE")
+
+    def verify(
+        self,
+        obs: xr.DataArray,
+        dim: Optional[Union[str, List[str]]] = None,
+        threshold: Optional[float] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    ) -> xr.Dataset:
         """
         Calculate a bundle of common evaluation metrics (Aero Protocol).
 
@@ -770,73 +1864,51 @@ class MonetDataArrayAccessor:
             Observed values.
         dim : str or list of str, optional
             Dimension(s) along which to compute the metrics.
+        threshold : float, optional
+            Threshold for categorical metrics (POD, FAR, HSS, etc.).
+            If provided, categorical metrics are included in the bundle.
+        weights : xarray.DataArray or numpy.ndarray, optional
+            Weights for the weighted metrics.
 
         Returns
         -------
         xarray.Dataset
-            Dataset containing: MAE, RMSE, MB, R, IOA, NMB, MNB, MNE, NSE, and R2.
+            Dataset containing common evaluation metrics.
         """
         metrics = {
-            "MAE": error_metrics.MAE(obs, self._obj, axis=dim),
-            "RMSE": error_metrics.RMSE(obs, self._obj, axis=dim),
-            "MB": error_metrics.MB(obs, self._obj, axis=dim),
+            "MAE": error_metrics.MAE(obs, self._obj, axis=dim, weights=weights),
+            "RMSE": error_metrics.RMSE(obs, self._obj, axis=dim, weights=weights),
+            "MSE": error_metrics.MSE(obs, self._obj, axis=dim, weights=weights),
+            "MB": error_metrics.MB(obs, self._obj, axis=dim, weights=weights),
             "R": correlation_metrics.pearsonr(obs, self._obj, axis=dim),
+            "SpearmanR": correlation_metrics.spearmanr(obs, self._obj, axis=dim),
             "IOA": error_metrics.IOA(obs, self._obj, axis=dim),
-            "NMB": relative_metrics.NMB(obs, self._obj, axis=dim),
+            "NMB": relative_metrics.NMB(obs, self._obj, axis=dim, weights=weights),
+            "NME": relative_metrics.NME(obs, self._obj, axis=dim),
             "MNB": error_metrics.MNB(obs, self._obj, axis=dim),
             "MNE": error_metrics.MNE(obs, self._obj, axis=dim),
             "NSE": efficiency_metrics.NSE(obs, self._obj, axis=dim),
             "R2": correlation_metrics.R2(obs, self._obj, axis=dim),
+            "FAC2": error_metrics.FAC2(obs, self._obj, axis=dim),
         }
+
+        if threshold is not None:
+            metrics.update(
+                {
+                    "POD": contingency_metrics.POD(obs, self._obj, minval=threshold, axis=dim),
+                    "FAR": contingency_metrics.FAR(obs, self._obj, minval=threshold, axis=dim),
+                    "HSS": contingency_metrics.HSS(obs, self._obj, minval=threshold, axis=dim),
+                    "CSI": contingency_metrics.CSI(obs, self._obj, minval=threshold, axis=dim),
+                    "TSS": contingency_metrics.TSS(obs, self._obj, minval=threshold, axis=dim),
+                    "ETS": contingency_metrics.ETS(obs, self._obj, minval=threshold, axis=dim),
+                    "FBI": contingency_metrics.FBI(obs, self._obj, minval=threshold, axis=dim),
+                    "BSS_binary": contingency_metrics.BSS_binary(obs, self._obj, threshold=threshold, axis=dim),
+                }
+            )
         res = xr.Dataset(metrics)
         from .utils_stats import _update_history
 
         return _update_history(res, "Verification metrics bundle (verify)")
-
-    def plot_spatial(
-        self,
-        method: str = "matplotlib",
-        lat_dim: str = "lat",
-        lon_dim: str = "lon",
-        title: Optional[str] = None,
-        cmap: str = "viridis",
-        **kwargs: Any,
-    ) -> Any:
-        """
-        Plot spatial data following the Aero Protocol's Two-Track Rule.
-
-        Parameters
-        ----------
-        method : str, optional
-            Plotting track: 'matplotlib' (Track A) or 'hvplot' (Track B).
-            Default is 'matplotlib'.
-        lat_dim : str, optional
-            Latitude dimension name. Default is 'lat'.
-        lon_dim : str, optional
-            Longitude dimension name. Default is 'lon'.
-        title : str, optional
-            Plot title.
-        cmap : str, optional
-            Colormap. Default is 'viridis'.
-        **kwargs : Any
-            Additional keyword arguments.
-
-        Returns
-        -------
-        Any
-            The plot object.
-        """
-        from .visualize import plot_spatial
-
-        return plot_spatial(
-            self._obj,
-            method=method,
-            lat_dim=lat_dim,
-            lon_dim=lon_dim,
-            title=title,
-            cmap=cmap,
-            **kwargs,
-        )
 
 
 @xr.register_dataset_accessor("monet_stats")
@@ -855,6 +1927,9 @@ class MonetDatasetAccessor:
         threshold: float = 0.0,
         minval: Optional[float] = None,
         maxval: Optional[float] = None,
+        dim: Optional[Union[str, List[str]]] = None,
+        plugins: Optional[List[str]] = None,
+        weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
     ) -> dict:
         """
         Calculate summary statistics for observations and model results.
@@ -871,6 +1946,10 @@ class MonetDatasetAccessor:
             Minimum value for filtering.
         maxval : float, optional
             Maximum value for filtering.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the statistics.
+        plugins : list of str, optional
+            List of registered plugin names to include.
 
         Returns
         -------
@@ -886,6 +1965,9 @@ class MonetDatasetAccessor:
             threshold=threshold,
             minval=minval,
             maxval=maxval,
+            axis=dim,
+            plugins=plugins,
+            weights=weights,
         )
 
     def climatology(self, freq: str = "season", method: str = "mean", dim: str = "time") -> xr.Dataset:

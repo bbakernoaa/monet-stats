@@ -8,7 +8,7 @@ import numpy as np
 import xarray as xr
 
 from .error_metrics import MAE, MedAE
-from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, circlebias_m
+from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, circlebias_m, ensure_single_chunk
 
 __all__ = [
     "NMB",
@@ -46,6 +46,8 @@ __all__ = [
     "PSUTNMdnPE",
     "MPE",
     "MdnPE",
+    "MG",
+    "VG",
 ]
 
 
@@ -53,6 +55,7 @@ def NMB(
     obs: Union[xr.DataArray, np.ndarray],
     mod: Union[xr.DataArray, np.ndarray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[xr.DataArray, np.ndarray, float]:
     """
     Normalized Mean Bias (%)
@@ -70,6 +73,8 @@ def NMB(
         Model predicted values.
     axis : int or str or None, optional
         Axis or dimension along which to compute the statistic.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply. For NMB, this weights the sums in the numerator and denominator.
 
     Returns
     -------
@@ -87,13 +92,26 @@ def NMB(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
-        res = (mod - obs).sum(dim=dim) / obs.sum(dim=dim) * 100.0
+        diff = mod - obs
+        if weights is not None:
+            res = (diff * weights).sum(dim=dim) / (obs * weights).sum(dim=dim) * 100.0
+            return _update_history(res, "Weighted Normalized Mean Bias (NMB)")
+        res = diff.sum(dim=dim) / obs.sum(dim=dim) * 100.0
         return _update_history(res, "Normalized Mean Bias (NMB)")
     else:
         obs_arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
-        res = (mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis) * 100.0
-        return res.item() if np.ndim(res) == 0 else res
+        if obs_arr.size == 0:
+            return np.nan
+        diff_arr = mod_arr - obs_arr
+        if weights is not None:
+            res = np.nansum(diff_arr * weights, axis=axis) / np.nansum(obs_arr * weights, axis=axis) * 100.0
+        else:
+            res = np.nansum(diff_arr, axis=axis) / np.nansum(obs_arr, axis=axis) * 100.0
+        # If denominator was zero or all NaN, return NaN instead of 0.0 or inf
+        if np.ndim(res) == 0:
+            return res.item() if np.isfinite(res) else np.nan
+        return np.where(np.isfinite(res), res, np.nan)
 
 
 def WDNMB_m(
@@ -226,10 +244,11 @@ def NMdnB(
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = [dim] if isinstance(dim, str) else list(dim)
-            diff = diff.chunk({d: -1 for d in dims_to_chunk})
-            obs = obs.chunk({d: -1 for d in dims_to_chunk})
+
+        # Aero Protocol: Ensure reduction dimensions are single-chunked for quantile
+        diff = ensure_single_chunk(diff, dim)
+        obs = ensure_single_chunk(obs, dim)
+
         res = (
             diff.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
             / obs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
@@ -447,9 +466,10 @@ def WDMdnE(
         if dim is None:
             dim = list(obs.dims)
         cb = abs(circlebias(mod - obs))
-        if hasattr(cb.data, "chunks"):
-            dims_to_chunk = [dim] if isinstance(dim, str) else list(dim)
-            cb = cb.chunk({d: -1 for d in dims_to_chunk})
+
+        # Aero Protocol: Ensure reduction dimensions are single-chunked for quantile
+        cb = ensure_single_chunk(cb, dim)
+
         res = cb.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
         return _update_history(res, "Wind Direction Median Gross Error (WDMdnE)")
     else:
@@ -599,6 +619,8 @@ def NME(
     else:
         obs_arr = np.ma.asanyarray(obs)
         mod_arr = np.ma.asanyarray(mod)
+        if obs_arr.size == 0:
+            return np.nan
         res = (np.ma.abs(mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis)) * 100
         return res.item() if np.ndim(res) == 0 else res
 
@@ -644,10 +666,11 @@ def NMdnE(
         if dim is None:
             dim = list(obs.dims)
         diff_abs = abs(mod - obs)
-        if hasattr(diff_abs.data, "chunks"):
-            dims_to_chunk = [dim] if isinstance(dim, str) else list(dim)
-            diff_abs = diff_abs.chunk({d: -1 for d in dims_to_chunk})
-            obs = obs.chunk({d: -1 for d in dims_to_chunk})
+
+        # Aero Protocol: Ensure reduction dimensions are single-chunked for quantile
+        diff_abs = ensure_single_chunk(diff_abs, dim)
+        obs = ensure_single_chunk(obs, dim)
+
         res = (
             diff_abs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
             / obs.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore")
@@ -870,9 +893,10 @@ def MdnNPB(
         mdim = _resolve_axis_to_dim(_intermediate, axis)
         if mdim is None:
             mdim = list(_intermediate.dims)
-        if hasattr(_intermediate.data, "chunks"):
-            dims_to_chunk = [mdim] if isinstance(mdim, str) else list(mdim)
-            _intermediate = _intermediate.chunk({d: -1 for d in dims_to_chunk})
+
+        # Aero Protocol: Ensure reduction dimensions are single-chunked for quantile
+        _intermediate = ensure_single_chunk(_intermediate, mdim)
+
         res = _intermediate.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore") * 100.0
         return _update_history(res, "Median Normalized Peak Bias (MdnNPB)")
     else:
@@ -886,6 +910,113 @@ def MdnNPB(
             * 100.0
         )
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def MG(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
+    """
+    Geometric Mean Bias (MG).
+
+    Typical Use Cases
+    -----------------
+    - Air quality model evaluation, especially for variables with log-normal
+      distributions.
+    - Provides a measure of central tendency for ratios mod/obs.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values (must be positive).
+    mod : xarray.DataArray or numpy.ndarray
+        Model values (must be positive).
+    axis : int or str or None, optional
+        Axis along which to compute the statistic.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply. If provided, computes a weighted mean of log-ratios.
+
+    Returns
+    -------
+    MG : xarray.DataArray or numpy.ndarray or float
+        Geometric Mean Bias. MG = exp(mean(log(mod) - log(obs)))
+    """
+    epsilon = 1e-10
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        log_ratio = np.log(xr.where(mod <= 0, epsilon, mod)) - np.log(xr.where(obs <= 0, epsilon, obs))
+        if weights is not None:
+            if not isinstance(weights, xr.DataArray):
+                weights = xr.DataArray(weights, coords=obs.coords, dims=obs.dims)
+            res = np.exp(log_ratio.weighted(weights).mean(dim=dim))
+            return _update_history(res, "Weighted Geometric Mean Bias (MG)")
+        res = np.exp(log_ratio.mean(dim=dim))
+        return _update_history(res, "Geometric Mean Bias (MG)")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        log_ratio = np.log(np.where(mod <= 0, epsilon, mod)) - np.log(np.where(obs <= 0, epsilon, obs))
+        if weights is not None:
+            res = np.exp(np.ma.average(np.ma.masked_invalid(log_ratio), axis=axis, weights=weights))
+        else:
+            res = np.exp(np.nanmean(log_ratio, axis=axis))
+        return res.item() if np.ndim(res) == 0 else res
+
+
+def VG(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
+    """
+    Geometric Variance (VG).
+
+    Typical Use Cases
+    -----------------
+    - Air quality model evaluation for log-normally distributed variables.
+    - Measures the spread of the ratios mod/obs.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values (must be positive).
+    mod : xarray.DataArray or numpy.ndarray
+        Model values (must be positive).
+    axis : int or str or None, optional
+        Axis along which to compute the statistic.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply. If provided, computes a weighted mean of squared log-ratios.
+
+    Returns
+    -------
+    VG : xarray.DataArray or numpy.ndarray or float
+        Geometric Variance. VG = exp(mean((log(mod) - log(obs))^2))
+    """
+    epsilon = 1e-10
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        log_ratio_sq = (np.log(xr.where(mod <= 0, epsilon, mod)) - np.log(xr.where(obs <= 0, epsilon, obs))) ** 2
+        if weights is not None:
+            if not isinstance(weights, xr.DataArray):
+                weights = xr.DataArray(weights, coords=obs.coords, dims=obs.dims)
+            res = np.exp(log_ratio_sq.weighted(weights).mean(dim=dim))
+            return _update_history(res, "Weighted Geometric Variance (VG)")
+        res = np.exp(log_ratio_sq.mean(dim=dim))
+        return _update_history(res, "Geometric Variance (VG)")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        log_ratio_sq = (np.log(np.where(mod <= 0, epsilon, mod)) - np.log(np.where(obs <= 0, epsilon, obs))) ** 2
+        if weights is not None:
+            res = np.exp(np.ma.average(np.ma.masked_invalid(log_ratio_sq), axis=axis, weights=weights))
+        else:
+            res = np.exp(np.nanmean(log_ratio_sq, axis=axis))
+        return res.item() if np.ndim(res) == 0 else res
 
 
 def MNPE(
@@ -989,8 +1120,10 @@ def MdnNPE(
         mdim = _resolve_axis_to_dim(_intermediate, axis)
         if mdim is None:
             mdim = list(_intermediate.dims)
-        if hasattr(_intermediate.data, "chunks"):
-            _intermediate = _intermediate.chunk({d: -1 for d in (mdim if isinstance(mdim, list) else [mdim])})
+
+        # Aero Protocol: Ensure reduction dimensions are single-chunked for quantile
+        _intermediate = ensure_single_chunk(_intermediate, mdim)
+
         res = _intermediate.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore") * 100.0
         return _update_history(res, "Median Normalized Peak Error (MdnNPE)")
     else:
@@ -1110,10 +1243,11 @@ def NMdnPB(
         mdim = _resolve_axis_to_dim(_diff, axis)
         if mdim is None:
             mdim = list(_diff.dims)
-        if hasattr(_diff.data, "chunks"):
-            dims_to_chunk = [mdim] if isinstance(mdim, str) else list(mdim)
-            _diff = _diff.chunk({d: -1 for d in dims_to_chunk})
-            _obs_max = _obs_max.chunk({d: -1 for d in dims_to_chunk})
+
+        # Aero Protocol: Ensure reduction dimensions are single-chunked for quantile
+        _diff = ensure_single_chunk(_diff, mdim)
+        _obs_max = ensure_single_chunk(_obs_max, mdim)
+
         res = (
             _diff.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
             / _obs_max.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
@@ -1233,10 +1367,11 @@ def NMdnPE(
         mdim = _resolve_axis_to_dim(_diff_abs, axis)
         if mdim is None:
             mdim = list(_diff_abs.dims)
-        if hasattr(_diff_abs.data, "chunks"):
-            dims_to_chunk = [mdim] if isinstance(mdim, str) else list(mdim)
-            _diff_abs = _diff_abs.chunk({d: -1 for d in dims_to_chunk})
-            _obs_max = _obs_max.chunk({d: -1 for d in dims_to_chunk})
+
+        # Aero Protocol: Ensure reduction dimensions are single-chunked for quantile
+        _diff_abs = ensure_single_chunk(_diff_abs, mdim)
+        _obs_max = ensure_single_chunk(_obs_max, mdim)
+
         res = (
             _diff_abs.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
             / _obs_max.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore")
@@ -1503,8 +1638,10 @@ def MdnPE(
         dim = _resolve_axis_to_dim(obs, axis)
         _intermediate = abs(mod.max(dim=dim) - obs.max(dim=dim)) / obs.max(dim=dim)
         mdim = list(_intermediate.dims)
-        if hasattr(_intermediate.data, "chunks"):
-            _intermediate = _intermediate.chunk({d: -1 for d in mdim})
+
+        # Aero Protocol: Ensure reduction dimensions are single-chunked for quantile
+        _intermediate = ensure_single_chunk(_intermediate, mdim)
+
         res = _intermediate.quantile(q=0.5, dim=mdim).drop_vars("quantile", errors="ignore") * 100.0
         return _update_history(res, "Median Peak Error (MdnPE)")
     else:

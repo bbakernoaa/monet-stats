@@ -10,7 +10,6 @@ import pytest
 import xarray as xr
 from hypothesis import given
 from hypothesis import strategies as st
-from test_utils import TestDataGenerator
 
 from monet_stats.error_metrics import (
     COE,
@@ -52,6 +51,8 @@ from monet_stats.error_metrics import (
     WDMdnB,
     bias_fraction,
 )
+
+from .test_utils import TestDataGenerator
 
 
 class TestErrorMetrics:

@@ -17,9 +17,10 @@ pearson_r = mod_da.monet_stats.pearsonr(obs_da)
 ```
 
 Available metrics include:
-- **Error Metrics**: `mae`, `rmse`, `mb`, `ioa`, `crmse`, `mdnb`, `nmse`, `mnb`, `mne`, `nse`
+- **Error Metrics**: `mae`, `rmse`, `mb`, `ioa`, `crmse`, `mdnb`, `nmse`, `mnb`, `mne`, `nse`, `fac2`, `rmsle`
 - **Correlation Metrics**: `pearsonr`, `r2`, `kge`, `ccc`
-- **Relative Metrics**: `nmb`, `fb`
+- **Relative Metrics**: `nmb`, `fb`, `mg`, `vg`
+- **Categorical Metrics**: `hss`, `ets`, `csi`, `pod`, `far`, `fbi`, `tss`, `bss_binary`, `bs`
 
 ### Verification Bundle
 
@@ -29,7 +30,7 @@ The `verify` method allows for efficient computation of multiple metrics at once
 metrics_ds = mod_da.monet_stats.verify(obs_da, dim="time")
 ```
 
-The bundle includes: `MAE`, `RMSE`, `MB`, `R` (Pearson), `IOA`, `NMB`, `MNB`, `MNE`, `NSE`, and `R2`.
+The bundle includes: `MAE`, `RMSE`, `MB`, `R` (Pearson), `IOA`, `NMB`, `MNB`, `MNE`, `NSE`, `R2`, and `FAC2`.
 
 ### Full API Reference
 

@@ -21,6 +21,16 @@ def _has_dask() -> bool:
         return False
 
 
+def _has_cubed() -> bool:
+    """Check if Cubed is installed and available."""
+    try:
+        import cubed  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 def get_chunk_recommendation(
     data: Union[xr.DataArray, xr.Dataset],
     target_mb: float = 100.0,
@@ -122,22 +132,23 @@ def chunk_array(arr: np.ndarray, chunk_size: int = 1000000) -> list:
     if arr.size == 0:
         return []
 
-    # Vectorized chunking using np.array_split
-    # We split along the first axis to preserve dimensionality of chunks.
-    # Note: To maintain backward compatibility with the original implementation,
-    # we use arr.size to determine the number of chunks, which may result in
-    # empty arrays if arr.size > len(arr).
-    num_chunks = max(1, int(np.ceil(arr.size / chunk_size)))
+    # Vectorized chunking using np.array_split for balanced chunks.
+    # Note: We split along the first axis to preserve dimensionality of chunks.
+    # We use len(arr) as the upper limit for num_chunks to avoid empty arrays
+    # if the array is small or has fewer rows than requested chunks.
+    num_chunks = min(len(arr), max(1, int(np.ceil(arr.size / chunk_size))))
     return np.array_split(arr, num_chunks)
 
 
 def apply_lazy_threshold(
     data: Union[xr.DataArray, xr.Dataset],
     threshold_mb: float = 500.0,
-    force_dask: bool = False,
+    force_lazy: bool = False,
+    backend: str = "dask",
+    **kwargs: Any,
 ) -> Union[xr.DataArray, xr.Dataset]:
     """
-    Ensure data is lazy (Dask-backed) if it exceeds a certain size (Aero Protocol).
+    Ensure data is lazy (Dask or Cubed-backed) if it exceeds a certain size (Aero Protocol).
 
     Parameters
     ----------
@@ -145,13 +156,18 @@ def apply_lazy_threshold(
         Input data to check.
     threshold_mb : float, optional
         Size threshold in Megabytes. Default is 500.0.
-    force_dask : bool, optional
-        If True, always convert to Dask regardless of size. Default is False.
+    force_lazy : bool, optional
+        If True, always convert to lazy regardless of size. Default is False.
+    backend : str, optional
+        Backend to use ('dask' or 'cubed'). Default is 'dask'.
+    **kwargs : Any
+        Additional keyword arguments. Supported:
+        - `force_dask`: Alias for `force_lazy` (Deprecated).
 
     Returns
     -------
     xarray.DataArray or xarray.Dataset
-        DataArray or Dataset, potentially converted to Dask.
+        DataArray or Dataset, potentially converted to a lazy backend.
 
     Examples
     --------
@@ -160,6 +176,15 @@ def apply_lazy_threshold(
     >>> da = xr.DataArray(np.random.rand(1000, 1000), dims=['x', 'y']) # ~7.6 MB
     >>> da_lazy = apply_lazy_threshold(da, threshold_mb=1.0) # Will convert to Dask
     """
+    # Backward compatibility for force_dask
+    if "force_dask" in kwargs:
+        warnings.warn(
+            "'force_dask' is deprecated and will be removed in a future version. Use 'force_lazy' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        force_lazy = kwargs.pop("force_dask")
+
     # Check if already lazy
     is_lazy = False
     if isinstance(data, xr.DataArray):
@@ -170,31 +195,66 @@ def apply_lazy_threshold(
         if any(hasattr(data[v].data, "chunks") and data[v].data.chunks is not None for v in data.data_vars):
             is_lazy = True
 
-    if is_lazy and not force_dask:
+    if is_lazy and not force_lazy:
         return data
 
     size_mb = data.nbytes / (1024 * 1024)
 
-    if force_dask or size_mb > threshold_mb:
-        if not _has_dask():
-            warnings.warn(
-                f"Laziness requested (force_dask={force_dask} or size={size_mb:.2f}MB > threshold={threshold_mb}MB), "
-                "but Dask is not installed. Continuing with eager computation.",
-                UserWarning,
-                stacklevel=2,
-            )
-            return data
+    if force_lazy or size_mb > threshold_mb:
+        if backend == "dask":
+            if not _has_dask():
+                warnings.warn(
+                    f"Laziness requested (force_lazy={force_lazy} or size={size_mb:.2f}MB > "
+                    f"threshold={threshold_mb}MB), but Dask is not installed. "
+                    "Continuing with eager computation.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                return data
+        elif backend == "cubed":
+            if not _has_cubed():
+                warnings.warn(
+                    f"Laziness requested (force_lazy={force_lazy} or size={size_mb:.2f}MB > "
+                    f"threshold={threshold_mb}MB), but Cubed is not installed. "
+                    "Continuing with eager computation.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                return data
+        else:
+            raise ValueError(f"Backend '{backend}' not supported. Use 'dask' or 'cubed'.")
 
         recommendation = get_chunk_recommendation(data)
         if not is_lazy:
             warnings.warn(
                 f"Data size ({size_mb:.2f} MB) exceeds threshold ({threshold_mb:.2f} MB). "
-                f"Converting to Dask with recommended chunks: {recommendation}",
+                f"Converting to {backend} with recommended chunks: {recommendation}",
                 UserWarning,
                 stacklevel=2,
             )
-        res = data.chunk(recommendation)
-        return _update_history(res, f"Converted to Dask (threshold={threshold_mb}MB)")
+
+        if backend == "dask":
+            res = data.chunk(recommendation)
+        else:
+            # Cubed conversion
+            import cubed
+
+            if isinstance(data, xr.DataArray):
+                # Cubed rechunk uses tuples
+                chunks_tuple = tuple(recommendation.get(d, data.sizes[d]) for d in data.dims)
+                res_data = cubed.from_array(data.data, chunks=chunks_tuple)
+                res = xr.DataArray(res_data, coords=data.coords, dims=data.dims, attrs=data.attrs)
+            else:
+                # Dataset conversion
+                new_vars = {}
+                for v in data.data_vars:
+                    var = data[v]
+                    chunks_tuple = tuple(recommendation.get(d, var.sizes[d]) for d in var.dims)
+                    res_var_data = cubed.from_array(var.data, chunks=chunks_tuple)
+                    new_vars[v] = xr.DataArray(res_var_data, coords=var.coords, dims=var.dims, attrs=var.attrs)
+                res = xr.Dataset(new_vars, coords=data.coords, attrs=data.attrs)
+
+        return _update_history(res, f"Converted to {backend} (threshold={threshold_mb}MB)")
 
     return data
 
@@ -230,12 +290,13 @@ def parallel_compute(
     data: Union[np.ndarray, xr.DataArray, xr.Dataset],
     chunk_size: int = 1000000,
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    backend: str = "dask",
 ) -> Any:
     """
     Compute function in parallel using chunking strategy (Aero Protocol).
 
     For Xarray objects, this automatically ensures laziness via `apply_lazy_threshold`
-    and leverages Dask if the data is already chunked.
+    and leverages Dask or Cubed if the data is already chunked.
 
     Parameters
     ----------
@@ -247,6 +308,8 @@ def parallel_compute(
         Size of data chunks for processing (NumPy only). Default is 1,000,000.
     axis : int, str, or iterable, optional
         Axis along which to compute.
+    backend : str, optional
+        Backend to use for lazy conversion ('dask' or 'cubed'). Default is 'dask'.
 
     Returns
     -------
@@ -255,29 +318,56 @@ def parallel_compute(
     """
     if isinstance(data, (xr.DataArray, xr.Dataset)):
         # Ensure it's lazy if large
-        data_lazy = apply_lazy_threshold(data)
+        data_lazy = apply_lazy_threshold(data, backend=backend)
         res = func(data_lazy, axis=axis)
         return _update_history(res, "parallel_compute")
     else:
-        # For numpy arrays, eliminate explicit loops by converting to Dask
+        # For numpy arrays, eliminate explicit loops by converting to Dask/Cubed
         data_arr = np.asanyarray(data)
         if data_arr.size > chunk_size:
-            try:
-                import dask.array as da
-            except ImportError:
-                # Fallback to eager computation if Dask is not available
-                return func(data_arr, axis=axis)
+            if backend == "dask":
+                try:
+                    import dask.array as da
+                except ImportError:
+                    return func(data_arr, axis=axis)
 
-            # Automatically chunk and parallelize via Dask
-            # Use 'auto' for multi-dimensional arrays to ensure efficient chunking
-            # while respecting the provided chunk_size as a rough guide for 1D.
-            if data_arr.ndim > 1:
-                dask_arr = da.from_array(data_arr, chunks="auto")
+                if data_arr.ndim > 1:
+                    lazy_arr = da.from_array(data_arr, chunks="auto")
+                else:
+                    lazy_arr = da.from_array(data_arr, chunks=chunk_size)
+            elif backend == "cubed":
+                try:
+                    import cubed
+                except ImportError:
+                    return func(data_arr, axis=axis)
+
+                # Use recommendation to calculate chunks for Cubed
+                # This ensures consistent chunk sizes between Dask and Cubed backends
+                dummy_da = xr.DataArray(data_arr)
+                target_mb = chunk_size * data_arr.itemsize / (1024**2)
+                recommendation = get_chunk_recommendation(dummy_da, target_mb=target_mb)
+                chunks = tuple(recommendation.get(f"dim_{i}", data_arr.shape[i]) for i in range(data_arr.ndim))
+                # Fallback if dummy_da doesn't use dim_0, etc.
+                if any(isinstance(v, int) for v in recommendation.values()):
+                    # get_chunk_recommendation uses actual dim names if available,
+                    # but here we didn't specify any.
+                    # Let's re-calculate more carefully.
+                    total_elements = data_arr.size
+                    target_elements = chunk_size
+                    if target_elements >= total_elements:
+                        chunks = data_arr.shape
+                    else:
+                        # Simple one-dimensional chunking along the first axis
+                        # matching the dask logic for 1D.
+                        first_dim_chunk = max(1, int(target_elements / (total_elements / data_arr.shape[0])))
+                        chunks = (first_dim_chunk,) + data_arr.shape[1:]
+
+                lazy_arr = cubed.from_array(data_arr, chunks=chunks)
             else:
-                dask_arr = da.from_array(data_arr, chunks=chunk_size)
+                raise ValueError(f"Backend '{backend}' not supported.")
 
-            res = func(dask_arr, axis=axis)
-            # If result is dask-backed, compute it for return
+            res = func(lazy_arr, axis=axis)
+            # If result is lazy, compute it for return
             if hasattr(res, "compute"):
                 return res.compute()
             return res

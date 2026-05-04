@@ -8,7 +8,7 @@ import numpy as np
 import xarray as xr
 
 from .error_metrics import IOA, RMSE, IOA_m
-from .utils_stats import _update_history, circlebias, circlebias_m, matchedcompressed
+from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, circlebias_m, matchedcompressed
 
 __all__ = [
     "IOA",
@@ -75,13 +75,7 @@ def R2(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            # Default to all dimensions if None
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         # Use native xarray correlation for speed and laziness (Aero Protocol)
         r = xr.corr(obs, mod, dim=dim)
@@ -154,16 +148,7 @@ def WDRMSE_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         result = (circlebias_m(mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "WDRMSE_m")
@@ -214,16 +199,7 @@ def WDRMSE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         result = (circlebias(mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "WDRMSE")
@@ -238,26 +214,79 @@ def _vectorized_regression_stats(
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
     mode: str = "RMSEs",
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """Internal helper for vectorized regression metrics."""
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    """
+    Internal helper for vectorized regression metrics (Aero Protocol).
+
+    Typical Use Cases
+    -----------------
+    - Internal calculation of systematic (RMSEs) and unsystematic (RMSEu)
+      linear regression errors.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the statistic.
+    mode : str, optional
+        Regression metric to compute ('RMSEs' or 'RMSEu'). Default is 'RMSEs'.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Computed regression statistic.
+    """
+    # Xarray path (handles DataArray, including mixed types with ndarray)
+    if isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray):
+        # Convert mixed types to DataArray to preserve metadata and laziness
+        if isinstance(obs, xr.DataArray) and not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, coords=obs.coords, dims=obs.dims)
+        elif isinstance(mod, xr.DataArray) and not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, coords=mod.coords, dims=mod.dims)
+
         obs, mod = xr.align(obs, mod, join="inner")
-        orig_axis = axis
-        if axis is None:
-            axis = tuple(range(obs.ndim))
-        elif isinstance(axis, str):
-            axis = (obs.get_axis_num(axis),)
-        elif isinstance(axis, int):
-            axis = (axis,)
-        else:
-            axis = tuple(obs.get_axis_num(d) if isinstance(d, str) else d for d in axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+
+        # Use native Xarray for lazy-friendliness (Aero Protocol)
+        mask = obs.notnull() & mod.notnull()
+        xv = obs.where(mask, 0.0)
+        yv = mod.where(mask, 0.0)
+
+        n = mask.sum(dim=dim)
+        s_x = xv.sum(dim=dim)
+        s_y = yv.sum(dim=dim)
+        s_xx = (xv * xv).sum(dim=dim)
+        s_yy = (yv * yv).sum(dim=dim)
+        s_xy = (xv * yv).sum(dim=dim)
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ss_xx = s_xx - (s_x**2) / n
+            ss_xy = s_xy - (s_x * s_y) / n
+            m = xr.where(ss_xx != 0, ss_xy / ss_xx, 0.0)
+            b = xr.where(n != 0, (s_y - m * s_x) / n, 0.0)
+
+            if mode == "RMSEs":
+                # sum((m*x + b - x)^2) = sum(((m-1)*x + b)^2)
+                sse = (m - 1) ** 2 * s_xx + 2 * b * (m - 1) * s_x + n * b**2
+                res = xr.where(n > 0, np.sqrt(xr.where(sse > 0, sse, 0.0) / n), np.nan)
+            else:  # RMSEu
+                # Residual sum of squares: SSyy - (SSxy^2 / SSxx)
+                ss_yy = s_yy - (s_y**2) / n
+                rss = xr.where(ss_xx != 0, ss_yy - (ss_xy**2) / ss_xx, ss_yy)
+                res = xr.where(n > 0, np.sqrt(xr.where(rss > 0, rss, 0.0) / n), np.nan)
+
+        res.attrs = obs.attrs.copy()
+        return _update_history(res, mode)
+
+    # NumPy path
+    if axis is None:
+        axis = None  # numpy handles None as all axes
+    elif isinstance(axis, (int, str)):
+        axis = (int(axis),)
     else:
-        orig_axis = axis
-        if axis is None:
-            axis = None  # numpy handles None as all axes
-        elif isinstance(axis, (int, str)):
-            axis = (int(axis),)
-        else:
-            axis = tuple(int(a) for a in axis)
+        axis = tuple(int(a) for a in axis)
 
     # Core logic using NumPy broadcasting
     x = np.asarray(obs)
@@ -289,15 +318,6 @@ def _vectorized_regression_stats(
             rss = np.where(ss_xx != 0, ss_yy - (ss_xy**2) / ss_xx, ss_yy)
             res = np.where(n > 0, np.sqrt(np.maximum(rss, 0) / n), np.nan)
 
-    if isinstance(obs, xr.DataArray):
-        # Create DataArray with same dims as input minus axis
-        if orig_axis is None or (isinstance(orig_axis, (list, tuple)) and len(orig_axis) == len(obs.dims)):
-            res_da = xr.DataArray(res, attrs=obs.attrs)
-        else:
-            # Handle dim reduction
-            dummy = obs.mean(dim=orig_axis)
-            res_da = xr.DataArray(res, coords=dummy.coords, dims=dummy.dims, attrs=obs.attrs)
-        return res_da
     return res.item() if np.ndim(res) == 0 else res
 
 
@@ -317,6 +337,11 @@ def RMSEs(
       model predictions.
     - Used in model evaluation to assess how well a regression fit to the model
       matches the observations.
+
+    Typical Values and Range
+    ------------------------
+    - Range: 0 to ∞
+    - 0: Perfect agreement between observations and regression fit
 
     Parameters
     ----------
@@ -361,6 +386,11 @@ def RMSEu(
       the model predictions.
     - Used in model evaluation to assess how well a regression fit to obs
       matches the model output.
+
+    Typical Values and Range
+    ------------------------
+    - Range: 0 to ∞
+    - 0: Perfect agreement between model predictions and regression fit
 
     Parameters
     ----------
@@ -428,16 +458,7 @@ def d1(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         num = abs(obs - mod).sum(dim=dim)
         mean_obs = obs.mean(dim=dim)
@@ -497,16 +518,7 @@ def E1(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         num = abs(obs - mod).sum(dim=dim)
         denom = abs(obs - obs.mean(dim=dim)).sum(dim=dim)
@@ -574,16 +586,7 @@ def WDIOA_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obsmean = obs.mean(dim=dim)
         num = (abs(circlebias_m(obs - mod))).sum(dim=dim)
@@ -652,16 +655,7 @@ def WDIOA(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         num = abs(circlebias(obs - mod)).sum(dim=dim)
         mean_obs = obs.mean(dim=dim)
@@ -715,16 +709,7 @@ def AC(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obs_bar = obs.mean(dim=dim)
         mod_bar = mod.mean(dim=dim)
@@ -785,16 +770,7 @@ def WDAC(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obs_rad = obs * np.pi / 180.0
         mod_rad = mod * np.pi / 180.0
@@ -869,16 +845,7 @@ def taylor_skill(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         std_obs = obs.std(dim=dim)
         std_mod = mod.std(dim=dim)
@@ -964,16 +931,7 @@ def KGE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         r = xr.corr(obs, mod, dim=dim)
         alpha = mod.std(dim=dim) / obs.std(dim=dim)
@@ -1040,12 +998,7 @@ def pearsonr(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         # Use native xarray correlation for speed and laziness (Aero Protocol)
         result = xr.corr(obs, mod, dim=dim)
@@ -1086,6 +1039,12 @@ def spearmanr(
     """
     Spearman rank correlation coefficient (Aero Protocol: Vectorized).
 
+    Typical Use Cases
+    -----------------
+    - Quantifying monotonic relationships between model and observations.
+    - Used when data is not normally distributed or when rank-order is more
+      important than exact values.
+
     Parameters
     ----------
     obs : numpy.ndarray or xarray.DataArray
@@ -1093,7 +1052,7 @@ def spearmanr(
     mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
     axis : int, str, or iterable of such, optional
-        Axis along which to compute the coefficient.
+        Axis or dimension along which to compute the coefficient.
 
     Returns
     -------
@@ -1110,18 +1069,22 @@ def spearmanr(
     0.8660254037844387
     """
     # Handle Xarray/NumPy alignment and dimension resolution
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    is_xr = isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray)
+
+    if is_xr:
+        # Standardize to DataArray for alignment and metadata handling
+        if not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, dims=mod.dims, coords=mod.coords)
+        if not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, dims=obs.dims, coords=obs.coords)
+
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
     else:
         dim = axis
 
-    if axis is None:
+    # For NumPy, maintain matchedcompressed behavior for axis=None
+    if dim is None and not is_xr:
         obsc, modc = matchedcompressed(obs, mod)
         if len(obsc) < 2:
             return np.nan
@@ -1134,8 +1097,12 @@ def spearmanr(
 
     # Apply pairwise masking to ensure ranks are computed on the same set of points
     mask = np.isnan(obs) | np.isnan(mod)
-    obs = xr.where(mask, np.nan, obs) if isinstance(obs, xr.DataArray) else np.where(mask, np.nan, obs)
-    mod = xr.where(mask, np.nan, mod) if isinstance(mod, xr.DataArray) else np.where(mask, np.nan, mod)
+    if is_xr:
+        obs_masked = xr.where(mask, np.nan, obs)
+        mod_masked = xr.where(mask, np.nan, mod)
+    else:
+        obs_masked = np.where(mask, np.nan, obs)
+        mod_masked = np.where(mask, np.nan, mod)
 
     def _rank_wrapper(data, axis):
         # Handle all-NaN slices to avoid Scipy warnings or errors
@@ -1144,11 +1111,12 @@ def spearmanr(
         return rankdata(data, axis=axis, nan_policy="omit")
 
     # Use apply_ufunc for rankdata to support both NumPy and Xarray/Dask
-    if isinstance(obs, xr.DataArray):
-        icd = [dim] if isinstance(dim, (str, int)) else list(dim)
+    if is_xr:
+        # If dim is None (global reduction), use all dimensions as core dimensions
+        icd = list(obs.dims) if dim is None else ([dim] if isinstance(dim, (str, int)) else list(dim))
         obs_ranked = xr.apply_ufunc(
             _rank_wrapper,
-            obs,
+            obs_masked,
             input_core_dims=[icd],
             output_core_dims=[icd],
             kwargs={"axis": -1},
@@ -1159,7 +1127,7 @@ def spearmanr(
         )
         mod_ranked = xr.apply_ufunc(
             _rank_wrapper,
-            mod,
+            mod_masked,
             input_core_dims=[icd],
             output_core_dims=[icd],
             kwargs={"axis": -1},
@@ -1168,10 +1136,46 @@ def spearmanr(
             output_dtypes=[float],
             keep_attrs=True,
         )
-        return pearsonr(obs_ranked, mod_ranked, axis=dim)
+        result = pearsonr(obs_ranked, mod_ranked, axis=dim)
+        return _update_history(result, "spearmanr")
     else:
-        obs_ranked = _rank_wrapper(obs, axis=axis)
-        mod_ranked = _rank_wrapper(mod, axis=axis)
+        # For NumPy path, we ensure multi-dimensional axis handling by using rankdata's axis parameter
+        # but rankdata expects a single axis for reduction. If axis is a tuple/None, we must flatten appropriately.
+        if axis is None:
+            obs_ranked = _rank_wrapper(obs_masked.ravel(), axis=0).reshape(obs_masked.shape)
+            mod_ranked = _rank_wrapper(mod_masked.ravel(), axis=0).reshape(mod_masked.shape)
+        elif isinstance(axis, (list, tuple)) and len(axis) > 1:
+            # Multi-axis reduction in NumPy requires careful handling.
+            # We wrap in DataArray temporarily to leverage standardized logic.
+            obs_da = xr.DataArray(obs_masked)
+            mod_da = xr.DataArray(mod_masked)
+            icd = [obs_da.dims[a] if isinstance(a, int) else a for a in axis]
+
+            def _multi_rank_wrapper(x):
+                orig_shape = x.shape
+                ranks = _rank_wrapper(x.ravel(), axis=0).reshape(orig_shape)
+                return ranks
+
+            obs_ranked = xr.apply_ufunc(
+                _multi_rank_wrapper,
+                obs_da,
+                input_core_dims=[icd],
+                output_core_dims=[icd],
+                vectorize=True,
+                output_dtypes=[float],
+            ).values
+            mod_ranked = xr.apply_ufunc(
+                _multi_rank_wrapper,
+                mod_da,
+                input_core_dims=[icd],
+                output_core_dims=[icd],
+                vectorize=True,
+                output_dtypes=[float],
+            ).values
+        else:
+            obs_ranked = _rank_wrapper(obs_masked, axis=axis)
+            mod_ranked = _rank_wrapper(mod_masked, axis=axis)
+
         return pearsonr(obs_ranked, mod_ranked, axis=axis)
 
 
@@ -1182,6 +1186,12 @@ def kendalltau(
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Kendall tau correlation coefficient (Aero Protocol: Standardized).
+
+    Typical Use Cases
+    -----------------
+    - Measuring the correspondence between the ranking of two variables.
+    - Useful for assessing model skill in predicting relative rankings
+      when values span several orders of magnitude.
 
     Parameters
     ----------
@@ -1208,31 +1218,23 @@ def kendalltau(
     """
     from scipy.stats import kendalltau as _kendalltau
 
-    # Standardize to DataArray to leverage Xarray's apply_ufunc vectorization
-    is_numpy = not isinstance(obs, xr.DataArray)
-    if is_numpy:
-        obs = xr.DataArray(obs)
-        mod = xr.DataArray(mod)
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, Iterable) and not isinstance(axis, str):
-                dim = [obs.dims[i] for i in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
-    else:
-        if isinstance(mod, xr.DataArray):
-            obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+    # Handle Xarray/NumPy alignment and dimension resolution
+    is_xr = isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray)
 
-    if axis is None:
+    if is_xr:
+        # Standardize to DataArray for alignment and metadata handling
+        if not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, dims=mod.dims, coords=mod.coords)
+        if not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, dims=obs.dims, coords=obs.coords)
+
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+    else:
+        dim = axis
+
+    # For NumPy, maintain matchedcompressed behavior for axis=None
+    if dim is None and not is_xr:
         obsc, modc = matchedcompressed(obs, mod)
         if len(obsc) < 2:
             return np.nan
@@ -1247,22 +1249,49 @@ def kendalltau(
         return _kendalltau(a_flat[mask], b_flat[mask])[0]
 
     # Use apply_ufunc to eliminate manual loops and support Dask
-    icd = [dim] if isinstance(dim, (str, int)) else list(dim)
-    result = xr.apply_ufunc(
-        _kendalltau_onlytau,
-        obs,
-        mod,
-        input_core_dims=[icd] * 2,
-        output_core_dims=[[]],
-        vectorize=True,
-        dask="parallelized",
-        dask_gufunc_kwargs={"allow_rechunk": True},
-        output_dtypes=[float],
-    )
+    # For both Xarray and NumPy paths, we use apply_ufunc to handle vectorization over axes
+    if is_xr:
+        # If dim is None (global reduction), use all dimensions as core dimensions
+        icd = list(obs.dims) if dim is None else ([dim] if isinstance(dim, (str, int)) else list(dim))
 
-    if is_numpy:
+        result = xr.apply_ufunc(
+            _kendalltau_onlytau,
+            obs,
+            mod,
+            input_core_dims=[icd] * 2,
+            output_core_dims=[[]],
+            vectorize=True,
+            dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
+            output_dtypes=[float],
+        )
+        return _update_history(result, "kendalltau")
+    else:
+        # For NumPy path, we wrap in DataArray temporarily to leverage apply_ufunc's
+        # multi-dimensional axis/dimension handling logic consistently.
+        obs_da = xr.DataArray(obs)
+        mod_da = xr.DataArray(mod)
+
+        # Resolve axis to pseudo-dimensions for the dummy DataArrays
+        if axis is None:
+            icd = list(obs_da.dims)
+        elif isinstance(axis, int):
+            icd = [obs_da.dims[axis]]
+        else:
+            icd = [
+                obs_da.dims[a] if isinstance(a, int) else a for a in (axis if isinstance(axis, Iterable) else [axis])
+            ]
+
+        result = xr.apply_ufunc(
+            _kendalltau_onlytau,
+            obs_da,
+            mod_da,
+            input_core_dims=[icd] * 2,
+            output_core_dims=[[]],
+            vectorize=True,
+            output_dtypes=[float],
+        )
         return result.values
-    return _update_history(result, "kendalltau")
 
 
 def CCC(
@@ -1314,16 +1343,7 @@ def CCC(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         # Calculate means
         obs_mean = obs.mean(dim=dim)
@@ -1402,16 +1422,7 @@ def E1_prime(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obs_mean = obs.mean(dim=dim)
         num = abs(obs - mod).sum(dim=dim)
@@ -1484,16 +1495,7 @@ def IOA_prime(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            elif isinstance(axis, (list, tuple)):
-                dim = [obs.dims[d] if isinstance(d, int) else d for d in axis]
-            else:
-                dim = axis
-        else:
-            dim = obs.dims
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obsmean = obs.mean(dim=dim)
         num = ((obs - mod) ** 2).sum(dim=dim)

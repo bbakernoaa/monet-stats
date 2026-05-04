@@ -5,6 +5,7 @@ Test utilities and helper functions for monet-stats testing framework.
 from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
+import pytest
 from numpy.typing import ArrayLike
 
 
@@ -262,7 +263,7 @@ def validate_metric_output(
     try:
         result = metric_func(obs, mod, **kwargs)
     except Exception as e:
-        raise AssertionError(f"Metric function failed with valid data: {e}")
+        raise AssertionError(f"Metric function failed with valid data: {e}") from e
 
     # Check return type
     if expected_type is not None and not isinstance(result, expected_type):
@@ -319,3 +320,47 @@ class MetricTester:
                 results[case_name] = f"Error: {e}"
 
         return results
+
+
+def test_matchmasks_dask_xarray_and_numpy():
+    """Test matchmasks with a dask-backed xarray and a numpy array."""
+    # This is a regression test for the ValueError that occurred when a dask array's
+    # boolean mask was not computed before being used in a numpy context.
+
+    # Optional dependencies
+    pytest.importorskip("dask")
+    xarray = pytest.importorskip("xarray")
+
+    from monet_stats.utils_stats import matchmasks
+
+    # 1. Create a dask-backed xarray.DataArray with a NaN
+    xr_data = xarray.DataArray([1, 2, np.nan, 4], dims=["x"]).chunk()
+
+    # 2. Create a numpy array with a NaN at a different position
+    np_data = np.array([1, np.nan, 3, 4])
+
+    # 3. Call matchmasks with the mixed types
+    a1_masked, a2_masked = matchmasks(xr_data, np_data)
+
+    # 4. Assert the results
+    # The combined mask should mask elements at index 1 and 2.
+    # The valid, non-masked data should be at indices 0 and 3.
+    expected_compressed = np.array([1, 4])
+
+    # Check that both masked arrays, when compressed, yield the same expected result.
+    np.testing.assert_array_equal(
+        a1_masked.compressed(),
+        expected_compressed,
+        err_msg="Dask xarray result is incorrect after masking.",
+    )
+    np.testing.assert_array_equal(
+        a2_masked.compressed(),
+        expected_compressed,
+        err_msg="Numpy array result is incorrect after masking.",
+    )
+
+    # 5. Check the masks themselves
+    # The mask should be True where either array had a NaN.
+    expected_mask = np.array([False, True, True, False])
+    np.testing.assert_array_equal(a1_masked.mask, expected_mask, err_msg="Mask of dask xarray is incorrect.")
+    np.testing.assert_array_equal(a2_masked.mask, expected_mask, err_msg="Mask of numpy array is incorrect.")

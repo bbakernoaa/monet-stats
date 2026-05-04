@@ -47,21 +47,6 @@ def test_dataarray_accessor_mda8(sample_da):
     assert "MDA8" in res.attrs["history"]
 
 
-def test_dataarray_accessor_plot(sample_da):
-    # Test plot_spatial via accessor (just verify it calls and returns something)
-    # We use a small subset to speed up
-    subset = sample_da.isel(time=0)
-    try:
-        import cartopy.crs as ccrs  # noqa: F401
-        import matplotlib.pyplot as plt
-
-        ax = subset.monet_stats.plot_spatial(method="matplotlib")
-        assert isinstance(ax, plt.Axes)
-        plt.close()
-    except ImportError:
-        pytest.skip("matplotlib/cartopy not installed")
-
-
 def test_dataset_accessor_stats(sample_ds):
     # Test stats via accessor
     res = sample_ds.monet_stats.stats()

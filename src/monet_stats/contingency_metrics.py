@@ -757,17 +757,23 @@ def HSS_max_threshold(
     a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
 
     denom = (a + c) * (c + d) + (a + b) * (b + d)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        hss_values = np.where(denom > 0, 2 * (a * d - b * c) / denom, np.nan)
+    if isinstance(a, xr.DataArray):
+        hss_values = xr.where(denom > 0, 2 * (a * d - b * c) / denom, np.nan)
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            hss_values = np.where(denom > 0, 2 * (a * d - b * c) / denom, np.nan)
 
     if isinstance(hss_values, xr.DataArray):
-        max_idx = hss_values.argmax(dim="threshold").values.item()
-        max_hss = hss_values.isel(threshold=max_idx).values.item()
+        max_idx = hss_values.argmax(dim="threshold")
+        max_hss = hss_values.max(dim="threshold")
+        # Re-attach thresholds as coordinates to use idxmax if needed, or index directly
+        hss_da = xr.DataArray(hss_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = hss_da.idxmax(dim="threshold")
+        return opt_thresh, max_hss
     else:
         max_idx = np.nanargmax(hss_values)
         max_hss = hss_values[max_idx]
-
-    return float(thresholds[max_idx]), float(max_hss)
+        return float(thresholds[max_idx]), float(max_hss)
 
 
 def ETS_max_threshold(
@@ -813,17 +819,22 @@ def ETS_max_threshold(
     total = a + b + c + d
     random_hits = ((a + b) * (a + c)) / total
     denom = a + b + c - random_hits
-    with np.errstate(divide="ignore", invalid="ignore"):
-        ets_values = np.where(denom > 0, (a - random_hits) / denom, np.nan)
+    if isinstance(a, xr.DataArray):
+        ets_values = xr.where(denom > 0, (a - random_hits) / denom, np.nan)
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ets_values = np.where(denom > 0, (a - random_hits) / denom, np.nan)
 
     if isinstance(ets_values, xr.DataArray):
-        max_idx = ets_values.argmax(dim="threshold").values.item()
-        max_ets = ets_values.isel(threshold=max_idx).values.item()
+        max_idx = ets_values.argmax(dim="threshold")
+        max_ets = ets_values.max(dim="threshold")
+        ets_da = xr.DataArray(ets_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = ets_da.idxmax(dim="threshold")
+        return opt_thresh, max_ets
     else:
         max_idx = np.nanargmax(ets_values)
         max_ets = ets_values[max_idx]
-
-    return float(thresholds[max_idx]), float(max_ets)
+        return float(thresholds[max_idx]), float(max_ets)
 
 
 def POD_max_threshold(
@@ -875,17 +886,22 @@ def POD_max_threshold(
     a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
 
     denom = a + b
-    with np.errstate(divide="ignore", invalid="ignore"):
-        pod_values = np.where(denom > 0, a / denom, np.nan)
+    if isinstance(a, xr.DataArray):
+        pod_values = xr.where(denom > 0, a / denom, np.nan)
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            pod_values = np.where(denom > 0, a / denom, np.nan)
 
     if isinstance(pod_values, xr.DataArray):
-        max_idx = pod_values.argmax(dim="threshold").values.item()
-        max_val = pod_values.isel(threshold=max_idx).values.item()
+        max_idx = pod_values.argmax(dim="threshold")
+        max_val = pod_values.max(dim="threshold")
+        pod_da = xr.DataArray(pod_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = pod_da.idxmax(dim="threshold")
+        return opt_thresh, max_val
     else:
         max_idx = np.nanargmax(pod_values)
         max_val = pod_values[max_idx]
-
-    return float(thresholds[max_idx]), float(max_val)
+        return float(thresholds[max_idx]), float(max_val)
 
 
 def FAR_min_threshold(
@@ -932,17 +948,22 @@ def FAR_min_threshold(
     a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
 
     denom = a + c
-    with np.errstate(divide="ignore", invalid="ignore"):
-        far_values = np.where(denom > 0, c / denom, np.nan)
+    if isinstance(a, xr.DataArray):
+        far_values = xr.where(denom > 0, c / denom, np.nan)
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            far_values = np.where(denom > 0, c / denom, np.nan)
 
     if isinstance(far_values, xr.DataArray):
-        min_idx = far_values.argmin(dim="threshold").values.item()
-        min_val = far_values.isel(threshold=min_idx).values.item()
+        min_idx = far_values.argmin(dim="threshold")
+        min_val = far_values.min(dim="threshold")
+        far_da = xr.DataArray(far_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = far_da.idxmin(dim="threshold")
+        return opt_thresh, min_val
     else:
         min_idx = np.nanargmin(far_values)
         min_val = far_values[min_idx]
-
-    return float(thresholds[min_idx]), float(min_val)
+        return float(thresholds[min_idx]), float(min_val)
 
 
 def CSI_max_threshold(
@@ -981,17 +1002,61 @@ def CSI_max_threshold(
     a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
 
     denom = a + b + c
-    with np.errstate(divide="ignore", invalid="ignore"):
-        csi_values = np.where(denom > 0, a / denom, np.nan)
+    if isinstance(a, xr.DataArray):
+        csi_values = xr.where(denom > 0, a / denom, np.nan)
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            csi_values = np.where(denom > 0, a / denom, np.nan)
 
     if isinstance(csi_values, xr.DataArray):
-        max_idx = csi_values.argmax(dim="threshold").values.item()
-        max_val = csi_values.isel(threshold=max_idx).values.item()
+        max_idx = csi_values.argmax(dim="threshold")
+        max_val = csi_values.max(dim="threshold")
+        csi_da = xr.DataArray(csi_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = csi_da.idxmax(dim="threshold")
+        return opt_thresh, max_val
     else:
         max_idx = np.nanargmax(csi_values)
         max_val = csi_values[max_idx]
+        return float(thresholds[max_idx]), float(max_val)
 
-    return float(thresholds[max_idx]), float(max_val)
+
+def BS(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Brier Score (BS).
+
+    Typical Use Cases
+    -----------------
+    - Evaluating the accuracy of probabilistic binary forecasts.
+    - Measure of the mean squared error of probability forecasts.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed binary outcomes (0 or 1).
+    mod : numpy.ndarray or xarray.DataArray
+        Forecast probabilities (0 to 1).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the score.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Brier Score.
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = ((mod - obs) ** 2).mean(dim=dim)
+        return _update_history(result, "Brier Score (BS)")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        result = np.nanmean((mod - obs) ** 2, axis=axis)
+        return result.item() if np.ndim(result) == 0 else result
 
 
 def TSS_max_threshold(
@@ -1043,10 +1108,12 @@ def TSS_max_threshold(
             tss_values = pod - pofd
 
     if isinstance(tss_values, xr.DataArray):
-        max_idx = tss_values.argmax(dim="threshold").values.item()
-        max_val = tss_values.isel(threshold=max_idx).values.item()
+        max_idx = tss_values.argmax(dim="threshold")
+        max_val = tss_values.max(dim="threshold")
+        tss_da = xr.DataArray(tss_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = tss_da.idxmax(dim="threshold")
+        return opt_thresh, max_val
     else:
         max_idx = np.nanargmax(tss_values)
         max_val = tss_values[max_idx]
-
-    return float(thresholds[max_idx]), float(max_val)
+        return float(thresholds[max_idx]), float(max_val)

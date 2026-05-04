@@ -7,7 +7,64 @@ from typing import Iterable, List, Optional, Tuple, Union
 import numpy as np
 import xarray as xr
 
-from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, matchmasks
+from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, ensure_single_chunk, matchmasks
+
+__all__ = [
+    "STDO",
+    "STDP",
+    "MNB",
+    "MNE",
+    "MdnNB",
+    "MdnNE",
+    "NMdnGE",
+    "NO",
+    "NOP",
+    "NP",
+    "MO",
+    "MP",
+    "MdnO",
+    "MdnP",
+    "RM",
+    "RMdn",
+    "MB",
+    "MdnB",
+    "WDMB",
+    "WDMB_m",
+    "WDMdnB",
+    "MSE",
+    "MAE",
+    "MedAE",
+    "CRMSE",
+    "MAPE",
+    "sMAPE",
+    "NRMSE",
+    "MASE",
+    "MASEm",
+    "RMSPE",
+    "MAPEm",
+    "sMAPEm",
+    "NSC",
+    "NSE_alpha",
+    "NSE_beta",
+    "MAE_m",
+    "MedAE_m",
+    "RMSE",
+    "RMSE_m",
+    "IOA",
+    "IOA_m",
+    "MAPE_mod",
+    "MASE_mod",
+    "RMSE_norm",
+    "MAE_norm",
+    "bias_fraction",
+    "NMSE",
+    "LOG_ERROR",
+    "COE",
+    "VOLUMETRIC_ERROR",
+    "CORR_INDEX",
+    "FAC2",
+    "RMSLE",
+]
 
 ############################################################
 # 1. Basic Error Metrics
@@ -142,7 +199,10 @@ def MNB(
         result = ((mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
         return _update_history(result, "MNB")
     else:
-        result = np.ma.masked_invalid((mod - obs) / obs).mean(axis=axis) * 100.0
+        diff = np.asanyarray(mod) - np.asanyarray(obs)
+        if diff.size == 0:
+            return np.nan
+        result = np.ma.masked_invalid(diff / obs).mean(axis=axis) * 100.0
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -182,7 +242,10 @@ def MNE(
         result = (abs(mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
         return _update_history(result, "MNE")
     else:
-        result = np.ma.masked_invalid(np.ma.abs(mod - obs) / obs).mean(axis=axis) * 100.0
+        diff = np.asanyarray(mod) - np.asanyarray(obs)
+        if diff.size == 0:
+            return np.nan
+        result = np.ma.masked_invalid(np.ma.abs(diff) / obs).mean(axis=axis) * 100.0
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -221,10 +284,9 @@ def MdnNB(
         if dim is None:
             dim = list(obs.dims)
         diff = (mod - obs) / obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnNB")
     else:
         result = np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
@@ -266,10 +328,9 @@ def MdnNE(
         if dim is None:
             dim = list(obs.dims)
         diff = abs(mod - obs) / obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnNE")
     else:
         result = np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=axis) * 100.0
@@ -320,10 +381,9 @@ def NMdnGE(
         if dim is None:
             dim = list(obs.dims)
         diff = abs(mod - obs)
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = (diff.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore") / obs.mean(dim=dim)) * 100.0
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "NMdnGE")
     else:
         result = (
@@ -572,10 +632,9 @@ def MdnO(
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnO")
     else:
         result = np.median(np.subtract(mod, obs), axis=axis)
@@ -611,10 +670,9 @@ def MdnP(
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnP")
     else:
         result = np.median(np.subtract(mod, obs), axis=axis)
@@ -683,10 +741,9 @@ def RMdn(
         if dim is None:
             dim = list(obs.dims)
         diff_sq = (obs - mod) ** 2
-        if hasattr(diff_sq.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff_sq = diff_sq.chunk({d: -1 for d in dims_to_chunk if d in diff_sq.dims})
+        diff_sq = ensure_single_chunk(diff_sq, dim)
         result = np.sqrt(diff_sq.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore"))
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "RMdn")
     else:
         squared_errors = (np.subtract(obs, mod)) ** 2
@@ -698,9 +755,15 @@ def MB(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Mean Bias (MB).
+
+    Typical Use Cases
+    -----------------
+    - Quantifying the average difference between model and observations.
+    - Identifying systematic over- or under-estimation in model predictions.
 
     Parameters
     ----------
@@ -710,20 +773,43 @@ def MB(
         Model predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute the mean bias.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
     numpy.number, numpy.ndarray, or xarray.DataArray
         Mean bias value(s) = mean(model - observation).
         Positive values indicate model overestimation.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> obs = xr.DataArray([1.0, 2.0], dims="lat", coords={"lat": [0, 45]})
+    >>> mod = xr.DataArray([1.1, 2.2], dims="lat", coords={"lat": [0, 45]})
+    >>> weights = np.cos(np.deg2rad(obs.lat))
+    >>> MB(obs, mod, weights=weights)
+    <xarray.DataArray ()>
+    array(0.17071068)
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
-        result = (mod - obs).mean(dim=dim, keep_attrs=True)
+        diff = mod - obs
+        if weights is not None:
+            result = diff.weighted(weights).mean(dim=dim, keep_attrs=True)
+            return _update_history(result, "Weighted MB")
+        result = diff.mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MB")
     else:
-        result = np.ma.mean(np.subtract(mod, obs), axis=axis)
+        diff = np.asanyarray(mod) - np.asanyarray(obs)
+        if diff.size == 0:
+            return np.nan
+        if weights is not None:
+            result = np.ma.average(np.ma.masked_invalid(diff), axis=axis, weights=weights)
+        else:
+            result = np.ma.mean(np.ma.masked_invalid(diff), axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -756,10 +842,9 @@ def MdnB(
         if dim is None:
             dim = list(obs.dims)
         diff = mod - obs
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnB")
     else:
         result = np.ma.median(np.subtract(mod, obs), axis=axis)
@@ -829,10 +914,9 @@ def WDMdnB(
         if dim is None:
             dim = list(obs.dims)
         diff = circlebias(mod - obs)
-        if hasattr(diff.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff = diff.chunk({d: -1 for d in dims_to_chunk if d in diff.dims})
+        diff = ensure_single_chunk(diff, dim)
         result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "WDMdnB")
     else:
         result = np.ma.median(circlebias(np.subtract(mod, obs)), axis=axis)
@@ -843,6 +927,7 @@ def MSE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Mean Squared Error (MSE).
@@ -855,6 +940,8 @@ def MSE(
         Model predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute the error.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
@@ -873,10 +960,20 @@ def MSE(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
-        result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True)
+        diff_sq = (mod - obs) ** 2
+        if weights is not None:
+            result = diff_sq.weighted(weights).mean(dim=dim, keep_attrs=True)
+            return _update_history(result, "Weighted MSE")
+        result = diff_sq.mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MSE")
     else:
-        result = np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis)
+        diff_sq = (np.subtract(mod, obs)) ** 2
+        if diff_sq.size == 0:
+            return np.nan
+        if weights is not None:
+            result = np.ma.average(np.ma.masked_invalid(diff_sq), axis=axis, weights=weights)
+        else:
+            result = np.ma.mean(np.ma.masked_invalid(diff_sq), axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -884,6 +981,7 @@ def MAE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Mean Absolute Error (MAE).
@@ -902,6 +1000,8 @@ def MAE(
         Model or predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute MAE.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
@@ -920,10 +1020,20 @@ def MAE(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
-        result = abs(mod - obs).mean(dim=dim, keep_attrs=True)
+        diff_abs = abs(mod - obs)
+        if weights is not None:
+            result = diff_abs.weighted(weights).mean(dim=dim, keep_attrs=True)
+            return _update_history(result, "Weighted MAE")
+        result = diff_abs.mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MAE")
     else:
-        result = np.ma.abs(np.subtract(mod, obs)).mean(axis=axis)
+        diff_abs = np.ma.abs(np.subtract(mod, obs))
+        if diff_abs.size == 0:
+            return np.nan
+        if weights is not None:
+            result = np.ma.average(np.ma.masked_invalid(diff_abs), axis=axis, weights=weights)
+        else:
+            result = np.ma.mean(np.ma.masked_invalid(diff_abs), axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -970,10 +1080,9 @@ def MedAE(
         if dim is None:
             dim = list(obs.dims)
         diff_abs = abs(mod - obs)
-        if hasattr(diff_abs.data, "chunks"):
-            dims_to_chunk = dim if isinstance(dim, (list, tuple)) else [dim]
-            diff_abs = diff_abs.chunk({d: -1 for d in dims_to_chunk if d in diff_abs.dims})
+        diff_abs = ensure_single_chunk(diff_abs, dim)
         result = diff_abs.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MedAE")
     else:
         result = np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)
@@ -1510,6 +1619,7 @@ def RMSE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Root Mean Square Error (RMSE).
@@ -1528,6 +1638,8 @@ def RMSE(
         Model or predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute RMSE.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
@@ -1546,10 +1658,21 @@ def RMSE(
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         dim = _resolve_axis_to_dim(obs, axis)
-        result = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
+        diff_sq = (mod - obs) ** 2
+        if weights is not None:
+            result = diff_sq.weighted(weights).mean(dim=dim, keep_attrs=True) ** 0.5
+            return _update_history(result, "Weighted RMSE")
+        result = diff_sq.mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "RMSE")
     else:
-        result = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
+        diff_sq = (np.subtract(mod, obs)) ** 2
+        if diff_sq.size == 0:
+            return np.nan
+        if weights is not None:
+            mse = np.ma.average(np.ma.masked_invalid(diff_sq), axis=axis, weights=weights)
+        else:
+            mse = np.ma.mean(np.ma.masked_invalid(diff_sq), axis=axis)
+        result = np.ma.sqrt(mse)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -2187,3 +2310,117 @@ def CORR_INDEX(
             den = np.sqrt(np.sum(obs_std**2, axis=axis) * np.sum(mod_std**2, axis=axis))
             result = num / den
             return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def FAC2(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Fraction of predictions within a factor of two (FAC2).
+
+    Typical Use Cases
+    -----------------
+    - Air quality model evaluation (e.g., PM2.5, NO2).
+    - Robust to outliers as it only cares about the ratio.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute FAC2.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Fraction of data where 0.5 <= mod/obs <= 2.0.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import FAC2
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([1.5, 5, 2.5])
+    >>> FAC2(obs, mod)
+    0.6666666666666666
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        mask = obs.notnull() & mod.notnull()
+        # Avoid division by zero warnings
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = mod / obs
+            in_range = (ratio >= 0.5) & (ratio <= 2.0)
+        # Only count valid pairs in the fraction
+        result = in_range.where(mask).mean(dim=dim)
+        return _update_history(result, "FAC2")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        mask = ~np.isnan(obs) & ~np.isnan(mod)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = mod / obs
+            in_range = (ratio >= 0.5) & (ratio <= 2.0)
+            # Use float conversion to allow np.nan insertion for correct nanmean behavior
+            res_data = np.where(mask, in_range.astype(float), np.nan)
+            result = np.nanmean(res_data, axis=axis)
+        return result.item() if np.ndim(result) == 0 else result
+
+
+def RMSLE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Root Mean Square Logarithmic Error (RMSLE).
+
+    Typical Use Cases
+    -----------------
+    - When you don't want to penalize huge differences when both values are very large.
+    - Useful for variables spanning several orders of magnitude.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute RMSLE.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Root mean square logarithmic error.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import RMSLE
+    >>> obs = np.array([1, 10, 100])
+    >>> mod = np.array([1.1, 15, 80])
+    >>> RMSLE(obs, mod)
+    0.2520847936171813
+    """
+    # Ensure positive values
+    epsilon = 1e-10
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        log_obs = np.log1p(xr.where(obs < 0, 0, obs) + epsilon)
+        log_mod = np.log1p(xr.where(mod < 0, 0, mod) + epsilon)
+        result = ((log_mod - log_obs) ** 2).mean(dim=dim) ** 0.5
+        return _update_history(result, "RMSLE")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        log_obs = np.log1p(np.where(obs < 0, 0, obs) + epsilon)
+        log_mod = np.log1p(np.where(mod < 0, 0, mod) + epsilon)
+        result = np.sqrt(np.nanmean((log_mod - log_obs) ** 2, axis=axis))
+        return result.item() if np.ndim(result) == 0 else result

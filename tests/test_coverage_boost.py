@@ -318,8 +318,8 @@ def test_hss_max_threshold_xarray(sample_da):
     obs = sample_da
     mod = sample_da + 0.1
     thresh, val = HSS_max_threshold(obs, mod, 0.1, 0.5, 0.1)
-    assert isinstance(thresh, float)
-    assert isinstance(val, float)
+    assert isinstance(thresh, xr.DataArray)
+    assert isinstance(val, xr.DataArray)
 
 
 def test_all_metrics_xarray_axis(sample_pair_da):

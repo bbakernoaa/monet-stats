@@ -8,7 +8,6 @@ probability of detection, false alarm rate, threat score, etc.
 import numpy as np
 import pytest
 import xarray as xr
-from test_utils import TestDataGenerator
 
 from monet_stats.contingency_metrics import (
     CSI,  # Critical Success Index
@@ -25,6 +24,8 @@ from monet_stats.contingency_metrics import (
     POD_max_threshold,
     scores,  # Contingency table function
 )
+
+from .test_utils import TestDataGenerator
 
 
 class TestContingencyMetrics:
@@ -241,23 +242,33 @@ class TestContingencyMetrics:
 
         # Test HSS max threshold
         opt_threshold, max_hss = HSS_max_threshold(obs, mod, 1, 5, 0.5)
-        assert isinstance(opt_threshold, (int, float)), "Should return threshold value"
-        assert isinstance(max_hss, (int, float)), "Should return HSS value"
+        assert isinstance(opt_threshold, (int, float, np.floating))
+        assert isinstance(max_hss, (int, float, np.floating))
 
         # Test ETS max threshold
         opt_threshold, max_ets = ETS_max_threshold(obs, mod, 1, 5, 0.5)
-        assert isinstance(opt_threshold, (int, float)), "Should return threshold value"
-        assert isinstance(max_ets, (int, float)), "Should return ETS value"
+        assert isinstance(opt_threshold, (int, float, np.floating))
+        assert isinstance(max_ets, (int, float, np.floating))
 
         # Test POD max threshold
         opt_threshold, max_pod = POD_max_threshold(obs, mod, 1, 5, 0.5)
-        assert isinstance(opt_threshold, (int, float)), "Should return threshold value"
-        assert isinstance(max_pod, (int, float)), "Should return POD value"
+        assert isinstance(opt_threshold, (int, float, np.floating))
+        assert isinstance(max_pod, (int, float, np.floating))
 
         # Test FAR min threshold
         opt_threshold, min_far = FAR_min_threshold(obs, mod, 1, 5, 0.5)
-        assert isinstance(opt_threshold, (int, float)), "Should return threshold value"
-        assert isinstance(min_far, (int, float)), "Should return FAR value"
+        assert isinstance(opt_threshold, (int, float, np.floating))
+        assert isinstance(min_far, (int, float, np.floating))
+
+    def test_threshold_optimization_functions_xarray(self):
+        """Test threshold optimization functions with xarray inputs (lazy return)."""
+        obs = xr.DataArray([1, 2, 3, 4, 5], dims="x")
+        mod = xr.DataArray([1.5, 2.5, 3.5, 4.5, 5.5], dims="x")
+
+        # Test HSS max threshold
+        opt_threshold, max_hss = HSS_max_threshold(obs, mod, 1, 5, 0.5)
+        assert isinstance(opt_threshold, xr.DataArray)
+        assert isinstance(max_hss, xr.DataArray)
 
 
 class TestContingencyMetricsXarray:
