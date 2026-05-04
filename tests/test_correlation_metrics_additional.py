@@ -5,13 +5,14 @@ Additional tests for correlation_metrics.py module to improve coverage.
 import numpy as np
 import pytest
 import xarray as xr
+
 from monet_stats.correlation_metrics import (
-    _pearsonr2,
-    _compute_r2_xarray,
     _compute_r2_numpy,
-    _validate_xarray_dim,
-    _process_xarray_dim,
+    _compute_r2_xarray,
     _compute_wdrmse_xarray,
+    _pearsonr2,
+    _process_xarray_dim,
+    _validate_xarray_dim,
     matchmasks,
 )
 
@@ -107,10 +108,10 @@ class TestCorrelationMetricsAdditional:
         a1 = np.ma.array([1, 2, 3], mask=[0, 1, 0])
         a2 = np.ma.array([4, 5, 6], mask=[0, 0, 1])
         result1, result2 = matchmasks(a1, a2)
-        assert result1.mask[1] == True
-        assert result2.mask[1] == True
-        assert result1.mask[2] == True
-        assert result2.mask[2] == True
+        assert result1.mask[1]
+        assert result2.mask[1]
+        assert result1.mask[2]
+        assert result2.mask[2]
 
     def test_compute_r2_xarray_with_xarray_inputs(self) -> None:
         """Test _compute_r2_xarray with actual xarray inputs."""
@@ -150,10 +151,10 @@ class TestCorrelationMetricsAdditional:
         b = np.array([1, 2, 3, 4])
         # This should handle NaN gracefully
         try:
-            result = _pearsonr2(a, b)
+            _pearsonr2(a, b)
             # If it doesn't raise an exception, that's fine
             assert True
-        except:
+        except Exception:
             # If it raises an exception, that's also acceptable
             assert True
 
@@ -247,12 +248,16 @@ class TestCorrelationMetricsAdditional:
 
         result = _compute_r2_xarray(obs, mod, axis=0)
         assert isinstance(result, xr.DataArray)
-        assert abs(float(result) - 1.0) < 1e-10  # Use tolerance for floating point comparison
+        assert (
+            abs(float(result) - 1.0) < 1e-10
+        )  # Use tolerance for floating point comparison
 
         # Test with string axis
         result = _compute_r2_xarray(obs, mod, axis="x")
         assert isinstance(result, xr.DataArray)
-        assert abs(float(result) - 1.0) < 1e-10  # Use tolerance for floating point comparison
+        assert (
+            abs(float(result) - 1.0) < 1e-10
+        )  # Use tolerance for floating point comparison
 
     def test_integration_between_helper_functions(self) -> None:
         """Test integration between different helper functions."""
@@ -305,7 +310,7 @@ class TestCorrelationMetricsAdditional:
 
         # Run the function in multiple threads
         threads = []
-        for i in range(5):
+        for _i in range(5):
             thread = threading.Thread(target=run_test)
             threads.append(thread)
             thread.start()

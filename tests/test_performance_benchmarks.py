@@ -6,6 +6,8 @@ Tests various data sizes and optimization strategies.
 import numpy as np
 import pytest
 import xarray as xr
+from pytest_benchmark.fixture import BenchmarkFixture
+
 from monet_stats.test_aliases import (
     akaike_information_criterion,
     bayesian_information_criterion,
@@ -26,8 +28,6 @@ from monet_stats.test_aliases import (
     root_mean_squared_error,
     spearman_correlation,
 )
-from pytest_benchmark.fixture import BenchmarkFixture
-
 from tests.test_utils import TestDataGenerator
 
 

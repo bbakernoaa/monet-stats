@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
 import xarray as xr
+
 from monet_stats.error_metrics import NO, NOP, NP
+
 
 class TestNO_NP_NOP:
     def test_no_nop_np_nan(self):
@@ -46,6 +48,7 @@ class TestNO_NP_NOP:
             NOP(arr, arr)
         with pytest.raises(Exception):
             NP(arr, arr)
+
     def test_no_xarray(self):
         arr = xr.DataArray([1, 2, 3, 4, 5], dims=["time"])
         assert NO(arr, arr) == 5

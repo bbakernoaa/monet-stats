@@ -9,6 +9,7 @@ import numpy as np
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
+
 from monet_stats.contingency_metrics import CSI, FAR, POD
 from monet_stats.correlation_metrics import IOA, R2, RMSE, pearsonr
 from monet_stats.efficiency_metrics import MAPE, MSE, NSE
@@ -64,12 +65,12 @@ class TestPropertyBased:
         result_mae = MAE(obs, obs)
 
         # Both should be very close to 0
-        assert (
-            result_rmse < 1e-10
-        ), f"RMSE with perfect agreement should be ~0, got {result_rmse}"
-        assert (
-            result_mae < 1e-10
-        ), f"MAE with perfect agreement should be ~0, got {result_mae}"
+        assert result_rmse < 1e-10, (
+            f"RMSE with perfect agreement should be ~0, got {result_rmse}"
+        )
+        assert result_mae < 1e-10, (
+            f"MAE with perfect agreement should be ~0, got {result_mae}"
+        )
 
     @given(
         value=st.floats(
@@ -79,9 +80,9 @@ class TestPropertyBased:
     def test_circlebias_range(self, value) -> None:
         """Test that circlebias returns values in [-180, 180] range."""
         result = circlebias(np.array([value]))
-        assert (
-            -180 <= result[0] <= 180
-        ), f"circlebias result {result[0]} not in [-180, 180] range"
+        assert -180 <= result[0] <= 180, (
+            f"circlebias result {result[0]} not in [-180, 180] range"
+        )
 
     @given(
         angle1=st.floats(
@@ -94,9 +95,9 @@ class TestPropertyBased:
     def test_angular_difference_range(self, angle1, angle2) -> None:
         """Test that angular_difference returns values in [0, 180] range for degrees."""
         result = angular_difference(angle1, angle2, units="degrees")
-        assert (
-            0 <= result <= 180
-        ), f"angular_difference result {result} not in [0, 180] range"
+        assert 0 <= result <= 180, (
+            f"angular_difference result {result} not in [0, 180] range"
+        )
 
     @given(obs=float_array, mod=float_array)
     @settings(suppress_health_check=[HealthCheck.too_slow], deadline=1000)
@@ -164,9 +165,9 @@ class TestPropertyBased:
 
         # RMSE should be sqrt of MSE
         expected_rmse = np.sqrt(mse_result)
-        assert (
-            abs(rmse_result - expected_rmse) < 1e-10
-        ), f"RMSE {rmse_result} should equal sqrt(MSE) {expected_rmse}"
+        assert abs(rmse_result - expected_rmse) < 1e-10, (
+            f"RMSE {rmse_result} should equal sqrt(MSE) {expected_rmse}"
+        )
 
     @given(
         obs=arrays(
@@ -300,16 +301,16 @@ class TestPropertyBased:
         # RMSE should be the same when inputs are swapped
         rmse_original = RMSE(obs, mod)
         rmse_swapped = RMSE(mod, obs)
-        assert (
-            abs(rmse_original - rmse_swapped) < 1e-10
-        ), f"RMSE should be symmetric, got {rmse_original} vs {rmse_swapped}"
+        assert abs(rmse_original - rmse_swapped) < 1e-10, (
+            f"RMSE should be symmetric, got {rmse_original} vs {rmse_swapped}"
+        )
 
         # MAE should be the same when inputs are swapped
         mae_original = MAE(obs, mod)
         mae_swapped = MAE(mod, obs)
-        assert (
-            abs(mae_original - mae_swapped) < 1e-10
-        ), f"MAE should be symmetric, got {mae_original} vs {mae_swapped}"
+        assert abs(mae_original - mae_swapped) < 1e-10, (
+            f"MAE should be symmetric, got {mae_original} vs {mae_swapped}"
+        )
 
     @given(
         obs=arrays(
@@ -347,9 +348,9 @@ class TestPropertyBased:
             nmb_scaled = NMB(scaled_obs, scaled_mod)
 
             if np.isfinite(nmb_original) and np.isfinite(nmb_scaled):
-                assert (
-                    abs(nmb_original - nmb_scaled) < 1e-10
-                ), f"NMB should be scale-invariant, got {nmb_original} vs {nmb_scaled}"
+                assert abs(nmb_original - nmb_scaled) < 1e-10, (
+                    f"NMB should be scale-invariant, got {nmb_original} vs {nmb_scaled}"
+                )
         except ZeroDivisionError:
             # This can happen when mean of obs is 0
             pass
@@ -361,14 +362,14 @@ class TestPropertyBased:
 
         # Test metrics that should handle zeros appropriately
         rmse_result = RMSE(obs_zeros, mod_zeros)
-        assert (
-            abs(rmse_result - 0.0) < 1e-10
-        ), f"RMSE with zeros should be 0, got {rmse_result}"
+        assert abs(rmse_result - 0.0) < 1e-10, (
+            f"RMSE with zeros should be 0, got {rmse_result}"
+        )
 
         mae_result = MAE(obs_zeros, mod_zeros)
-        assert (
-            abs(mae_result - 0.0) < 1e-10
-        ), f"MAE with zeros should be 0, got {mae_result}"
+        assert abs(mae_result - 0.0) < 1e-10, (
+            f"MAE with zeros should be 0, got {mae_result}"
+        )
 
     def test_edge_case_ones(self) -> None:
         """Test behavior with arrays of all ones."""
@@ -376,15 +377,15 @@ class TestPropertyBased:
         mod_ones = np.ones(10)
 
         rmse_result = RMSE(obs_ones, mod_ones)
-        assert (
-            abs(rmse_result - 0.0) < 1e-10
-        ), f"RMSE with all ones should be 0, got {rmse_result}"
+        assert abs(rmse_result - 0.0) < 1e-10, (
+            f"RMSE with all ones should be 0, got {rmse_result}"
+        )
 
         nse_result = NSE(obs_ones, mod_ones)
         # With identical arrays, NSE should be 1
-        assert (
-            abs(nse_result - 1.0) < 1e-10
-        ), f"NSE with identical arrays should be 1, got {nse_result}"
+        assert abs(nse_result - 1.0) < 1e-10, (
+            f"NSE with identical arrays should be 1, got {nse_result}"
+        )
 
     def test_edge_case_constant_arrays(self) -> None:
         """Test behavior with constant but different arrays."""
@@ -392,14 +393,14 @@ class TestPropertyBased:
         mod_const = np.ones(10) * 6  # Different constant
 
         rmse_result = RMSE(obs_const, mod_const)
-        assert (
-            abs(rmse_result - 1.0) < 1e-10
-        ), f"RMSE between 5s and 6s should be 1, got {rmse_result}"
+        assert abs(rmse_result - 1.0) < 1e-10, (
+            f"RMSE between 5s and 6s should be 1, got {rmse_result}"
+        )
 
         mae_result = MAE(obs_const, mod_const)
-        assert (
-            abs(mae_result - 1.0) < 1e-10
-        ), f"MAE between 5s and 6s should be 1, got {mae_result}"
+        assert abs(mae_result - 1.0) < 1e-10, (
+            f"MAE between 5s and 6s should be 1, got {mae_result}"
+        )
 
     @given(
         single_value=st.floats(
@@ -410,9 +411,9 @@ class TestPropertyBased:
         """Test circlebias with single values."""
         result = circlebias(np.array([single_value]))
         # Result should be in [-180, 180] range
-        assert (
-            -180 <= result[0] <= 180
-        ), f"circlebias result {result[0]} not in [-180, 180] range"
+        assert -180 <= result[0] <= 180, (
+            f"circlebias result {result[0]} not in [-180, 180] range"
+        )
 
     @given(
         arr1=arrays(

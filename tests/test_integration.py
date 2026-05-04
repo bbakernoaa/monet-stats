@@ -6,6 +6,7 @@ and produce consistent results in realistic scenarios.
 """
 
 import numpy as np
+
 from monet_stats.contingency_metrics import CSI, ETS, FAR, HSS, POD
 from monet_stats.correlation_metrics import IOA, KGE, R2, RMSE, pearsonr
 from monet_stats.efficiency_metrics import MAPE, MSE, NSE
@@ -54,9 +55,9 @@ class TestIntegration:
         assert rmse_val >= mae_val, f"RMSE ({rmse_val}) should be >= MAE ({mae_val})"
 
         # MSE should be RMSE squared (approximately)
-        assert (
-            abs(mse_val - rmse_val**2) < 1e-10
-        ), f"MSE ({mse_val}) should equal RMSE^2 ({rmse_val**2})"
+        assert abs(mse_val - rmse_val**2) < 1e-10, (
+            f"MSE ({mse_val}) should equal RMSE^2 ({rmse_val**2})"
+        )
 
     def test_perfect_agreement_integration(self) -> None:
         """Test all metrics with perfect agreement."""
@@ -84,16 +85,16 @@ class TestIntegration:
 
         # Mean bias should detect the bias
         mb_val = MB(self.obs, mod_biased)
-        assert (
-            abs(mb_val - (-bias)) < 1e-10
-        ), f"MB should detect bias of {bias}, got {mb_val}"
+        assert abs(mb_val - (-bias)) < 1e-10, (
+            f"MB should detect bias of {bias}, got {mb_val}"
+        )
 
         # NMB should also reflect the bias
         nmb_val = NMB(self.obs, mod_biased)
         expected_nmb = (bias / np.mean(self.obs)) * 100
-        assert (
-            abs(nmb_val - expected_nmb) < 1e-6
-        ), f"NMB should reflect bias, expected {expected_nmb}, got {nmb_val}"
+        assert abs(nmb_val - expected_nmb) < 1e-6, (
+            f"NMB should reflect bias, expected {expected_nmb}, got {nmb_val}"
+        )
 
     def test_correlation_efficiency_relationship(self) -> None:
         """Test relationship between correlation and efficiency metrics."""
@@ -106,15 +107,15 @@ class TestIntegration:
         nse_val = NSE(self.obs, self.mod)
 
         # R2 is the square of Pearson correlation (for simple linear regression)
-        assert (
-            abs(r2_val - pearson_corr**2) < 1e-6
-        ), f"R2 should be ~Pearson^2, {r2_val} vs {pearson_corr**2}"
+        assert abs(r2_val - pearson_corr**2) < 1e-6, (
+            f"R2 should be ~Pearson^2, {r2_val} vs {pearson_corr**2}"
+        )
 
         # For good models, NSE should be positive and related to correlation
         if pearson_corr > 0.7:  # High correlation
-            assert (
-                nse_val > 0.5
-            ), f"High correlation should correspond to good NSE, got {nse_val}"
+            assert nse_val > 0.5, (
+                f"High correlation should correspond to good NSE, got {nse_val}"
+            )
 
     def test_contingency_metrics_consistency(self) -> None:
         """Test consistency among contingency metrics."""
@@ -153,9 +154,9 @@ class TestIntegration:
 
         # NME should generally be >= absolute value of NMB (since NME uses absolute errors)
         if np.isfinite(nme_val) and np.isfinite(nmb_val):
-            assert nme_val >= abs(
-                nmb_val
-            ), f"NME ({nme_val}) should be >= |NMB| ({abs(nmb_val)})"
+            assert nme_val >= abs(nmb_val), (
+                f"NME ({nme_val}) should be >= |NMB| ({abs(nmb_val)})"
+            )
 
     def test_efficiency_metrics_hierarchy(self) -> None:
         """Test expected hierarchy among efficiency metrics."""
@@ -168,9 +169,9 @@ class TestIntegration:
 
         # For good models, both should be positive
         if nse_val > 0.5:
-            assert (
-                kge_val > 0.3
-            ), f"Good NSE should correspond to decent KGE, got {kge_val}"
+            assert kge_val > 0.3, (
+                f"Good NSE should correspond to decent KGE, got {kge_val}"
+            )
 
     def test_realistic_scenario_metrics(self) -> None:
         """Test metrics on a more realistic scenario."""
@@ -199,9 +200,9 @@ class TestIntegration:
         # Check reasonable ranges
         assert rmse > 0, f"RMSE should be positive, got {rmse}"
         assert mae > 0, f"MAE should be positive, got {mae}"
-        assert (
-            abs(mb - (-0.8)) < 0.5
-        ), f"MB should be close to bias (0.8), got {mb}"  # Allow some variation
+        assert abs(mb - (-0.8)) < 0.5, (
+            f"MB should be close to bias (0.8), got {mb}"
+        )  # Allow some variation
         assert -1 <= nse <= 1, f"NSE should be in [-1,1], got {nse}"
         assert -1 <= r2 <= 1, f"R2 should be in [-1,1], got {r2}"
         assert 0 <= ioa <= 1, f"IOA should be in [0,1], got {ioa}"
@@ -221,9 +222,9 @@ class TestIntegration:
         mod_mean = np.full_like(obs_mean, np.mean(obs_mean))
 
         nse_mean = NSE(obs_mean, mod_mean)
-        assert (
-            abs(nse_mean - 0.0) < 1e-10
-        ), f"NSE for mean model should be ~0, got {nse_mean}"
+        assert abs(nse_mean - 0.0) < 1e-10, (
+            f"NSE for mean model should be ~0, got {nse_mean}"
+        )
 
     def test_metrics_scaling_invariance(self) -> None:
         """Test which metrics are affected by scaling."""
@@ -240,18 +241,18 @@ class TestIntegration:
         rmse_scaled = RMSE(obs_scaled, mod_scaled)
         expected_scaled = rmse_original * scale_factor
 
-        assert (
-            abs(rmse_scaled - expected_scaled) < 1e-6
-        ), f"RMSE should scale linearly, got {rmse_scaled} vs expected {expected_scaled}"
+        assert abs(rmse_scaled - expected_scaled) < 1e-6, (
+            f"RMSE should scale linearly, got {rmse_scaled} vs expected {expected_scaled}"
+        )
 
         # NMB should be unchanged (relative metric)
         nmb_original = NMB(obs_original, mod_original)
         nmb_scaled = NMB(obs_scaled, mod_scaled)
 
         if np.isfinite(nmb_original) and np.isfinite(nmb_scaled):
-            assert (
-                abs(nmb_original - nmb_scaled) < 1e-6
-            ), f"NMB should be scale-invariant, got {nmb_original} vs {nmb_scaled}"
+            assert abs(nmb_original - nmb_scaled) < 1e-6, (
+                f"NMB should be scale-invariant, got {nmb_original} vs {nmb_scaled}"
+            )
 
     def test_correlation_calculation_methods(self) -> None:
         """Test different methods of calculating correlation."""
@@ -262,18 +263,18 @@ class TestIntegration:
         corr_scipy, _ = pearsonr(self.obs, self.mod)
 
         # Should be very close
-        assert (
-            abs(corr_our - corr_scipy) < 1e-10
-        ), f"Our correlation ({corr_our}) should match scipy ({corr_scipy})"
+        assert abs(corr_our - corr_scipy) < 1e-10, (
+            f"Our correlation ({corr_our}) should match scipy ({corr_scipy})"
+        )
 
         # Also compare with the pearsonr from our module
         corr_module = pearsonr(self.obs, self.mod)
         if isinstance(corr_module, tuple):
             corr_module = corr_module[0]
 
-        assert (
-            abs(corr_our - corr_module) < 1e-10
-        ), f"Our correlation ({corr_our}) should match module ({corr_module})"
+        assert abs(corr_our - corr_module) < 1e-10, (
+            f"Our correlation ({corr_our}) should match module ({corr_module})"
+        )
 
     def test_error_metrics_relationships(self) -> None:
         """Test mathematical relationships between error metrics."""
@@ -285,9 +286,9 @@ class TestIntegration:
         assert rmse_val >= mae_val, f"RMSE ({rmse_val}) should be >= MAE ({mae_val})"
 
         # |MB| <= MAE (bias is a type of error)
-        assert (
-            abs(mb_val) <= mae_val
-        ), f"|MB| ({abs(mb_val)}) should be <= MAE ({mae_val})"
+        assert abs(mb_val) <= mae_val, (
+            f"|MB| ({abs(mb_val)}) should be <= MAE ({mae_val})"
+        )
 
     def test_comprehensive_workflow(self) -> None:
         """Test a comprehensive workflow with multiple metrics."""
@@ -307,9 +308,9 @@ class TestIntegration:
         # Verify all metrics are computed
         for name, value in metrics.items():
             if np.isfinite(value):
-                assert isinstance(
-                    value, (int, float, np.number)
-                ), f"{name} should return a numeric value, got {type(value)}"
+                assert isinstance(value, (int, float, np.number)), (
+                    f"{name} should return a numeric value, got {type(value)}"
+                )
 
         # Check that error metrics are positive
         error_metrics = ["RMSE", "MAE"]
@@ -352,9 +353,9 @@ class TestIntegration:
             ):  # If NSE decreased with more noise, that's expected
                 continue  # This is expected behavior
             # Check that metrics respond appropriately to noise level changes
-            assert np.isfinite(
-                results[i][1]
-            ), f"RMSE should be finite for noise level {results[i][0]}"
-            assert np.isfinite(
-                results[i][2]
-            ), f"NSE should be finite for noise level {results[i][0]}"
+            assert np.isfinite(results[i][1]), (
+                f"RMSE should be finite for noise level {results[i][0]}"
+            )
+            assert np.isfinite(results[i][2]), (
+                f"NSE should be finite for noise level {results[i][0]}"
+            )

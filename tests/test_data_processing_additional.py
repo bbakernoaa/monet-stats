@@ -5,13 +5,17 @@ Tests focus on functions that are not well-covered by existing tests.
 """
 
 import numpy as np
-import pytest
 import pandas as pd
+import pytest
 import xarray as xr
 
 from monet_stats.data_processing import (
-    to_numpy, align_arrays, handle_missing_values, normalize_data,
-    detrend_data, compute_anomalies
+    align_arrays,
+    compute_anomalies,
+    detrend_data,
+    handle_missing_values,
+    normalize_data,
+    to_numpy,
 )
 
 
@@ -34,7 +38,7 @@ class TestToNumpy:
 
     def test_to_numpy_xarray(self):
         """Test to_numpy with xarray DataArray."""
-        data = xr.DataArray([1.0, 2.0, 3.0], dims=['x'])
+        data = xr.DataArray([1.0, 2.0, 3.0], dims=["x"])
         result = to_numpy(data)
         assert isinstance(result, np.ndarray)
         assert np.array_equal(result, np.array([1.0, 2.0, 3.0]))
@@ -60,8 +64,8 @@ class TestAlignArrays:
 
     def test_align_arrays_xarray(self):
         """Test align_arrays with xarray DataArrays."""
-        obs = xr.DataArray([1.0, 2.0, 3.0], dims=['x'], coords={'x': [0, 1, 2]})
-        mod = xr.DataArray([1.1, 2.1, 3.1], dims=['x'], coords={'x': [0, 1, 2]})
+        obs = xr.DataArray([1.0, 2.0, 3.0], dims=["x"], coords={"x": [0, 1, 2]})
+        mod = xr.DataArray([1.1, 2.1, 3.1], dims=["x"], coords={"x": [0, 1, 2]})
         obs_aligned, mod_aligned = align_arrays(obs, mod)
         assert isinstance(obs_aligned, xr.DataArray)
         assert isinstance(mod_aligned, xr.DataArray)

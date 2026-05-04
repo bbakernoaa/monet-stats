@@ -5,10 +5,18 @@ Tests focus on functions that are not well-covered by existing tests.
 """
 
 import numpy as np
-import pytest
 
 from monet_stats.efficiency_metrics import (
-    NSE, NSEm, NSElog, rNSE, mNSE, PC, MAE, MSE, MAPE, MASE
+    MAE,
+    MAPE,
+    MASE,
+    MSE,
+    NSE,
+    PC,
+    NSElog,
+    NSEm,
+    mNSE,
+    rNSE,
 )
 
 

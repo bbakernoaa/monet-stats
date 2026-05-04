@@ -62,12 +62,17 @@ class TestPerformanceBenchmark:
         """Test run_all_benchmarks handles function exceptions gracefully."""
         benchmark = PerformanceBenchmark()
         # Patch functions dict to include a function that raises
-        benchmark.generate_test_data = lambda size, data_type="numpy": ([1, 2, 3], [4, 5, 6])
+        benchmark.generate_test_data = lambda size, data_type="numpy": (
+            [1, 2, 3],
+            [4, 5, 6],
+        )
 
         def bad_func(a, b):
             raise ValueError("fail")
 
-        benchmark.benchmark_function = lambda func, obs, mod, runs=100: (_ for _ in ()).throw(ValueError("fail"))
+        benchmark.benchmark_function = lambda func, obs, mod, runs=100: (
+            _ for _ in ()
+        ).throw(ValueError("fail"))
         # Patch functions dict inside method
         orig_run_all = benchmark.run_all_benchmarks
 

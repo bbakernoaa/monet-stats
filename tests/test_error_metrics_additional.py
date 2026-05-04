@@ -5,15 +5,46 @@ Tests focus on functions that are not well-covered by existing tests.
 """
 
 import numpy as np
-import pytest
-import xarray as xr
 
 from monet_stats.error_metrics import (
-    STDO, STDP, MNB, MNE, MdnNB, MdnNE, NMdnGE, NO, NOP, NP,
-    MO, MP, MdnO, MdnP, RM, RMdn, MB, MdnB, WDMB_m, WDMB, WDMdnB,
-    MAE, MedAE, sMAPE_original, CRMSE, MAPE, sMAPE, NRMSE, MASE,
-    MASEm, RMSPE, MAPEm, sMAPEm, NSC, NSE_alpha, NSE_beta, MAE_m,
-    MedAE_m
+    CRMSE,
+    MAE,
+    MAPE,
+    MASE,
+    MB,
+    MNB,
+    MNE,
+    MO,
+    MP,
+    NO,
+    NOP,
+    NP,
+    NRMSE,
+    NSC,
+    RM,
+    RMSPE,
+    STDO,
+    STDP,
+    WDMB,
+    MAE_m,
+    MAPEm,
+    MASEm,
+    MdnB,
+    MdnNB,
+    MdnNE,
+    MdnO,
+    MdnP,
+    MedAE,
+    MedAE_m,
+    NMdnGE,
+    NSE_alpha,
+    NSE_beta,
+    RMdn,
+    WDMB_m,
+    WDMdnB,
+    sMAPE,
+    sMAPE_original,
+    sMAPEm,
 )
 
 
@@ -61,7 +92,9 @@ class TestMedianErrorMetrics:
         obs = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
         mod = np.array([11.0, 22.0, 28.0, 43.0, 55.0])
         result = MdnNB(obs, mod)
-        expected = np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=None) * 100.0
+        expected = (
+            np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=None) * 100.0
+        )
         assert np.isclose(result, expected)
 
     def test_mdne_basic(self):
@@ -69,7 +102,10 @@ class TestMedianErrorMetrics:
         obs = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
         mod = np.array([11.0, 22.0, 28.0, 43.0, 55.0])
         result = MdnNE(obs, mod)
-        expected = np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=None) * 100.0
+        expected = (
+            np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=None)
+            * 100.0
+        )
         assert np.isclose(result, expected)
 
     def test_nmdnge_basic(self):
@@ -77,9 +113,12 @@ class TestMedianErrorMetrics:
         obs = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
         mod = np.array([11.0, 22.0, 28.0, 43.0, 55.0])
         result = NMdnGE(obs, mod)
-        expected = np.ma.masked_invalid(
-            np.ma.abs(mod - obs).mean(axis=None) / obs.mean(axis=None)
-        ) * 100.0
+        expected = (
+            np.ma.masked_invalid(
+                np.ma.abs(mod - obs).mean(axis=None) / obs.mean(axis=None)
+            )
+            * 100.0
+        )
         assert np.isclose(result, expected)
 
 
@@ -241,7 +280,9 @@ class TestPercentageErrorMetrics:
         mod = np.array([2.0, 2.0, 4.0])
         result = sMAPE_original(obs, mod)
         # Calculate expected value: 200 * |mod-obs| / (|mod| + |obs|) then mean
-        expected = (200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))).mean()
+        expected = (
+            200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))
+        ).mean()
         assert np.isclose(result, expected, rtol=1e-9)
 
     def test_crmse_basic(self):
@@ -267,7 +308,9 @@ class TestPercentageErrorMetrics:
         mod = np.array([2.0, 2.0, 4.0])
         result = sMAPE(obs, mod)
         # Calculate expected value: 200 * |mod-obs| / (|mod| + |obs|) then mean
-        expected = (200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))).mean()
+        expected = (
+            200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))
+        ).mean()
         assert np.isclose(result, expected, rtol=1e-9)
 
 

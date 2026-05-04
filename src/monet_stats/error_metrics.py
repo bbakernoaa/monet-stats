@@ -273,14 +273,16 @@ def NO(obs: ArrayLike, mod: ArrayLike, axis: Optional[Union[int, str]] = None) -
     """
     if isinstance(obs, xr.DataArray):
         result = obs.count(dim=axis)
-        if hasattr(result, 'size') and result.size == 0:
+        if hasattr(result, "size") and result.size == 0:
             return 0
         return int(result) if np.isscalar(result) else result
     else:
         arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
         if arr.shape != mod_arr.shape:
-            raise ValueError(f"Shape mismatch: obs.shape={arr.shape}, mod.shape={mod_arr.shape}")
+            raise ValueError(
+                f"Shape mismatch: obs.shape={arr.shape}, mod.shape={mod_arr.shape}"
+            )
         mask = np.ma.getmaskarray(arr) | np.isnan(arr)
         count = (~mask).sum(axis=axis)
         if np.ma.isMaskedArray(count):
@@ -315,14 +317,16 @@ def NOP(obs: ArrayLike, mod: ArrayLike, axis: Optional[Union[int, str]] = None) 
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         result = obs.count(dim=axis)
-        if hasattr(result, 'size') and result.size == 0:
+        if hasattr(result, "size") and result.size == 0:
             return 0
         return int(result) if np.isscalar(result) else result
     else:
         arr = np.asanyarray(obs)
         mod_arr = np.asanyarray(mod)
         if arr.shape != mod_arr.shape:
-            raise ValueError(f"Shape mismatch: obs.shape={arr.shape}, mod.shape={mod_arr.shape}")
+            raise ValueError(
+                f"Shape mismatch: obs.shape={arr.shape}, mod.shape={mod_arr.shape}"
+            )
         obsc, modc = matchmasks(obs, mod)
         arr = np.asanyarray(obsc)
         mask = np.ma.getmaskarray(arr) | np.isnan(arr) | np.isnan(np.asanyarray(modc))
@@ -358,14 +362,16 @@ def NP(obs: ArrayLike, mod: ArrayLike, axis: Optional[Union[int, str]] = None) -
     """
     if isinstance(mod, xr.DataArray):
         result = mod.count(dim=axis)
-        if hasattr(result, 'size') and result.size == 0:
+        if hasattr(result, "size") and result.size == 0:
             return 0
         return int(result) if np.isscalar(result) else result
     else:
         arr = np.asanyarray(mod)
         obs_arr = np.asanyarray(obs)
         if arr.shape != obs_arr.shape:
-            raise ValueError(f"Shape mismatch: mod.shape={arr.shape}, obs.shape={obs_arr.shape}")
+            raise ValueError(
+                f"Shape mismatch: mod.shape={arr.shape}, obs.shape={obs_arr.shape}"
+            )
         mask = np.ma.getmaskarray(arr) | np.isnan(arr)
         count = (~mask).sum(axis=axis)
         if np.ma.isMaskedArray(count):
