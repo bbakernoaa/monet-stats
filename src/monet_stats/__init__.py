@@ -442,6 +442,14 @@ def stats(
                 except Exception:
                     res[p_name] = np.nan
 
+        # Include plugins
+        if plugins:
+            for p_name in plugins:
+                try:
+                    res[p_name] = plugin_manager.compute_metric(p_name, obs, mod)
+                except Exception:
+                    res[p_name] = np.nan
+
         try:
             res["POD"] = POD(obs, mod, threshold, axis=axis)
             res["FAR"] = FAR(obs, mod, threshold, axis=axis)
