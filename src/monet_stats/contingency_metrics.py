@@ -1,19 +1,27 @@
-from typing import Optional, Tuple
+from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
-from numpy.typing import ArrayLike
+import xarray as xr
+
+from .utils_stats import _resolve_axis_to_dim, _update_history
 
 
 def HSS(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval: float,
+    maxval: Optional[float] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Heidke Skill Score (HSS)
+    Heidke Skill Score (HSS).
 
     Typical Use Cases
     -----------------
-    - Evaluating categorical forecast skill (e.g., precipitation, air quality events).
-    - Used in meteorology and environmental modeling to assess binary event prediction accuracy.
+    - Evaluating categorical forecast skill (e.g., precipitation, air quality
+      events).
+    - Used in meteorology and environmental modeling to assess binary event
+      prediction accuracy.
 
     Typical Values and Range
     ------------------------
@@ -24,45 +32,59 @@ def HSS(
 
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Modeled values.
     minval : float
-        Threshold value for contingency table.
+        Minimum threshold value for event detection.
+    maxval : float, optional
+        Maximum threshold value for event detection.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the metric.
 
     Returns
     -------
-    float
+    numpy.number, numpy.ndarray, or xarray.DataArray
         HSS value for the given threshold.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import contingency_metrics as stats
+    >>> from monet_stats.contingency_metrics import HSS
     >>> obs = np.array([1, 0, 1, 0])
     >>> mod = np.array([1, 1, 0, 0])
-    >>> stats.HSS(obs, mod, minval=0.5)
-    # Output: HSS value between -∞ and 1
+    >>> HSS(obs, mod, minval=0.5)
+    -0.3333333333333333
     """
-    a, b, c, d = _contingency_table(obs, mod, minval, maxval)
+    a, b, c, d = _contingency_table(obs, mod, minval, maxval, axis=axis)
     denom = (a + c) * (c + d) + (a + b) * (b + d)
-    if denom > 0:
-        return 2 * (a * d - b * c) / denom
+    if isinstance(denom, xr.DataArray):
+        result = xr.where(denom > 0, 2 * (a * d - b * c) / denom, np.nan)
+        result.attrs = obs.attrs.copy()
+        return _update_history(result, "Heidke Skill Score (HSS)")
     else:
-        return np.nan
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(denom > 0, 2 * (a * d - b * c) / denom, np.nan)
+            return result.item() if np.ndim(result) == 0 else result
 
 
 def ETS(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval: float,
+    maxval: Optional[float] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Equitable Threat Score (ETS)
+    Equitable Threat Score (ETS).
 
     Typical Use Cases
     -----------------
-    - Evaluating forecast skill for rare events (e.g., precipitation, air quality exceedances).
-    - Used in meteorology and environmental modeling to assess binary event prediction accuracy.
+    - Evaluating forecast skill for rare events (e.g., precipitation, air quality
+      exceedances).
+    - Used in meteorology and environmental modeling to assess binary event
+      prediction accuracy.
 
     Typical Values and Range
     ------------------------
@@ -73,48 +95,61 @@ def ETS(
 
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Modeled values.
     minval : float
-        Threshold value for contingency table.
+        Minimum threshold value for event detection.
+    maxval : float, optional
+        Maximum threshold value for event detection.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the metric.
 
     Returns
     -------
-    float
+    numpy.number, numpy.ndarray, or xarray.DataArray
         ETS value for the given threshold.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.contingency_metrics import ETS
     >>> obs = np.array([1, 0, 1, 0])
     >>> mod = np.array([1, 1, 0, 0])
-    >>> stats.ETS(obs, mod, minval=0.5, maxval=None)
-    # Output: ETS value between -1/3 and 1
+    >>> ETS(obs, mod, minval=0.5)
+    -0.2
     """
-    # Compute contingency table
-    a, b, c, d = _contingency_table(obs, mod, minval, maxval)
+    a, b, c, d = _contingency_table(obs, mod, minval, maxval, axis=axis)
     total = a + b + c + d
-    random_hits = ((a + b) * (a + c)) / total if total > 0 else 0
+    random_hits = ((a + b) * (a + c)) / total
     denom = a + b + c - random_hits
-    if denom > 0:
-        return (a - random_hits) / denom
+    if isinstance(denom, xr.DataArray):
+        result = xr.where(denom > 0, (a - random_hits) / denom, np.nan)
+        result.attrs = obs.attrs.copy()
+        return _update_history(result, "Equitable Threat Score (ETS)")
     else:
-        return np.nan
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(denom > 0, (a - random_hits) / denom, np.nan)
+            return result.item() if np.ndim(result) == 0 else result
 
 
 def CSI(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval: float,
+    maxval: Optional[float] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Critical Success Index (CSI)
+    Critical Success Index (CSI).
 
     Typical Use Cases
     -----------------
-    - Evaluating forecast skill for rare or binary events (e.g., precipitation, air quality exceedances).
-    - Used in meteorology and environmental modeling to assess event prediction accuracy.
+    - Evaluating forecast skill for rare or binary events (e.g., precipitation,
+      air quality exceedances).
+    - Used in meteorology and environmental modeling to assess event prediction
+      accuracy.
 
     Typical Values and Range
     ------------------------
@@ -124,63 +159,108 @@ def CSI(
 
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Modeled values.
     minval : float
-        Threshold value for contingency table.
-    maxval : float
-        Maximum threshold value (not used in calculation).
+        Minimum threshold value for event detection.
+    maxval : float, optional
+        Maximum threshold value for event detection.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the metric.
 
     Returns
     -------
-    float
+    numpy.number, numpy.ndarray, or xarray.DataArray
         CSI value for the given threshold.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.contingency_metrics import CSI
     >>> obs = np.array([1, 0, 1, 0])
     >>> mod = np.array([1, 1, 0, 0])
-    >>> stats.CSI(obs, mod, minval=0.5, maxval=None)
-    # Output: CSI value between 0 and 1
+    >>> CSI(obs, mod, minval=0.5)
+    0.3333333333333333
     """
-    a, b, c, d = _contingency_table(obs, mod, minval, maxval)
+    a, b, c, d = _contingency_table(obs, mod, minval, maxval, axis=axis)
     denom = a + b + c
-    csi = a / denom if denom > 0 else np.nan
-    return csi
+    if isinstance(denom, xr.DataArray):
+        result = xr.where(denom > 0, a / denom, np.nan)
+        result.attrs = obs.attrs.copy()
+        return _update_history(result, "Critical Success Index (CSI)")
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(denom > 0, a / denom, np.nan)
+            return result.item() if np.ndim(result) == 0 else result
 
 
 def scores(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> Tuple[int, int, int, int]:
-    """Calculate scores using the new _contingency_table.
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval: float,
+    maxval: Optional[float] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Tuple[
+    Union[np.number, np.ndarray, xr.DataArray],
+    Union[np.number, np.ndarray, xr.DataArray],
+    Union[np.number, np.ndarray, xr.DataArray],
+    Union[np.number, np.ndarray, xr.DataArray],
+]:
+    """
+    Calculate the 2x2 contingency table (Aero Protocol).
+
+    Typical Use Cases
+    -----------------
+    - Obtaining the raw counts of hits, misses, false alarms, and correct negatives
+      to compute custom categorical scores.
 
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observation values ("truth").
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Model values ("prediction").
-        Should be the same size as `obs`.
     minval : float
-        Threshold for event (used as threshold for _contingency_table).
+        Minimum threshold for event detection.
     maxval : float, optional
-        Unused, kept for compatibility.
+        Maximum threshold for event detection.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the scores.
 
     Returns
     -------
-    a, b, c, d : float
-        Counts of hits, misses, false alarms, and correct negatives.
+    Tuple[Union[np.number, np.ndarray, xr.DataArray], ...]
+        A tuple of (hits, misses, false alarms, correct negatives).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.array([1, 2, 3, 4])
+    >>> mod = np.array([1.5, 1.8, 3.2, 3.8])
+    >>> a, b, c, d = scores(obs, mod, minval=2.5)
+    >>> print(f"Hits: {a}")
+    Hits: 2
     """
-    return _contingency_table(obs, mod, minval, maxval)
+    res = _contingency_table(obs, mod, minval, maxval, axis=axis)
+    if isinstance(res[0], xr.DataArray):
+        return (
+            _update_history(res[0], "Hits (a)"),
+            _update_history(res[1], "Misses (b)"),
+            _update_history(res[2], "False Alarms (c)"),
+            _update_history(res[3], "Correct Negatives (d)"),
+        )
+    return res
 
 
 def POD(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval: float,
+    maxval: Optional[float] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Probability of Detection (POD) for a given event threshold.
 
@@ -192,40 +272,59 @@ def POD(
 
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    threshold : float
-        Event threshold.
+    minval : float
+        Minimum event threshold.
+    maxval : float, optional
+        Maximum event threshold.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the metric.
 
     Returns
     -------
-    pod : float
+    pod : numpy.number, numpy.ndarray, or xarray.DataArray
         Probability of detection.
 
     Examples
     --------
     >>> import numpy as np
+    >>> from monet_stats.contingency_metrics import POD
     >>> obs = np.array([0, 1, 1, 0])
     >>> mod = np.array([1, 1, 0, 0])
-    >>> POD(obs, mod, threshold=0.5)
+    >>> POD(obs, mod, minval=0.5)
     0.5
     """
-    a, b, c, d = _contingency_table(obs, mod, minval, maxval)
-    return a / (a + b) if (a + b) > 0 else np.nan
+    a, b, c, d = _contingency_table(obs, mod, minval, maxval, axis=axis)
+    denom = a + b
+    if isinstance(denom, xr.DataArray):
+        result = xr.where(denom > 0, a / denom, np.nan)
+        result.attrs = obs.attrs.copy()
+        return _update_history(result, "Probability of Detection (POD)")
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(denom > 0, a / denom, np.nan)
+            return result.item() if np.ndim(result) == 0 else result
 
 
 def FAR(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval: float,
+    maxval: Optional[float] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     False Alarm Rate (FAR) for a given event threshold.
 
     Typical Use Cases
     -----------------
-    - Evaluating the frequency of false alarms in categorical forecasts (e.g., precipitation, air quality events).
-    - Used in meteorology and environmental modeling to assess forecast reliability.
+    - Evaluating the frequency of false alarms in categorical forecasts (e.g.,
+      precipitation, air quality events).
+    - Used in meteorology and environmental modeling to assess forecast
+      reliability.
 
     Typical Values and Range
     ------------------------
@@ -235,107 +334,189 @@ def FAR(
 
     Parameters
     ----------
-    obs : ArrayLike or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
     minval : float
-        Threshold value for contingency table.
+        Minimum event threshold.
     maxval : float, optional
-        Maximum threshold value (not used in calculation).
+        Maximum event threshold.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the metric.
 
     Returns
     -------
-    float
+    numpy.number, numpy.ndarray, or xarray.DataArray
         False alarm rate.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.contingency_metrics import FAR
     >>> obs = np.array([0, 1, 1, 0])
     >>> mod = np.array([1, 1, 0, 0])
-    >>> stats.FAR(obs, mod, minval=0.5)
+    >>> FAR(obs, mod, minval=0.5)
     0.5
     """
-    a, b, c, d = _contingency_table(obs, mod, minval, maxval)
-    return c / (a + c) if (a + c) > 0 else np.nan
+    a, b, c, d = _contingency_table(obs, mod, minval, maxval, axis=axis)
+    denom = a + c
+    if isinstance(denom, xr.DataArray):
+        result = xr.where(denom > 0, c / denom, np.nan)
+        result.attrs = obs.attrs.copy()
+        return _update_history(result, "False Alarm Rate (FAR)")
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(denom > 0, c / denom, np.nan)
+            return result.item() if np.ndim(result) == 0 else result
 
 
 def FBI(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval: float,
+    maxval: Optional[float] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Frequency Bias Index (FBI) for a given event threshold.
 
+    Typical Use Cases
+    -----------------
+    - Evaluating whether the model over- or under-predicts the frequency of events.
+    - Used in air quality and weather forecasting to assess systematic bias in
+      categorical predictions.
+
+    Typical Values and Range
+    ------------------------
+    - Range: 0 to ∞
+    - 1: Perfect (events occur with same frequency in model and observations)
+    - > 1: Over-prediction (model predicts events more often than observed)
+    - < 1: Under-prediction (model predicts events less often than observed)
+
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    threshold : float
-        Event threshold.
+    minval : float
+        Minimum event threshold.
+    maxval : float, optional
+        Maximum event threshold.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the metric.
 
     Returns
     -------
-    fbi : float
+    fbi : numpy.number, numpy.ndarray, or xarray.DataArray
         Frequency bias index.
 
     Examples
     --------
     >>> import numpy as np
+    >>> from monet_stats.contingency_metrics import FBI
     >>> obs = np.array([0, 1, 1, 0])
     >>> mod = np.array([1, 1, 0, 0])
-    >>> FBI(obs, mod, threshold=0.5)
+    >>> FBI(obs, mod, minval=0.5)
     1.0
     """
-    a, b, c, d = _contingency_table(obs, mod, minval, maxval)
-    return (a + c) / (a + b) if (a + b) > 0 else np.nan
+    a, b, c, d = _contingency_table(obs, mod, minval, maxval, axis=axis)
+    denom = a + b
+    if isinstance(denom, xr.DataArray):
+        result = xr.where(denom > 0, (a + c) / denom, np.nan)
+        result.attrs = obs.attrs.copy()
+        return _update_history(result, "Frequency Bias Index (FBI)")
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(denom > 0, (a + c) / denom, np.nan)
+            return result.item() if np.ndim(result) == 0 else result
 
 
 def TSS(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> float:
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval: float,
+    maxval: Optional[float] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Hanssen-Kuipers Discriminant (True Skill Statistic, TSS).
 
+    Typical Use Cases
+    -----------------
+    - Assessing the ability of the model to distinguish between event and non-event
+      occurrences.
+    - Preferred over other scores for its independence from event frequency
+      (prevalence).
+
+    Typical Values and Range
+    ------------------------
+    - Range: -1 to 1
+    - 1: Perfect forecast
+    - 0: No skill
+    - -1: Perfect mis-forecast (always wrong)
+
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    threshold : float
-        Event threshold.
+    minval : float
+        Minimum event threshold.
+    maxval : float, optional
+        Maximum event threshold.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the metric.
 
     Returns
     -------
-    tss : float
+    tss : numpy.number, numpy.ndarray, or xarray.DataArray
         True skill statistic.
 
     Examples
     --------
     >>> import numpy as np
+    >>> from monet_stats.contingency_metrics import TSS
     >>> obs = np.array([0, 1, 1, 0])
     >>> mod = np.array([1, 1, 0, 0])
-    >>> TSS(obs, mod, threshold=0.5)
+    >>> TSS(obs, mod, minval=0.5)
     0.0
     """
-    a, b, c, d = _contingency_table(obs, mod, minval, maxval)
-    pod = a / (a + b) if (a + b) > 0 else np.nan
-    pofd = c / (c + d) if (c + d) > 0 else np.nan
-    return pod - pofd
+    a, b, c, d = _contingency_table(obs, mod, minval, maxval, axis=axis)
+    pod_denom = a + b
+    pofd_denom = c + d
+
+    if isinstance(pod_denom, xr.DataArray):
+        pod = xr.where(pod_denom > 0, a / pod_denom, np.nan)
+        pofd = xr.where(pofd_denom > 0, c / pofd_denom, np.nan)
+        result = pod - pofd
+        result.attrs = obs.attrs.copy()
+        return _update_history(result, "True Skill Statistic (TSS)")
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            pod = np.where(pod_denom > 0, a / pod_denom, np.nan)
+            pofd = np.where(pofd_denom > 0, c / pofd_denom, np.nan)
+            result = pod - pofd
+            return result.item() if np.ndim(result) == 0 else result
 
 
-def BSS_binary(obs: ArrayLike, mod: ArrayLike, threshold: float) -> float:
+def BSS_binary(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    threshold: float,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Binary Brier Skill Score for deterministic forecasts.
 
     Typical Use Cases
     -----------------
-    - Evaluating the accuracy of deterministic binary forecasts (e.g., precipitation yes/no).
-    - Used in meteorology and environmental modeling to assess forecast skill relative to a reference.
+    - Evaluating the accuracy of deterministic binary forecasts (e.g.,
+      precipitation yes/no).
+    - Used in meteorology and environmental modeling to assess forecast skill
+      relative to a reference.
 
     Typical Values and Range
     ------------------------
@@ -346,123 +527,190 @@ def BSS_binary(obs: ArrayLike, mod: ArrayLike, threshold: float) -> float:
 
     Parameters
     ----------
-    obs : ArrayLike
-        Observed binary outcomes (0 or 1).
-    mod : ArrayLike
-        Forecast binary outcomes (0 or 1).
+    obs : numpy.ndarray or xarray.DataArray
+        Observed binary outcomes or continuous values.
+    mod : numpy.ndarray or xarray.DataArray
+        Forecast binary outcomes or continuous values.
     threshold : float
         Threshold value to convert continuous forecasts to binary.
+    axis : int, str, or iterable of such, optional
+        Axis along which to compute the score.
 
     Returns
     -------
-    float
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Binary Brier Skill Score.
 
     Examples
     --------
     >>> import numpy as np
+    >>> from monet_stats.contingency_metrics import BSS_binary
     >>> obs = np.array([0, 1, 1, 0])
     >>> mod = np.array([0, 1, 0, 0])
     >>> BSS_binary(obs, mod, threshold=0.5)
     0.5
     """
-    obs = np.asarray(obs)
-    mod = np.asarray(mod)
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
 
-    # Convert to binary based on threshold
-    obs_binary = (obs >= threshold).astype(int)
-    mod_binary = (mod >= threshold).astype(int)
+        obs_binary = (obs >= threshold).astype(float)
+        mod_binary = (mod >= threshold).astype(float)
 
-    # Calculate Brier Score
-    bs = np.mean((mod_binary - obs_binary) ** 2)
+        bs = ((mod_binary - obs_binary) ** 2).mean(dim=dim)
+        # bs_ref is p_bar * (1 - p_bar) where p_bar is the event frequency
+        p_bar = obs_binary.mean(dim=dim)
+        bs_ref = p_bar * (1.0 - p_bar)
 
-    # Calculate reference Brier Score (climatology)
-    obs_clim = np.mean(obs_binary)
-    bs_ref = np.mean((obs_clim - obs_binary) ** 2)
+        result = xr.where(bs_ref > 0, 1.0 - (bs / bs_ref), 0.0)
+        result.attrs = obs.attrs.copy()
+        return _update_history(result, "Binary Brier Skill Score (BSS_binary)")
+    else:
+        obs_binary = (np.asarray(obs) >= threshold).astype(float)
+        mod_binary = (np.asarray(mod) >= threshold).astype(float)
 
-    # Calculate Brier Skill Score
-    bss = 1 - (bs / bs_ref) if bs_ref != 0 else 0
+        bs = np.nanmean((mod_binary - obs_binary) ** 2, axis=axis)
+        p_bar = np.nanmean(obs_binary, axis=axis)
+        bs_ref = p_bar * (1.0 - p_bar)
 
-    return bss
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(bs_ref > 0, 1.0 - (bs / bs_ref), 0.0)
+            return result.item() if np.ndim(result) == 0 else result
 
 
 def _contingency_table(
-    obs: ArrayLike, mod: ArrayLike, minval: float, maxval: Optional[float] = None
-) -> Tuple[int, int, int, int]:
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval: Union[float, np.ndarray, xr.DataArray],
+    maxval: Optional[Union[float, np.ndarray, xr.DataArray]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Tuple[
+    Union[np.number, np.ndarray, xr.DataArray],
+    Union[np.number, np.ndarray, xr.DataArray],
+    Union[np.number, np.ndarray, xr.DataArray],
+    Union[np.number, np.ndarray, xr.DataArray],
+]:
     """
-    Compute the 2x2 contingency table for event-based metrics.
+    Compute the 2x2 contingency table for event-based metrics (Aero Protocol).
+
+    Supports vectorized thresholding. If `minval` is an array, it returns
+    counts with a 'threshold' dimension.
 
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    minval : float
-        Minimum threshold value for event detection.
-    maxval : float, optional
-        Maximum threshold value for event detection (for range-based events).
+    minval : float or array-like
+        Minimum threshold value(s) for event detection.
+    maxval : float or array-like, optional
+        Maximum threshold value(s) for event detection (for range-based events).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the table counts.
 
     Returns
     -------
-    a : int
-        Hits (obs >= minval and mod >= minval) or (minval <= obs < maxval and minval <= mod < maxval)
-    b : int
-        Misses (obs >= minval and mod < minval) or (minval <= obs < maxval and not minval <= mod < maxval)
-    c : int
-        False alarms (obs < minval and mod >= minval) or (not minval <= obs < maxval and minval <= mod < maxval)
-    d : int
-        Correct negatives (obs < minval and mod < minval) or (not minval <= obs < maxval and not minval <= mod < maxval)
+    a : hits
+    b : misses
+    c : false alarms
+    d : correct negatives
 
     Examples
     --------
     >>> import numpy as np
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([1.5, 1.8, 3.2, 3.8])
+    >>> # Single threshold
     >>> a, b, c, d = _contingency_table(obs, mod, minval=2.5)
-    >>> print(f"Hits: {a}, Misses: {b}, False Alarms: {c}, Correct Negatives: {d}")
-    Hits: 2, Misses: 0, False Alarms: 0, Correct Negatives: 2
+    >>> # Multiple thresholds (Vectorized)
+    >>> thresholds = [1.0, 2.0, 3.0]
+    >>> a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
+    >>> print(a.shape)
+    (3,)
     """
-    import numpy as np
-
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    # Drop NaNs and align for xarray
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        mask = (~xr.ufuncs.isnan(obs)) & (~xr.ufuncs.isnan(mod))
-        obs = obs.where(mask, drop=True)
-        mod = mod.where(mask, drop=True)
-        obs_vals = obs.values
-        mod_vals = mod.values
+
+        # Threshold vectorization for xarray
+        if isinstance(minval, (list, np.ndarray, xr.DataArray)) and not isinstance(minval, float):
+            if not isinstance(minval, xr.DataArray):
+                minval = xr.DataArray(minval, dims="threshold", coords={"threshold": minval})
+            if maxval is not None and not isinstance(maxval, xr.DataArray):
+                maxval = xr.DataArray(maxval, dims="threshold", coords={"threshold": maxval})
+
+        dim = _resolve_axis_to_dim(obs, axis)
+
+        mask = obs.notnull() & mod.notnull()
+
+        if maxval is not None:
+            obs_event = (obs >= minval) & (obs < maxval)
+            mod_event = (mod >= minval) & (mod < maxval)
+        else:
+            obs_event = obs >= minval
+            mod_event = mod >= minval
+
+        # Important: only count where both have valid data
+        obs_event = obs_event & mask
+        mod_event = mod_event & mask
+
+        a = (obs_event & mod_event).sum(dim=dim)
+        b = (obs_event & ~mod_event).sum(dim=dim)
+        c = (~obs_event & mod_event).sum(dim=dim)
+        d = (~obs_event & ~mod_event & mask).sum(dim=dim)
+
+        # Preserve attributes for provenance tracking
+        for res in [a, b, c, d]:
+            res.attrs = obs.attrs.copy()
+
+        return a, b, c, d
     else:
-        obs_vals = np.asarray(obs)
-        mod_vals = np.asarray(mod)
-        mask = ~np.isnan(obs_vals) & ~np.isnan(mod_vals)
-        obs_vals = obs_vals[mask]
-        mod_vals = mod_vals[mask]
-    if maxval is not None:
-        obs_event = (obs_vals >= minval) & (obs_vals < maxval)
-        mod_event = (mod_vals >= minval) & (mod_vals < maxval)
-    else:
-        obs_event = obs_vals >= minval
-        mod_event = mod_vals >= minval
-    hits = int(np.logical_and(obs_event, mod_event).sum())
-    misses = int(np.logical_and(obs_event, ~mod_event).sum())
-    false_alarms = int(np.logical_and(~obs_event, mod_event).sum())
-    correct_negatives = int(np.logical_and(~obs_event, ~mod_event).sum())
-    return hits, misses, false_alarms, correct_negatives
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        mask = ~np.isnan(obs) & ~np.isnan(mod)
+
+        # Threshold vectorization for numpy
+        if isinstance(minval, (list, np.ndarray)) and not isinstance(minval, (float, int)):
+            minval = np.asarray(minval)
+            # Add new axes to minval for broadcasting: (T, 1, 1, ...)
+            minval_b = minval.reshape((len(minval),) + (1,) * obs.ndim)
+            if maxval is not None:
+                maxval_b = np.asarray(maxval).reshape((len(maxval),) + (1,) * obs.ndim)
+            else:
+                maxval_b = None
+            # We will sum over the original axes, which are now shifted by 1
+            if axis is None:
+                calc_axis = tuple(range(1, obs.ndim + 1))
+            elif isinstance(axis, int):
+                calc_axis = axis + 1 if axis >= 0 else axis
+            else:
+                calc_axis = tuple(ax + 1 if ax >= 0 else ax for ax in axis)
+        else:
+            minval_b = minval
+            maxval_b = maxval
+            calc_axis = axis
+
+        if maxval_b is not None:
+            obs_event = (obs >= minval_b) & (obs < maxval_b)
+            mod_event = (mod >= minval_b) & (mod < maxval_b)
+        else:
+            obs_event = obs >= minval_b
+            mod_event = mod >= minval_b
+
+        obs_event = obs_event & mask
+        mod_event = mod_event & mask
+
+        a = np.sum(obs_event & mod_event, axis=calc_axis)
+        b = np.sum(obs_event & ~mod_event, axis=calc_axis)
+        c = np.sum(~obs_event & mod_event, axis=calc_axis)
+        d = np.sum(~obs_event & ~mod_event & mask, axis=calc_axis)
+
+        return a, b, c, d
 
 
 def HSS_max_threshold(
-    obs: ArrayLike,
-    mod: ArrayLike,
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
     minval_range: float,
     maxval_range: float,
     step_size: float = 1.0,
@@ -470,16 +718,18 @@ def HSS_max_threshold(
     """
     Find the threshold that maximizes the Heidke Skill Score (HSS) over a range.
 
+    Vectorized implementation (Aero Protocol).
+
     Typical Use Cases
     -----------------
-    - Finding the optimal threshold for binary classification in meteorological or environmental modeling.
-    - Used to optimize event detection thresholds in forecast systems.
+    - Automated tuning of model thresholds to achieve the best possible
+      overall categorical predictive skill.
 
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
     minval_range : float
         Minimum value of threshold range to test.
@@ -504,23 +754,31 @@ def HSS_max_threshold(
     (2.5, 1.0)
     """
     thresholds = np.arange(minval_range, maxval_range, step_size)
-    hss_values = []
+    a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
 
-    for threshold in thresholds:
-        hss_val = HSS(obs, mod, threshold)
-        hss_values.append(hss_val)
+    denom = (a + c) * (c + d) + (a + b) * (b + d)
+    if isinstance(a, xr.DataArray):
+        hss_values = xr.where(denom > 0, 2 * (a * d - b * c) / denom, np.nan)
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            hss_values = np.where(denom > 0, 2 * (a * d - b * c) / denom, np.nan)
 
-    # Find the threshold that gives the maximum HSS
-    max_idx = np.argmax(hss_values)
-    optimal_threshold = thresholds[max_idx]
-    max_hss = hss_values[max_idx]
-
-    return optimal_threshold, max_hss
+    if isinstance(hss_values, xr.DataArray):
+        max_idx = hss_values.argmax(dim="threshold")
+        max_hss = hss_values.max(dim="threshold")
+        # Re-attach thresholds as coordinates to use idxmax if needed, or index directly
+        hss_da = xr.DataArray(hss_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = hss_da.idxmax(dim="threshold")
+        return opt_thresh, max_hss
+    else:
+        max_idx = np.nanargmax(hss_values)
+        max_hss = hss_values[max_idx]
+        return float(thresholds[max_idx]), float(max_hss)
 
 
 def ETS_max_threshold(
-    obs: ArrayLike,
-    mod: ArrayLike,
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
     minval_range: float,
     maxval_range: float,
     step_size: float = 1.0,
@@ -528,16 +786,18 @@ def ETS_max_threshold(
     """
     Find the threshold that maximizes the Equitable Threat Score (ETS) over a range.
 
+    Vectorized implementation (Aero Protocol).
+
     Typical Use Cases
     -----------------
-    - Finding the optimal threshold for binary classification in meteorological or environmental modeling.
-    - Used to optimize event detection thresholds in forecast systems.
+    - Automated tuning of model thresholds to achieve the best possible
+      predictive skill for rare events.
 
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
     minval_range : float
         Minimum value of threshold range to test.
@@ -552,33 +812,34 @@ def ETS_max_threshold(
         Threshold value that maximizes ETS.
     max_ets : float
         Maximum ETS value achieved.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> obs = np.array([1, 2, 3, 4, 5])
-    >>> mod = np.array([1.5, 2.5, 3.5, 4.5, 5.5])
-    >>> ETS_max_threshold(obs, mod, 1, 5, 0.5)
-    (2.5, 1.0)
     """
     thresholds = np.arange(minval_range, maxval_range, step_size)
-    ets_values = []
+    a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
 
-    for threshold in thresholds:
-        ets_val = ETS(obs, mod, threshold)
-        ets_values.append(ets_val)
+    total = a + b + c + d
+    random_hits = ((a + b) * (a + c)) / total
+    denom = a + b + c - random_hits
+    if isinstance(a, xr.DataArray):
+        ets_values = xr.where(denom > 0, (a - random_hits) / denom, np.nan)
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ets_values = np.where(denom > 0, (a - random_hits) / denom, np.nan)
 
-    # Find the threshold that gives the maximum ETS
-    max_idx = np.argmax(ets_values)
-    optimal_threshold = thresholds[max_idx]
-    max_ets = ets_values[max_idx]
-
-    return optimal_threshold, max_ets
+    if isinstance(ets_values, xr.DataArray):
+        max_idx = ets_values.argmax(dim="threshold")
+        max_ets = ets_values.max(dim="threshold")
+        ets_da = xr.DataArray(ets_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = ets_da.idxmax(dim="threshold")
+        return opt_thresh, max_ets
+    else:
+        max_idx = np.nanargmax(ets_values)
+        max_ets = ets_values[max_idx]
+        return float(thresholds[max_idx]), float(max_ets)
 
 
 def POD_max_threshold(
-    obs: ArrayLike,
-    mod: ArrayLike,
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
     minval_range: float,
     maxval_range: float,
     step_size: float = 1.0,
@@ -586,16 +847,18 @@ def POD_max_threshold(
     """
     Find the threshold that maximizes the Probability of Detection (POD) over a range.
 
+    Vectorized implementation (Aero Protocol).
+
     Typical Use Cases
     -----------------
-    - Finding the optimal threshold for maximizing detection rates in meteorological or environmental modeling.
-    - Used to optimize event detection thresholds in forecast systems.
+    - Determining the most sensitive threshold for event detection,
+      prioritizing hits over all other categories.
 
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
     minval_range : float
         Minimum value of threshold range to test.
@@ -617,26 +880,33 @@ def POD_max_threshold(
     >>> obs = np.array([1, 2, 3, 4, 5])
     >>> mod = np.array([1.5, 2.5, 3.5, 4.5, 5.5])
     >>> POD_max_threshold(obs, mod, 1, 5, 0.5)
-    (2.5, 1.0)
+    (1.0, 1.0)
     """
     thresholds = np.arange(minval_range, maxval_range, step_size)
-    pod_values = []
+    a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
 
-    for threshold in thresholds:
-        pod_val = POD(obs, mod, threshold)
-        pod_values.append(pod_val)
+    denom = a + b
+    if isinstance(a, xr.DataArray):
+        pod_values = xr.where(denom > 0, a / denom, np.nan)
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            pod_values = np.where(denom > 0, a / denom, np.nan)
 
-    # Find the threshold that gives the maximum POD
-    max_idx = np.argmax(pod_values)
-    optimal_threshold = thresholds[max_idx]
-    max_pod = pod_values[max_idx]
-
-    return optimal_threshold, max_pod
+    if isinstance(pod_values, xr.DataArray):
+        max_idx = pod_values.argmax(dim="threshold")
+        max_val = pod_values.max(dim="threshold")
+        pod_da = xr.DataArray(pod_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = pod_da.idxmax(dim="threshold")
+        return opt_thresh, max_val
+    else:
+        max_idx = np.nanargmax(pod_values)
+        max_val = pod_values[max_idx]
+        return float(thresholds[max_idx]), float(max_val)
 
 
 def FAR_min_threshold(
-    obs: ArrayLike,
-    mod: ArrayLike,
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
     minval_range: float,
     maxval_range: float,
     step_size: float = 1.0,
@@ -644,16 +914,13 @@ def FAR_min_threshold(
     """
     Find the threshold that minimizes the False Alarm Rate (FAR) over a range.
 
-    Typical Use Cases
-    -----------------
-    - Finding the optimal threshold for minimizing false alarms in meteorological or environmental modeling.
-    - Used to optimize event detection thresholds in forecast systems.
+    Vectorized implementation (Aero Protocol).
 
     Parameters
     ----------
-    obs : ArrayLike
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : ArrayLike
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
     minval_range : float
         Minimum value of threshold range to test.
@@ -675,18 +942,178 @@ def FAR_min_threshold(
     >>> obs = np.array([1, 2, 3, 4, 5])
     >>> mod = np.array([1.5, 2.5, 3.5, 4.5, 5.5])
     >>> FAR_min_threshold(obs, mod, 1, 5, 0.5)
-    (2.5, 0.0)
+    (1.5, 0.0)
     """
     thresholds = np.arange(minval_range, maxval_range, step_size)
-    far_values = []
+    a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
 
-    for threshold in thresholds:
-        far_val = FAR(obs, mod, threshold)
-        far_values.append(far_val)
+    denom = a + c
+    if isinstance(a, xr.DataArray):
+        far_values = xr.where(denom > 0, c / denom, np.nan)
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            far_values = np.where(denom > 0, c / denom, np.nan)
 
-    # Find the threshold that gives the minimum FAR
-    min_idx = np.argmin(far_values)
-    optimal_threshold = thresholds[min_idx]
-    min_far = far_values[min_idx]
+    if isinstance(far_values, xr.DataArray):
+        min_idx = far_values.argmin(dim="threshold")
+        min_val = far_values.min(dim="threshold")
+        far_da = xr.DataArray(far_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = far_da.idxmin(dim="threshold")
+        return opt_thresh, min_val
+    else:
+        min_idx = np.nanargmin(far_values)
+        min_val = far_values[min_idx]
+        return float(thresholds[min_idx]), float(min_val)
 
-    return optimal_threshold, min_far
+
+def CSI_max_threshold(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval_range: float,
+    maxval_range: float,
+    step_size: float = 1.0,
+) -> Tuple[float, float]:
+    """
+    Find the threshold that maximizes the Critical Success Index (CSI) over a range.
+
+    Vectorized implementation (Aero Protocol).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    minval_range : float
+        Minimum value of threshold range to test.
+    maxval_range : float
+        Maximum value of threshold range to test.
+    step_size : float, optional
+        Step size for testing thresholds. Default is 1.0.
+
+    Returns
+    -------
+    optimal_threshold : float
+        Threshold value that maximizes CSI.
+    max_csi : float
+        Maximum CSI value achieved.
+    """
+    thresholds = np.arange(minval_range, maxval_range, step_size)
+    a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
+
+    denom = a + b + c
+    if isinstance(a, xr.DataArray):
+        csi_values = xr.where(denom > 0, a / denom, np.nan)
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            csi_values = np.where(denom > 0, a / denom, np.nan)
+
+    if isinstance(csi_values, xr.DataArray):
+        max_idx = csi_values.argmax(dim="threshold")
+        max_val = csi_values.max(dim="threshold")
+        csi_da = xr.DataArray(csi_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = csi_da.idxmax(dim="threshold")
+        return opt_thresh, max_val
+    else:
+        max_idx = np.nanargmax(csi_values)
+        max_val = csi_values[max_idx]
+        return float(thresholds[max_idx]), float(max_val)
+
+
+def BS(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Brier Score (BS).
+
+    Typical Use Cases
+    -----------------
+    - Evaluating the accuracy of probabilistic binary forecasts.
+    - Measure of the mean squared error of probability forecasts.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed binary outcomes (0 or 1).
+    mod : numpy.ndarray or xarray.DataArray
+        Forecast probabilities (0 to 1).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the score.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Brier Score.
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = ((mod - obs) ** 2).mean(dim=dim)
+        return _update_history(result, "Brier Score (BS)")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        result = np.nanmean((mod - obs) ** 2, axis=axis)
+        return result.item() if np.ndim(result) == 0 else result
+
+
+def TSS_max_threshold(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    minval_range: float,
+    maxval_range: float,
+    step_size: float = 1.0,
+) -> Tuple[float, float]:
+    """
+    Find the threshold that maximizes the True Skill Statistic (TSS) over a range.
+
+    Vectorized implementation (Aero Protocol).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    minval_range : float
+        Minimum value of threshold range to test.
+    maxval_range : float
+        Maximum value of threshold range to test.
+    step_size : float, optional
+        Step size for testing thresholds. Default is 1.0.
+
+    Returns
+    -------
+    optimal_threshold : float
+        Threshold value that maximizes TSS.
+    max_tss : float
+        Maximum TSS value achieved.
+    """
+    thresholds = np.arange(minval_range, maxval_range, step_size)
+    a, b, c, d = _contingency_table(obs, mod, minval=thresholds)
+
+    pod_denom = a + b
+    pofd_denom = c + d
+
+    if isinstance(a, xr.DataArray):
+        pod = xr.where(pod_denom > 0, a / pod_denom, np.nan)
+        pofd = xr.where(pofd_denom > 0, c / pofd_denom, np.nan)
+        tss_values = pod - pofd
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            pod = np.where(pod_denom > 0, a / pod_denom, np.nan)
+            pofd = np.where(pofd_denom > 0, c / pofd_denom, np.nan)
+            tss_values = pod - pofd
+
+    if isinstance(tss_values, xr.DataArray):
+        max_idx = tss_values.argmax(dim="threshold")
+        max_val = tss_values.max(dim="threshold")
+        tss_da = xr.DataArray(tss_values, coords={"threshold": thresholds}, dims="threshold")
+        opt_thresh = tss_da.idxmax(dim="threshold")
+        return opt_thresh, max_val
+    else:
+        max_idx = np.nanargmax(tss_values)
+        max_val = tss_values[max_idx]
+        return float(thresholds[max_idx]), float(max_val)

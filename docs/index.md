@@ -20,7 +20,7 @@ Monet Stats is a Python library focused on statistical evaluation methods common
 - 🌪️ **Specialized Metrics**: Wind direction handling, circular statistics, and spatial verification
 - 📈 **Skill Score Framework**: Built-in support for Brier, Heidke, and other skill scores
 - 🧮 **Mathematical Rigor**: Well-documented mathematical formulations and use cases
-- ⚡ **Performance Optimized**: Vectorized operations and efficient algorithms
+- 🍃⚡ **Aero Protocol Compliant**: Optimized for the Pangeo ecosystem with full Dask/Xarray support, lazy evaluation, and strict data provenance.
 
 ## Quick Start
 
@@ -88,6 +88,15 @@ pip install monet-stats
 - Ensemble mean and spread
 - Rank histograms
 
+#### Analysis & Utility Methods
+
+- Anomalies (Monthly, Seasonal, Daily)
+- Detrending (Linear, Constant)
+- Kolmogorov-Zurbenko (KZ) Filter
+- Diurnal Cycle Analysis
+- Weighted Spatial Mean
+- FFT and Power Spectrum Analysis
+
 ## Documentation Structure
 
 - [Installation Guide](installation.md) - Setup and configuration
@@ -95,9 +104,9 @@ pip install monet-stats
 - [User Guides](workflows/climate-data-analysis.md) - Domain-specific workflows
 - [API Reference](api/overview.md) - Complete function documentation
 - [Mathematical Formulations](math/overview.md) - Theory and equations
-- [Examples](examples/basic-usage.md) - Practical use cases
-- [Performance Guide](performance.md) - Optimization tips
-- [Integration Guide](integration/xarray.md) - Framework integration
+- [Examples](notebooks/01_basic_statistical_analysis.ipynb) - Practical use cases
+- [Performance Guide](api/performance.md) - Optimization tips
+- [Integration Guide](system-integration.md) - Framework integration
 
 ## Use Cases
 
@@ -135,7 +144,7 @@ We welcome contributions! Please see our [Contributing Guide](contributing.md) f
 
 ## License
 
-Monet Stats is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+Monet Stats is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details.
 
 ## Support
 

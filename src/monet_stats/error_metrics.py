@@ -2,254 +2,403 @@
 Error Metrics for Model Evaluation
 """
 
-from typing import Any, Optional, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
-from numpy.typing import ArrayLike
 
-from .utils_stats import circlebias, circlebias_m, matchmasks
+from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, ensure_single_chunk, matchmasks
+
+__all__ = [
+    "STDO",
+    "STDP",
+    "MNB",
+    "MNE",
+    "MdnNB",
+    "MdnNE",
+    "NMdnGE",
+    "NO",
+    "NOP",
+    "NP",
+    "MO",
+    "MP",
+    "MdnO",
+    "MdnP",
+    "RM",
+    "RMdn",
+    "MB",
+    "MdnB",
+    "WDMB",
+    "WDMB_m",
+    "WDMdnB",
+    "MSE",
+    "MAE",
+    "MedAE",
+    "CRMSE",
+    "MAPE",
+    "sMAPE",
+    "NRMSE",
+    "MASE",
+    "MASEm",
+    "RMSPE",
+    "MAPEm",
+    "sMAPEm",
+    "NSC",
+    "NSE_alpha",
+    "NSE_beta",
+    "MAE_m",
+    "MedAE_m",
+    "RMSE",
+    "RMSE_m",
+    "IOA",
+    "IOA_m",
+    "MAPE_mod",
+    "MASE_mod",
+    "RMSE_norm",
+    "MAE_norm",
+    "bias_fraction",
+    "NMSE",
+    "LOG_ERROR",
+    "COE",
+    "VOLUMETRIC_ERROR",
+    "CORR_INDEX",
+    "FAC2",
+    "RMSLE",
+]
 
 ############################################################
 # 1. Basic Error Metrics
 ############################################################
 
 
-def STDO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def STDO(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Standard deviation of Observation Errors
+    Standard deviation of Observation Errors (obs - mod).
 
     Parameters
     ----------
-    obs : array-like
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int, optional
-        Axis along which to compute the standard deviation.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the standard deviation.
+        If None, computes over all axes.
 
     Returns
     -------
-    float or ndarray
-        Standard deviation of observation minus model errors.
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Standard deviation of (observation - model) errors.
         Returns 0.0 for perfect agreement.
-    """
-    obs = np.asarray(obs)
-    mod = np.asarray(mod)
-    errors = obs - mod
-    return np.std(errors, axis=axis)
-
-
-def STDP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
-    """
-    Standard deviation of Prediction Errors
-
-    Parameters
-    ----------
-    obs : array-like
-        Observed values.
-    mod : array-like
-        Model predicted values.
-    axis : int, optional
-        Axis along which to compute the standard deviation.
-
-    Returns
-    -------
-    float or ndarray
-        Standard deviation of model minus observation errors.
-        Returns 0.0 for perfect agreement.
-    """
-    obs = np.asarray(obs)
-    mod = np.asarray(mod)
-    errors = mod - obs
-    return np.std(errors, axis=axis)
-
-
-def MNB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
-    """
-    Mean Normalized Bias (%)
-
-    Parameters
-    ----------
-    obs : array-like
-        Observed values.
-    mod : array-like
-        Model predicted values.
-    axis : int, optional
-        Axis along which to compute the bias.
-
-    Returns
-    -------
-    float or ndarray
-        Mean normalized bias (percent).
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return ((mod - obs) / obs).mean(
-            dim=obs.dims[axis] if axis is not None else None
-        ) * 100.0
-    else:
-        return np.ma.masked_invalid((mod - obs) / obs).mean(axis=axis) * 100.0
-
-
-def MNE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
-    """
-    Mean Normalized Gross Error (%)
-
-    Parameters
-    ----------
-    obs : array-like
-        Observed values.
-    mod : array-like
-        Model predicted values.
-    axis : int, optional
-        Axis along which to compute the error.
-
-    Returns
-    -------
-    float or ndarray
-        Mean normalized gross error (percent).
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod - obs) / obs).mean(
-            dim=obs.dims[axis] if axis is not None else None
-        ) * 100.0
-    else:
-        return np.ma.masked_invalid(np.ma.abs(mod - obs) / obs).mean(axis=axis) * 100.0
-
-
-def MdnNB(
-    obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None
-) -> Union[float, xr.DataArray]:
-    """
-    Median Normalized Bias (MdnNB) in percent.
-
-    This metric provides a robust measure of the central tendency of model
-    bias, normalized by the observation values. Being median-based, it is
-    less sensitive to outliers than the Mean Normalized Bias (MNB).
-
-    Parameters
-    ----------
-    obs : array-like
-        Observed values.
-    mod : array-like
-        Model predicted values.
-    axis : int, optional
-        Axis along which to compute the median. If None, computes on flattened array.
-
-    Returns
-    -------
-    float or xarray.DataArray
-        The Median Normalized Bias, expressed as a percentage.
-        Returns 0.0 for a perfect model. Positive values indicate model
-        overestimation, negative values indicate underestimation.
 
     Examples
     --------
     >>> import numpy as np
-    >>> obs = np.array([10, 20, 30, 40, 50])
-    >>> mod = np.array([11, 22, 28, 43, 55])
-    >>> MdnNB(obs, mod)
-    5.0
-
-    Using xarray.DataArray:
-    >>> import xarray as xr
-    >>> obs_da = xr.DataArray(obs, dims=['time'], name='temperature')
-    >>> mod_da = xr.DataArray(mod, dims=['time'], name='temperature')
-    >>> result = MdnNB(obs_da, mod_da)
-    >>> print(result.item())
-    5.0
-    >>> print(result.attrs['history'])
-    Calculated MdnNB(%)
+    >>> from monet_stats.error_metrics import STDO
+    >>> obs = np.array([1.0, 2.0, 3.0])
+    >>> mod = np.array([1.1, 1.9, 3.2])
+    >>> STDO(obs, mod)
+    0.1247219128924647
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Mask where obs is zero to avoid division by zero, then calculate
-        normalized_bias = (mod - obs) / obs
+        errors = obs - mod
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = errors.std(dim=dim, keep_attrs=True)
+        return _update_history(result, "STDO")
+
+    # Fallback to numpy-compatible logic
+    errors = np.subtract(obs, mod)
+    result = np.ma.std(np.ma.masked_invalid(errors), axis=axis)
+    return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def STDP(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Standard deviation of Prediction Errors (mod - obs).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the standard deviation.
+        If None, computes over all axes.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Standard deviation of (model - observation) errors.
+        Returns 0.0 for perfect agreement.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import STDP
+    >>> obs = np.array([1.0, 2.0, 3.0])
+    >>> mod = np.array([1.1, 1.9, 3.2])
+    >>> STDP(obs, mod)
+    0.1247219128924647
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        errors = mod - obs
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = errors.std(dim=dim, keep_attrs=True)
+        return _update_history(result, "STDP")
+
+    # Fallback to numpy-compatible logic
+    errors = np.subtract(mod, obs)
+    result = np.ma.std(np.ma.masked_invalid(errors), axis=axis)
+    return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def MNB(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Mean Normalized Bias (%).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the bias.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean normalized bias (percent).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([1.1, 2.2, 3.3])
+    >>> MNB(obs, mod)
+    10.0
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = ((mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
+        return _update_history(result, "MNB")
+    else:
+        diff = np.asanyarray(mod) - np.asanyarray(obs)
+        if diff.size == 0:
+            return np.nan
+        result = np.ma.masked_invalid(diff / obs).mean(axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def MNE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Mean Normalized Gross Error (%).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the error.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean normalized gross error (percent).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([1.1, 1.8, 3.3])
+    >>> MNE(obs, mod)
+    10.0
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = (abs(mod - obs) / obs).mean(dim=dim, keep_attrs=True) * 100.0
+        return _update_history(result, "MNE")
+    else:
+        diff = np.asanyarray(mod) - np.asanyarray(obs)
+        if diff.size == 0:
+            return np.nan
+        result = np.ma.masked_invalid(np.ma.abs(diff) / obs).mean(axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def MdnNB(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Median Normalized Bias (%).
+
+    Typical Use Cases
+    -----------------
+    - Assessing the central tendency of model bias relative to observations,
+      less sensitive to outliers than mean.
+    - Useful for robust model evaluation in the presence of skewed or non-normal
+      error distributions.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the bias.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Median normalized bias (percent).
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = (mod - obs) / obs
+        diff = ensure_single_chunk(diff, dim)
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
+        return _update_history(result, "MdnNB")
+    else:
+        result = np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def MdnNE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Median Normalized Gross Error (%).
+
+    Typical Use Cases
+    -----------------
+    - Evaluating the typical magnitude of model errors relative to observations,
+      robust to outliers.
+    - Useful for summarizing error magnitude in non-Gaussian or heavy-tailed
+      error distributions.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the error.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Median normalized gross error (percent).
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = abs(mod - obs) / obs
+        diff = ensure_single_chunk(diff, dim)
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore") * 100.0
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
+        return _update_history(result, "MdnNE")
+    else:
+        result = np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def NMdnGE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Normalized Median Gross Error (%).
+
+    Typical Use Cases
+    -----------------
+    - Comparing the typical (median) error magnitude, normalized by the mean
+      observation, for robust model evaluation.
+    - Useful for inter-comparison of model performance across sites or variables
+      with different scales.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the error.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Normalized median gross error (percent).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import NMdnGE
+    >>> obs = np.array([1, 2, 3, 4, 100])
+    >>> mod = np.array([1.1, 2.1, 3.1, 4.1, 105])
+    >>> NMdnGE(obs, mod)
+    0.45454545454545453
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = abs(mod - obs)
+        diff = ensure_single_chunk(diff, dim)
+        result = (diff.quantile(q=0.5, dim=dim).drop_vars("quantile", errors="ignore") / obs.mean(dim=dim)) * 100.0
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
+        return _update_history(result, "NMdnGE")
+    else:
         result = (
-            normalized_bias.where(np.isfinite(normalized_bias)).median(dim=axis) * 100.0
+            np.ma.masked_invalid(np.ma.median(np.ma.abs(mod - obs), axis=axis) / np.ma.mean(obs, axis=axis)) * 100.0
         )
-        result.attrs["history"] = "Calculated MdnNB(%)"
-        return result
-    else:
-        # np.ma.masked_invalid will handle NaNs and Infs correctly
-        return np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=axis) * 100.0
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MdnNE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def NO(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[int, np.ndarray, xr.DataArray]:
     """
-    Median Normalized Gross Error (%)
-
-    Typical Use Cases
-    -----------------
-    - Evaluating the typical magnitude of model errors relative to observations, robust to outliers.
-    - Useful for summarizing error magnitude in non-Gaussian or heavy-tailed error distributions.
-
-    Parameters
-    ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod - obs) / obs).median(dim=axis) * 100.0
-    else:
-        return (
-            np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=axis)
-            * 100.0
-        )
-
-
-def NMdnGE(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
-    """
-    Normalized Median Gross Error (%)
-
-    Typical Use Cases
-    -----------------
-    - Comparing the typical (median) error magnitude, normalized by the mean observation, for robust model evaluation.
-    - Useful for inter-comparison of model performance across sites or variables with different scales.
-
-    Parameters
-    ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return (abs(mod - obs).mean(dim=axis) / obs.mean(dim=axis)) * 100.0
-    else:
-        return (
-            np.ma.masked_invalid(
-                np.ma.abs(mod - obs).mean(axis=axis) / obs.mean(axis=axis)
-            )
-            * 100.0
-        )
-
-
-def NO(obs: ArrayLike, mod: ArrayLike, axis: Optional[Union[int, str]] = None) -> Any:
-    """
-    N Observations (#)
+    N Observations (#).
 
     Typical Use Cases
     -----------------
@@ -258,149 +407,128 @@ def NO(obs: ArrayLike, mod: ArrayLike, axis: Optional[Union[int, str]] = None) -
 
     Parameters
     ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray, optional
+        Model predicted values (not used for NO but included for signature matching).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to count.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    int, numpy.ndarray, or xarray.DataArray
+        Number of valid observations.
     """
     if isinstance(obs, xr.DataArray):
-        result = obs.count(dim=axis)
-        if hasattr(result, "size") and result.size == 0:
-            return 0
-        return int(result) if np.isscalar(result) else result
+        dim = _resolve_axis_to_dim(obs, axis)
+        return obs.count(dim=dim)
     else:
-        arr = np.asanyarray(obs)
-        mod_arr = np.asanyarray(mod)
-        if arr.shape != mod_arr.shape:
-            raise ValueError(
-                f"Shape mismatch: obs.shape={arr.shape}, mod.shape={mod_arr.shape}"
-            )
-        mask = np.ma.getmaskarray(arr) | np.isnan(arr)
-        count = (~mask).sum(axis=axis)
-        if np.ma.isMaskedArray(count):
-            count = count.filled(0)
-        return int(count) if np.isscalar(count) else count
+        result = (~np.ma.getmaskarray(obs)).sum(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def NOP(obs: ArrayLike, mod: ArrayLike, axis: Optional[Union[int, str]] = None) -> Any:
+def NOP(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[int, np.ndarray, xr.DataArray]:
     """
-    N Observations/Prediction Pairs (#)
+    N Observations/Prediction Pairs (#).
 
     Typical Use Cases
     -----------------
-    - Counting the number of valid observation-prediction pairs for paired statistical analysis.
+    - Counting the number of valid observation-prediction pairs for paired
+      statistical analysis.
     - Used to ensure sample size consistency in paired model evaluation metrics.
 
     Parameters
     ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to count.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    int, numpy.ndarray, or xarray.DataArray
+        Number of valid pairs.
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        result = obs.count(dim=axis)
-        if hasattr(result, "size") and result.size == 0:
-            return 0
-        return int(result) if np.isscalar(result) else result
+        dim = _resolve_axis_to_dim(obs, axis)
+        # To get pairs where BOTH are not NaN:
+        mask = obs.notnull() & mod.notnull()
+        return mask.sum(dim=dim)
     else:
-        arr = np.asanyarray(obs)
-        mod_arr = np.asanyarray(mod)
-        if arr.shape != mod_arr.shape:
-            raise ValueError(
-                f"Shape mismatch: obs.shape={arr.shape}, mod.shape={mod_arr.shape}"
-            )
         obsc, modc = matchmasks(obs, mod)
-        arr = np.asanyarray(obsc)
-        mask = np.ma.getmaskarray(arr) | np.isnan(arr) | np.isnan(np.asanyarray(modc))
-        count = (~mask).sum(axis=axis)
-        if np.ma.isMaskedArray(count):
-            count = count.filled(0)
-        return int(count) if np.isscalar(count) else count
+        result = (~np.ma.getmaskarray(obsc)).sum(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def NP(obs: ArrayLike, mod: ArrayLike, axis: Optional[Union[int, str]] = None) -> Any:
+def NP(
+    obs: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    mod: Union[np.ndarray, xr.DataArray] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[int, np.ndarray, xr.DataArray]:
     """
-    N Predictions (#)
+    N Predictions (#).
 
     Typical Use Cases
     -----------------
     - Counting the number of valid (non-masked) model predictions in a dataset.
-    - Used to report sample size for model output and for filtering invalid predictions.
+    - Used to report sample size for model output and for filtering invalid
+      predictions.
 
     Parameters
     ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
+    obs : numpy.ndarray or xarray.DataArray, optional
+        Observed values (not used for NP but included for signature matching).
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to count.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    int, numpy.ndarray, or xarray.DataArray
+        Number of valid predictions.
     """
     if isinstance(mod, xr.DataArray):
-        result = mod.count(dim=axis)
-        if hasattr(result, "size") and result.size == 0:
-            return 0
-        return int(result) if np.isscalar(result) else result
+        dim = _resolve_axis_to_dim(mod, axis)
+        return mod.count(dim=dim)
     else:
-        arr = np.asanyarray(mod)
-        obs_arr = np.asanyarray(obs)
-        if arr.shape != obs_arr.shape:
-            raise ValueError(
-                f"Shape mismatch: mod.shape={arr.shape}, obs.shape={obs_arr.shape}"
-            )
-        mask = np.ma.getmaskarray(arr) | np.isnan(arr)
-        count = (~mask).sum(axis=axis)
-        if np.ma.isMaskedArray(count):
-            count = count.filled(0)
-        return int(count) if np.isscalar(count) else count
+        result = (~np.ma.getmaskarray(mod)).sum(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MO(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Mean Error (MO) - Mean of (observation - model)
+    Mean Error (MO) - Mean of (model - observation).
 
     Typical Use Cases
     -----------------
-    - Quantifying the average bias between observations and model predictions.
+    - Quantifying the average bias between model predictions and observations.
     - Used in model evaluation to assess systematic errors.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the mean error.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the mean error.
 
     Returns
     -------
-    float or xarray.DataArray
-        Mean error (observation - model) in observation units.
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean error (model - observation) in observation units.
         Returns 0.0 for perfect agreement.
 
     Examples
@@ -410,79 +538,83 @@ def MO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     >>> obs = np.array([1, 2, 3, 4, 5])
     >>> mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
     >>> MO(obs, mod)
-    -0.1
+    0.1
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (obs - mod).mean(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = (mod - obs).mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "MO")
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
-        return np.mean(obs - mod, axis=axis)
+        result = np.ma.mean(np.ma.masked_invalid(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MP(
+    obs: Optional[Union[np.ndarray, xr.DataArray]] = None,
+    mod: Union[np.ndarray, xr.DataArray] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Mean Predictions (model unit)
+    Mean Predictions (model unit).
 
     Typical Use Cases
     -----------------
-    - Calculating the average value of model predictions for baseline or climatological reference.
-    - Used in normalization, anomaly calculation, and summary statistics for model output.
+    - Calculating the average value of model predictions for baseline or
+      climatological reference.
+    - Used in normalization, anomaly calculation, and summary statistics for
+      model output.
 
     Parameters
     ----------
-    obs : type
-        Description of parameter `obs`.
-    mod : type
-        Description of parameter `mod`.
-    axis : type
-        Description of parameter `axis`.
+    obs : numpy.ndarray or xarray.DataArray, optional
+        Observed values (not used for MP but included for signature matching).
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the mean.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean of predictions.
     """
     if isinstance(mod, xr.DataArray):
-        return mod.mean(dim=axis)
-    elif hasattr(mod, "mean"):
-        return mod.mean(axis=axis)
+        dim = _resolve_axis_to_dim(mod, axis)
+        result = mod.mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "MP")
     else:
-        return np.mean(mod, axis=axis)
+        result = np.ma.mean(np.ma.masked_invalid(mod), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MdnO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnO(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Median Error (MdnO) - Median of (observation - model)
+    Median Error (MdnO) - Median of (model - observation).
 
     Typical Use Cases
     -----------------
-    - Quantifying the typical bias between observations and model predictions, robust to outliers.
+    - Quantifying the typical bias between model predictions and observations,
+      robust to outliers.
     - Used in robust model evaluation for non-parametric error assessment.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the median error.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the median error.
 
     Returns
     -------
-    float or xarray.DataArray
-        Median error (observation - model) in observation units.
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Median error (model - observation) in observation units.
         Returns 0.0 for perfect agreement.
 
     Examples
@@ -492,713 +624,724 @@ def MdnO(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
     >>> obs = np.array([1, 2, 3, 4, 5])
     >>> mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
     >>> MdnO(obs, mod)
-    -0.1
+    0.1
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (obs - mod).median(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = mod - obs
+        diff = ensure_single_chunk(diff, dim)
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
+        return _update_history(result, "MdnO")
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
-        return np.median(obs - mod, axis=axis)
+        result = np.median(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MdnP(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnP(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Median Error (MdnP) - Median of (model - observation)
+    Median Error (MdnP) - Median of (model - observation).
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the median error.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the median error.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Median error (model - observation) in model units.
         Returns 0.0 for perfect agreement.
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (mod - obs).median(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = mod - obs
+        diff = ensure_single_chunk(diff, dim)
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
+        return _update_history(result, "MdnP")
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
-        return np.median(mod - obs, axis=axis)
+        result = np.median(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def RM(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def RM(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Root Mean Error (RM) - Root of mean squared error
+    Root Mean Error (RM) - Root of mean squared error.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the error.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the error.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Root of mean squared error (observation units).
         Returns 0.0 for perfect agreement.
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return np.sqrt(((obs - mod) ** 2).mean(dim=axis))
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = np.sqrt(((obs - mod) ** 2).mean(dim=dim, keep_attrs=True))
+        return _update_history(result, "RM")
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
-        return np.sqrt(np.mean((obs - mod) ** 2, axis=axis))
+        result = np.sqrt(np.mean((np.subtract(obs, mod)) ** 2, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def RMdn(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def RMdn(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Root Median Error (RMdn) - Root of median squared error
+    Root Median Error (RMdn) - Root of median squared error.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the error.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the error.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Root of median squared error (observation units).
         Returns 0.0 for perfect agreement.
     """
-    obs = np.asarray(obs)
-    mod = np.asarray(mod)
-    squared_errors = (obs - mod) ** 2
-    return np.sqrt(np.median(squared_errors, axis=axis))
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
+            dim = list(obs.dims)
+        diff_sq = (obs - mod) ** 2
+        diff_sq = ensure_single_chunk(diff_sq, dim)
+        result = np.sqrt(diff_sq.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore"))
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
+        return _update_history(result, "RMdn")
+    else:
+        squared_errors = (np.subtract(obs, mod)) ** 2
+        result = np.sqrt(np.median(squared_errors, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MB(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Mean Bias (MB)
+    Mean Bias (MB).
+
+    Typical Use Cases
+    -----------------
+    - Quantifying the average difference between model and observations.
+    - Identifying systematic over- or under-estimation in model predictions.
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the mean bias.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the mean bias.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
-    float or xarray.DataArray
-        Mean bias value(s) = mean(observation - model).
-        Negative values indicate model overestimation.
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean bias value(s) = mean(model - observation).
+        Positive values indicate model overestimation.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> obs = xr.DataArray([1.0, 2.0], dims="lat", coords={"lat": [0, 45]})
+    >>> mod = xr.DataArray([1.1, 2.2], dims="lat", coords={"lat": [0, 45]})
+    >>> weights = np.cos(np.deg2rad(obs.lat))
+    >>> MB(obs, mod, weights=weights)
+    <xarray.DataArray ()>
+    array(0.17071068)
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (obs - mod).mean(dim=axis)
-    elif hasattr(mod, "mean") and hasattr(obs, "mean"):
-        return np.mean(obs - mod, axis=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        diff = mod - obs
+        if weights is not None:
+            result = diff.weighted(weights).mean(dim=dim, keep_attrs=True)
+            return _update_history(result, "Weighted MB")
+        result = diff.mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "MB")
     else:
-        return np.ma.mean(obs - mod, axis=axis)
+        diff = np.asanyarray(mod) - np.asanyarray(obs)
+        if diff.size == 0:
+            return np.nan
+        if weights is not None:
+            result = np.ma.average(np.ma.masked_invalid(diff), axis=axis, weights=weights)
+        else:
+            result = np.ma.mean(np.ma.masked_invalid(diff), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MdnB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def MdnB(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Median Bias (MdnB)
+    Median Bias (MdnB).
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
-    axis : int or None, optional
-        Axis along which to compute the median bias.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the median bias.
 
     Returns
     -------
-    float or xarray.DataArray
-        Median bias value(s) = median(observation - model).
-        Negative values indicate model overestimation.
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Median bias value(s) = median(model - observation).
+        Positive values indicate model overestimation.
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (obs - mod).median(dim=axis)
-    elif hasattr(mod, "median") and hasattr(obs, "median"):
-        return np.median(obs - mod, axis=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = mod - obs
+        diff = ensure_single_chunk(diff, dim)
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
+        return _update_history(result, "MdnB")
     else:
-        return np.ma.median(obs - mod, axis=axis)
+        result = np.ma.median(np.subtract(mod, obs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def WDMB_m(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+def WDMB(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Wind Direction Mean Bias (WDMB, robust version for masked arrays)
-
-    This version uses circlebias_m, which is robust to masked arrays and missing data.
-    Use this if your data may contain NaNs or masked values.
+    Wind Direction Mean Bias (WDMB).
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted wind direction values (degrees).
-    axis : int or None, optional
-        Axis along which to compute the mean bias.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the mean bias.
 
     Returns
     -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Mean wind direction bias (degrees).
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is not None:
-            dim = obs.dims[axis] if isinstance(axis, int) else axis
-            return circlebias_m(mod - obs).mean(dim=dim)
-        else:
-            return circlebias_m(mod - obs).mean()
-    elif isinstance(mod, np.ndarray) and isinstance(obs, np.ndarray):
-        return circlebias_m(mod - obs).mean(axis=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = circlebias(mod - obs).mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "WDMB")
     else:
-        return np.ma.mean(circlebias_m(mod - obs), axis=axis)
+        result = np.ma.mean(circlebias(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def WDMB(obs: ArrayLike, mod: ArrayLike, axis: Optional[int] = None) -> Any:
+WDMB_m = WDMB
+
+
+def WDMdnB(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Wind Direction Mean Bias (WDMB, standard version)
-
-    This version uses circlebias, which is not robust to masked arrays.
-    Use this if your data are dense and do not contain missing values.
+    Wind Direction Median Bias (WDMdnB).
 
     Parameters
     ----------
-    obs : array-like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model predicted wind direction values (degrees).
-    axis : int or None, optional
-        Axis along which to compute the mean bias.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the median bias.
 
     Returns
     -------
-    float or xarray.DataArray
-        Mean wind direction bias (degrees).
-    """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
-        obs, mod = xr.align(obs, mod, join="inner")
-        if axis is not None:
-            dim = obs.dims[axis] if isinstance(axis, int) else axis
-            return circlebias(mod - obs).mean(dim=dim)
-        else:
-            return circlebias(mod - obs).mean()
-    elif isinstance(mod, np.ndarray) and isinstance(obs, np.ndarray):
-        return circlebias(mod - obs).mean(axis=axis)
-    else:
-        return np.ma.mean(circlebias(mod - obs), axis=axis)
-
-
-def WDMdnB(obs, mod, axis=None):
-    """
-    Wind Direction Median Bias (WDMdnB)
-
-    Parameters
-    ----------
-    obs : array-like or xarray.DataArray
-        Observed wind direction values (degrees).
-    mod : array-like or xarray.DataArray
-        Model predicted wind direction values (degrees).
-    axis : int or None, optional
-        Axis along which to compute the median bias.
-
-    Returns
-    -------
-    float or xarray.DataArray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Median wind direction bias (degrees).
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is not None:
-            dim = obs.dims[axis] if isinstance(axis, int) else axis
-            return circlebias(mod - obs).median(dim=dim)
-        else:
-            return circlebias(mod - obs).median()
-    elif isinstance(mod, np.ndarray) and isinstance(obs, np.ndarray):
-        return np.median(circlebias(mod - obs), axis=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
+            dim = list(obs.dims)
+        diff = circlebias(mod - obs)
+        diff = ensure_single_chunk(diff, dim)
+        result = diff.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
+        return _update_history(result, "WDMdnB")
     else:
-        return np.ma.median(circlebias(mod - obs), axis=axis)
+        result = np.ma.median(circlebias(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MAE(obs, mod, axis=None):
+def MSE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Mean Squared Error (MSE).
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the error.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Mean squared error.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import MSE
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([2, 2, 4])
+    >>> MSE(obs, mod)
+    0.6666666666666666
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        diff_sq = (mod - obs) ** 2
+        if weights is not None:
+            result = diff_sq.weighted(weights).mean(dim=dim, keep_attrs=True)
+            return _update_history(result, "Weighted MSE")
+        result = diff_sq.mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "MSE")
+    else:
+        diff_sq = (np.subtract(mod, obs)) ** 2
+        if diff_sq.size == 0:
+            return np.nan
+        if weights is not None:
+            result = np.ma.average(np.ma.masked_invalid(diff_sq), axis=axis, weights=weights)
+        else:
+            result = np.ma.mean(np.ma.masked_invalid(diff_sq), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def MAE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Mean Absolute Error (MAE).
 
     Typical Use Cases
     -----------------
-    - Quantifying the average magnitude of errors between model and observations, regardless of direction.
+    - Quantifying the average magnitude of errors between model and observations,
+      regardless of direction.
     - Used in model evaluation, forecast verification, and regression analysis.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute MAE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute MAE.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
-    mae : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Mean absolute error.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import MAE
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.MAE(obs, mod)
+    >>> MAE(obs, mod)
     0.6666666666666666
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return abs(mod - obs).mean(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        diff_abs = abs(mod - obs)
+        if weights is not None:
+            result = diff_abs.weighted(weights).mean(dim=dim, keep_attrs=True)
+            return _update_history(result, "Weighted MAE")
+        result = diff_abs.mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "MAE")
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
-        return np.ma.abs(mod - obs).mean(axis=axis)
+        diff_abs = np.ma.abs(np.subtract(mod, obs))
+        if diff_abs.size == 0:
+            return np.nan
+        if weights is not None:
+            result = np.ma.average(np.ma.masked_invalid(diff_abs), axis=axis, weights=weights)
+        else:
+            result = np.ma.mean(np.ma.masked_invalid(diff_abs), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MedAE(obs, mod, axis=None):
+def MedAE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Median Absolute Error (MedAE).
 
     Typical Use Cases
     -----------------
-    - Evaluating the typical magnitude of errors, robust to outliers and non-normal error distributions.
+    - Evaluating the typical magnitude of errors, robust to outliers and
+      non-normal error distributions.
     - Used in robust regression, model evaluation, and forecast verification.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute MedAE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute MedAE.
 
     Returns
     -------
-    medae : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Median absolute error.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import MedAE
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.MedAE(obs, mod)
+    >>> MedAE(obs, mod)
     1.0
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return abs(mod - obs).median(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
+            dim = list(obs.dims)
+        diff_abs = abs(mod - obs)
+        diff_abs = ensure_single_chunk(diff_abs, dim)
+        result = diff_abs.quantile(q=0.5, dim=dim, keep_attrs=True).drop_vars("quantile", errors="ignore")
+        result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
+        return _update_history(result, "MedAE")
     else:
-        return np.ma.median(np.ma.abs(mod - obs), axis=axis)
+        result = np.ma.median(np.ma.abs(np.subtract(mod, obs)), axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def sMAPE_original(obs, mod, axis=None):
-    """
-    Symmetric Mean Absolute Percentage Error (sMAPE).
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average relative error between model and observations, normalized by their mean.
-    - Used in time series forecasting, regression, and model evaluation for percentage-based error assessment.
-
-    Parameters
-    ----------
-    obs : array_like or xarray.DataArray
-        Observed values.
-    mod : array_like or xarray.DataArray
-        Model or predicted values.
-    axis : int, optional
-        Axis along which to compute sMAPE. Default is None (all elements).
-
-    Returns
-    -------
-    smape : float or ndarray
-        Symmetric mean absolute percentage error (in percent).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> stats.sMAPE(obs, mod)
-    28.57142857142857
-    """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=axis)
-    else:
-        return (200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))).mean(
-            axis=axis
-        )
-
-
-def CRMSE(obs, mod, axis=None):
+def CRMSE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Centered Root Mean Square Error (CRMSE).
 
     Typical Use Cases
     -----------------
-    - Quantifying the error between anomalies (deviations from mean) of model and observations.
+    - Quantifying the error between anomalies (deviations from mean) of model
+      and observations.
     - Used in Taylor diagrams, model evaluation, and forecast verification.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute CRMSE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute CRMSE.
 
     Returns
     -------
-    crmse : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Centered root mean square error.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import CRMSE
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.CRMSE(obs, mod)
+    >>> CRMSE(obs, mod)
     0.4714045207910317
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        o_ = obs - obs.mean(dim=axis)
-        m_ = mod - mod.mean(dim=axis)
-        return ((m_ - o_) ** 2).mean(dim=axis) ** 0.5
+        dim = _resolve_axis_to_dim(obs, axis)
+        o_ = obs - obs.mean(dim=dim)
+        m_ = mod - mod.mean(dim=dim)
+        result = ((m_ - o_) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
+        return _update_history(result, "CRMSE")
     else:
-        o_ = obs - obs.mean(axis=axis)
-        m_ = mod - mod.mean(axis=axis)
-        return (np.ma.abs(m_ - o_) ** 2).mean(axis=axis) ** 0.5
+        o_ = np.subtract(obs, np.mean(obs, axis=axis, keepdims=True))
+        m_ = np.subtract(mod, np.mean(mod, axis=axis, keepdims=True))
+        result = (np.ma.abs(m_ - o_) ** 2).mean(axis=axis) ** 0.5
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MAPE(obs, mod, axis=None):
+def MAPE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Mean Absolute Percentage Error (MAPE).
 
     Typical Use Cases
     -----------------
-    - Quantifying the average relative error between model and observations as a percentage.
-    - Used in time series forecasting, regression, and model evaluation for percentage-based error assessment.
+    - Quantifying the average relative error between model and observations
+      as a percentage.
+    - Used in time series forecasting, regression, and model evaluation for
+      percentage-based error assessment.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute MAPE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute MAPE.
 
     Returns
     -------
-    mape : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Mean absolute percentage error (in percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import MAPE
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.MAPE(obs, mod)
+    >>> MAPE(obs, mod)
     50.0
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (100 * abs(mod - obs) / abs(obs)).mean(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = (100 * abs(mod - obs) / abs(obs)).mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "MAPE")
     else:
-        return (100 * np.ma.abs(mod - obs) / np.ma.abs(obs)).mean(axis=axis)
+        result = (100 * np.ma.abs(np.subtract(mod, obs)) / np.ma.abs(obs)).mean(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def sMAPE(obs, mod, axis=None):
+def sMAPE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Symmetric Mean Absolute Percentage Error (sMAPE).
 
     Typical Use Cases
     -----------------
-    - Quantifying the average relative error between model and observations, normalized by their mean.
-    - Used in time series forecasting, regression, and model evaluation for percentage-based error assessment.
+    - Quantifying the average relative error between model and observations,
+      normalized by their mean.
+    - Used in time series forecasting, regression, and model evaluation for
+      percentage-based error assessment.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute sMAPE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute sMAPE.
 
     Returns
     -------
-    smape : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Symmetric mean absolute percentage error (in percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import sMAPE
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.sMAPE(obs, mod)
+    >>> sMAPE(obs, mod)
     28.57142857142857
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "sMAPE")
     else:
-        return (200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))).mean(
-            axis=axis
-        )
+        result = (200 * np.ma.abs(np.subtract(mod, obs)) / (np.ma.abs(mod) + np.ma.abs(obs))).mean(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def NRMSE(obs, mod, axis=None):
+def NRMSE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Normalized Root Mean Square Error (NRMSE).
 
     Typical Use Cases
     -----------------
-    - Quantifying the relative error between model and observations, normalized by the range of observations.
-    - Used in model evaluation to compare performance across different variables or sites with different scales.
+    - Quantifying the relative error between model and observations, normalized
+      by the range of observations.
+    - Used in model evaluation to compare performance across different variables
+      or sites with different scales.
     - Provides dimensionless error metric for cross-comparison.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute NRMSE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute NRMSE.
 
     Returns
     -------
-    nrmse : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Normalized root mean square error (unitless).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import NRMSE
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.NRMSE(obs, mod)
+    >>> NRMSE(obs, mod)
     0.4714045207910317
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        rmse = ((mod - obs) ** 2).mean(dim=axis) ** 0.5
-        obs_range = obs.max(dim=axis) - obs.min(dim=axis)
-        return rmse / obs_range
-    elif hasattr(obs, "mean") and hasattr(mod, "mean"):
-        rmse = np.sqrt(np.mean((mod - obs) ** 2, axis=axis))
-        obs_range = np.max(obs, axis=axis) - np.min(obs, axis=axis)
-        return rmse / obs_range
+        dim = _resolve_axis_to_dim(obs, axis)
+        rmse = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
+        obs_range = obs.max(dim=dim) - obs.min(dim=dim)
+        result = xr.where(obs_range == 0, 0, rmse / obs_range)
+        return _update_history(result, "NRMSE")
     else:
-        rmse = np.ma.sqrt(np.ma.mean((mod - obs) ** 2, axis=axis))
+        rmse = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
         obs_range = np.ma.max(obs, axis=axis) - np.ma.min(obs, axis=axis)
-        return rmse / obs_range
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(obs_range == 0, 0, rmse / obs_range)
+            return result.item() if np.ndim(result) == 0 else result
 
 
-def MASE(obs, mod, axis=None):
+def MASE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Mean Absolute Scaled Error (MASE).
 
     Typical Use Cases
     -----------------
-    - Quantifying model error relative to the error of a simple baseline model (e.g., naive forecast).
+    - Quantifying model error relative to the error of a simple baseline model
+      (e.g., naive forecast).
     - Used in time series forecasting and model evaluation.
     - Provides scale-independent comparison across different datasets.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute MASE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute MASE.
 
     Returns
     -------
-    mase : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Mean absolute scaled error (unitless).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import error_metrics as stats
+    >>> from monet_stats.error_metrics import MASE
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([1.1, 2.1, 3.1, 4.1])
-    >>> stats.MASE(obs, mod)
+    >>> MASE(obs, mod)
     0.1
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+
         # Calculate naive forecast error (using previous observation)
-        naive_error = abs(obs - obs.shift(time=1)).mean(dim=axis, skipna=True)
-        model_error = abs(mod - obs).mean(dim=axis)
-        return model_error / naive_error
+        if "time" in obs.dims:
+            naive_error = abs(obs - obs.shift(time=1)).mean(dim=dim, skipna=True)
+        else:
+            # Fallback if time is not named 'time'
+            naive_error = abs(obs - obs.shift({obs.dims[0]: 1})).mean(dim=dim, skipna=True)
+
+        model_error = abs(mod - obs).mean(dim=dim, keep_attrs=True)
+        result = model_error / naive_error
+        return _update_history(result, "MASE")
     else:
         # Calculate naive forecast error (using previous observation)
         if axis is not None:
@@ -1207,57 +1350,51 @@ def MASE(obs, mod, axis=None):
         else:
             naive_diff = np.diff(obs)
             naive_error = np.mean(np.abs(naive_diff))
-        model_error = np.mean(np.abs(mod - obs), axis=axis)
-        return model_error / naive_error
+        model_error = np.mean(np.abs(np.subtract(mod, obs)), axis=axis)
+        result = model_error / naive_error
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MASEm(obs, mod, axis=None):
+def MASEm(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Mean Absolute Scaled Error (MASE) - robust to masked arrays.
 
     Typical Use Cases
     -----------------
-    - Quantifying model error relative to the error of a simple baseline model (e.g., naive forecast), robust to masked arrays.
+    - Quantifying model error relative to the error of a simple baseline model
+      (e.g., naive forecast), robust to masked arrays.
     - Used in time series forecasting and model evaluation with missing data.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute MASE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute MASE.
 
     Returns
     -------
-    mase : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Mean absolute scaled error (unitless).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import MASEm
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([1.1, 2.1, 3.1, 4.1])
-    >>> stats.MASEm(obs, mod)
+    >>> MASEm(obs, mod)
     0.1
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
-        obs, mod = xr.align(obs, mod, join="inner")
-        # Calculate naive forecast error (using previous observation)
-        naive_error = abs(obs - obs.shift(time=1)).mean(dim=axis, skipna=True)
-        model_error = abs(mod - obs).mean(dim=axis)
-        return model_error / naive_error
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        # MASE implementation for xarray already handles NaNs with skipna=True
+        return MASE(obs, mod, axis=axis)
     else:
         # Calculate naive forecast error (using previous observation) with masked arrays
         if axis is not None:
@@ -1267,605 +1404,348 @@ def MASEm(obs, mod, axis=None):
         else:
             naive_diff = np.ma.diff(obs)
             naive_error = np.ma.mean(np.ma.abs(naive_diff))
-        model_error = np.ma.mean(np.ma.abs(mod - obs), axis=axis)
-        return model_error / naive_error
+        model_error = np.ma.mean(np.ma.abs(np.subtract(mod, obs)), axis=axis)
+        result = model_error / naive_error
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def RMSPE(obs, mod, axis=None):
+def RMSPE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Root Mean Square Percentage Error (RMSPE).
 
     Typical Use Cases
     -----------------
-    - Quantifying the average relative error between model and observations as a percentage, emphasizing larger errors.
-    - Used in time series forecasting, regression, and model evaluation for percentage-based error assessment.
+    - Quantifying the average relative error between model and observations as
+      a percentage, emphasizing larger errors.
+    - Used in time series forecasting, regression, and model evaluation for
+      percentage-based error assessment.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute RMSPE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute RMSPE.
 
     Returns
     -------
-    rmspe : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Root mean square percentage error (in percent).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import RMSPE
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.RMSPE(obs, mod)
+    >>> RMSPE(obs, mod)
     50.0
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return (100 * ((mod - obs) / obs) ** 2).mean(dim=axis) ** 0.5
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = (100 * ((mod - obs) / obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
+        return _update_history(result, "RMSPE")
     else:
-        return 100 * np.ma.sqrt(np.ma.mean(((mod - obs) / obs) ** 2, axis=axis))
+        result = 100 * np.ma.sqrt(np.ma.mean(((mod - obs) / obs) ** 2, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MAPEm(obs, mod, axis=None):
-    """
-    Mean Absolute Percentage Error (MAPE) - robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average relative error between model and observations as a percentage, robust to missing data.
-    - Used in time series forecasting, regression, and model evaluation for percentage-based error assessment.
-
-    Parameters
-    ----------
-    obs : array_like or xarray.DataArray
-        Observed values.
-    mod : array_like or xarray.DataArray
-        Model or predicted values.
-    axis : int, optional
-        Axis along which to compute MAPE. Default is None (all elements).
-
-    Returns
-    -------
-    mape : float or ndarray
-        Mean absolute percentage error (in percent).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> stats.MAPEm(obs, mod)
-    50.0
-    """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return (100 * abs((mod - obs) / obs)).mean(dim=axis)
-    else:
-        return 100 * np.ma.mean(np.ma.abs((mod - obs) / obs), axis=axis)
+MAPEm = MAPE  # noqa: N816
+sMAPEm = sMAPE  # noqa: N816
 
 
-def sMAPEm(obs, mod, axis=None):
-    """
-    Symmetric Mean Absolute Percentage Error (sMAPE) - robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average relative error between model and observations, normalized by their mean, robust to missing data.
-    - Used in time series forecasting, regression, and model evaluation for percentage-based error assessment.
-
-    Parameters
-    ----------
-    obs : array_like or xarray.DataArray
-        Observed values.
-    mod : array_like or xarray.DataArray
-        Model or predicted values.
-    axis : int, optional
-        Axis along which to compute sMAPE. Default is None (all elements).
-
-    Returns
-    -------
-    smape : float or ndarray
-        Symmetric mean absolute percentage error (in percent).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> stats.sMAPEm(obs, mod)
-    28.57142857142857
-    """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=axis)
-    else:
-        return 200 * np.ma.mean(
-            np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs)), axis=axis
-        )
-
-
-def NSC(obs, mod, axis=None):
+def NSC(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Nash-Sutcliffe Coefficient (NSC) - Alternative to NSE.
 
     Typical Use Cases
     -----------------
-    - Quantifying the predictive power of hydrological models relative to the mean of observations.
+    - Quantifying the predictive power of hydrological models relative to
+      the mean of observations.
     - Used in hydrology, meteorology, and environmental model evaluation.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute NSC. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute NSC.
 
     Returns
     -------
-    nsc : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Nash-Sutcliffe coefficient (unitless).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import NSC
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.NSC(obs, mod)
-    -0.3333
+    >>> NSC(obs, mod)
+    -0.33333333333333326
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        obs_mean = obs.mean(dim=axis)
-        numerator = ((obs - mod) ** 2).sum(dim=axis)
-        denominator = ((obs - obs_mean) ** 2).sum(dim=axis)
-        return 1.0 - (numerator / denominator)
+        dim = _resolve_axis_to_dim(obs, axis)
+        obs_mean = obs.mean(dim=dim)
+        numerator = ((obs - mod) ** 2).sum(dim=dim)
+        denominator = ((obs - obs_mean) ** 2).sum(dim=dim)
+        result = 1.0 - (numerator / denominator)
+        return _update_history(result, "NSC")
     else:
-        obs_mean = np.mean(obs, axis=axis)
+        obs_mean = np.mean(obs, axis=axis, keepdims=True)
         numerator = np.sum((obs - mod) ** 2, axis=axis)
         denominator = np.sum((obs - obs_mean) ** 2, axis=axis)
-        return 1.0 - (numerator / denominator)
+        result = 1.0 - (numerator / denominator)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def NSE_alpha(obs, mod, axis=None):
+def NSE_alpha(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     NSE Alpha - Decomposed NSE component measuring ratio of standard deviations.
 
     Typical Use Cases
     -----------------
     - Quantifying the model's ability to capture the variability of observations.
-    - Used in model evaluation to assess how well model represents observed variability.
+    - Used in model evaluation to assess how well model represents observed
+      variability.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute NSE_alpha. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute NSE_alpha.
 
     Returns
     -------
-    nse_alpha : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         NSE alpha component (unitless).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import NSE_alpha
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.NSE_alpha(obs, mod)
+    >>> NSE_alpha(obs, mod)
     0.0
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return mod.std(dim=axis) / obs.std(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = mod.std(dim=dim) / obs.std(dim=dim)
+        return _update_history(result, "NSE_alpha")
     else:
-        return np.std(mod, axis=axis) / np.std(obs, axis=axis)
+        result = np.std(mod, axis=axis) / np.std(obs, axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def NSE_beta(obs, mod, axis=None):
+def NSE_beta(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     NSE Beta - Decomposed NSE component measuring bias.
 
     Typical Use Cases
     -----------------
     - Quantifying the systematic bias between model and observations.
-    - Used in model evaluation to assess mean differences between model and observations.
+    - Used in model evaluation to assess mean differences between model and
+      observations.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute NSE_beta. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute NSE_beta.
 
     Returns
     -------
-    nse_beta : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         NSE beta component (unitless).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import NSE_beta
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([2, 2, 2, 2])
-    >>> stats.NSE_beta(obs, mod)
+    >>> NSE_beta(obs, mod)
     0.5
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return mod.mean(dim=axis) / obs.mean(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        result = mod.mean(dim=dim) / obs.mean(dim=dim)
+        return _update_history(result, "NSE_beta")
     else:
-        return np.mean(mod, axis=axis) / np.mean(obs, axis=axis)
+        result = np.mean(mod, axis=axis) / np.mean(obs, axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MAE_m(obs, mod, axis=None):
-    """
-    Mean Absolute Error (MAE) - robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average magnitude of errors between model and observations, regardless of direction, robust to missing data.
-    - Used in model evaluation, forecast verification, and regression analysis with incomplete datasets.
-
-    Parameters
-    ----------
-    obs : array_like or xarray.DataArray
-        Observed values.
-    mod : array_like or xarray.DataArray
-        Model or predicted values.
-    axis : int, optional
-        Axis along which to compute MAE. Default is None (all elements).
-
-    Returns
-    -------
-    mae : float or ndarray
-        Mean absolute error.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> stats.MAE_m(obs, mod)
-    0.66666666
-    """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return abs(mod - obs).mean(dim=axis)
-    else:
-        return np.ma.mean(np.ma.abs(mod - obs), axis=axis)
+# Aliases for masked versions (already handled by base functions)
+MAE_m = MAE
 
 
-def MedAE_m(obs, mod, axis=None):
-    """
-    Median Absolute Error (MedAE) - robust to masked arrays and outliers.
-
-    Typical Use Cases
-    -----------------
-    - Evaluating the typical magnitude of errors, robust to outliers and non-normal error distributions with missing data.
-    - Used in robust regression, model evaluation, and forecast verification with incomplete datasets.
-
-    Parameters
-    ----------
-    obs : array_like or xarray.DataArray
-        Observed values.
-    mod : array_like or xarray.DataArray
-        Model or predicted values.
-    axis : int, optional
-        Axis along which to compute MedAE. Default is None (all elements).
-
-    Returns
-    -------
-    medae : float or ndarray
-        Median absolute error.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> stats.MedAE_m(obs, mod)
-    1.0
-    """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return abs(mod - obs).median(dim=axis)
-    else:
-        return np.ma.median(np.ma.abs(mod - obs), axis=axis)
+MedAE_m = MedAE
 
 
-def RMSE(obs, mod, axis=None):
+def RMSE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Root Mean Square Error (RMSE).
 
     Typical Use Cases
     -----------------
-    - Quantifying the average magnitude of errors between model and observations, accounting for large errors more heavily than MAE.
+    - Quantifying the average magnitude of errors between model and observations,
+      accounting for large errors more heavily than MAE.
     - Used in model evaluation, forecast verification, and regression analysis.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute RMSE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute RMSE.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply to the mean. If provided, computes a weighted mean.
 
     Returns
     -------
-    rmse : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Root mean square error.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import RMSE
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.RMSE(obs, mod)
+    >>> RMSE(obs, mod)
     0.816496580927726
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        return ((mod - obs) ** 2).mean(dim=axis) ** 0.5
+        dim = _resolve_axis_to_dim(obs, axis)
+        diff_sq = (mod - obs) ** 2
+        if weights is not None:
+            result = diff_sq.weighted(weights).mean(dim=dim, keep_attrs=True) ** 0.5
+            return _update_history(result, "Weighted RMSE")
+        result = diff_sq.mean(dim=dim, keep_attrs=True) ** 0.5
+        return _update_history(result, "RMSE")
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
-        return np.sqrt(np.mean((mod - obs) ** 2, axis=axis))
+        diff_sq = (np.subtract(mod, obs)) ** 2
+        if diff_sq.size == 0:
+            return np.nan
+        if weights is not None:
+            mse = np.ma.average(np.ma.masked_invalid(diff_sq), axis=axis, weights=weights)
+        else:
+            mse = np.ma.mean(np.ma.masked_invalid(diff_sq), axis=axis)
+        result = np.ma.sqrt(mse)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def RMSE_m(obs, mod, axis=None):
-    """
-    Root Mean Square Error (RMSE) - robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the average magnitude of errors between model and observations, accounting for large errors more heavily than MAE,
-      robust to missing data.
-    - Used in model evaluation, forecast verification, and regression analysis with incomplete datasets.
-
-    Parameters
-    ----------
-    obs : array_like or xarray.DataArray
-        Observed values.
-    mod : array_like or xarray.DataArray
-        Model or predicted values.
-    axis : int, optional
-        Axis along which to compute RMSE. Default is None (all elements).
-
-    Returns
-    -------
-    rmse : float or ndarray
-        Root mean square error.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> stats.RMSE_m(obs, mod)
-    0.816496580927726
-    """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
-        obs, mod = xr.align(obs, mod, join="inner")
-        return ((mod - obs) ** 2).mean(dim=axis) ** 0.5
-    else:
-        return np.ma.sqrt(np.ma.mean((mod - obs) ** 2, axis=axis))
+RMSE_m = RMSE
 
 
-def IOA(obs, mod, axis=None):
+def IOA(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Index of Agreement (IOA).
 
     Typical Use Cases
     -----------------
-    - Quantifying the agreement between model and observations, normalized by total deviation.
+    - Quantifying the agreement between model and observations, normalized by
+      total deviation.
     - Used in model evaluation for skill assessment.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute IOA. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute IOA.
 
     Returns
     -------
-    ioa : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Index of agreement (unitless, 0-1).
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
+    >>> from monet_stats.error_metrics import IOA
     >>> obs = np.array([1, 2, 3])
     >>> mod = np.array([2, 2, 4])
-    >>> stats.IOA(obs, mod)
+    >>> IOA(obs, mod)
     0.8
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        obs_mean = obs.mean(dim=axis)
-        num = ((obs - mod) ** 2).sum(dim=axis)
-        denom = ((abs(mod - obs_mean) + abs(obs - obs_mean)) ** 2).sum(dim=axis)
-        return 1.0 - (num / denom)
+        dim = _resolve_axis_to_dim(obs, axis)
+        obs_mean = obs.mean(dim=dim)
+        num = ((obs - mod) ** 2).sum(dim=dim)
+        denom = ((abs(mod - obs_mean) + abs(obs - obs_mean)) ** 2).sum(dim=dim)
+        result = 1.0 - (num / denom)
+        return _update_history(result, "IOA")
     else:
-        obs_mean = np.mean(obs, axis=axis)
-        num = np.sum((obs - mod) ** 2, axis=axis)
-        denom = np.sum(
-            (np.abs(mod - obs_mean) + np.abs(obs - obs_mean)) ** 2, axis=axis
-        )
-        return 1.0 - (num / denom)
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        obs_mean = np.ma.mean(obs_m, axis=axis, keepdims=True)
+        num = np.ma.sum((obs_m - mod_m) ** 2, axis=axis)
+        denom = np.ma.sum((np.ma.abs(mod_m - obs_mean) + np.ma.abs(obs_m - obs_mean)) ** 2, axis=axis)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 1.0 - (num / denom)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def IOA_m(obs, mod, axis=None):
-    """
-    Index of Agreement (IOA) - robust to masked arrays.
-
-    Typical Use Cases
-    -----------------
-    - Quantifying the agreement between model and observations, normalized by total deviation, robust to missing data.
-    - Used in model evaluation for skill assessment with incomplete datasets.
-
-    Parameters
-    ----------
-    obs : array_like or xarray.DataArray
-        Observed values.
-    mod : array_like or xarray.DataArray
-        Model or predicted values.
-    axis : int, optional
-        Axis along which to compute IOA. Default is None (all elements).
-
-    Returns
-    -------
-    ioa : float or ndarray
-        Index of agreement (unitless, 0-1).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> obs = np.array([1, 2, 3])
-    >>> mod = np.array([2, 2, 4])
-    >>> stats.IOA_m(obs, mod)
-    0.8
-    """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
-        obs, mod = xr.align(obs, mod, join="inner")
-        obs_mean = obs.mean(dim=axis)
-        num = ((obs - mod) ** 2).sum(dim=axis)
-        denom = ((abs(mod - obs_mean) + abs(obs - obs_mean)) ** 2).sum(dim=axis)
-        return 1.0 - (num / denom)
-    else:
-        obs_mean = np.ma.mean(obs, axis=axis)
-        num = np.ma.sum((obs - mod) ** 2, axis=axis)
-        denom = np.ma.sum(
-            (np.ma.abs(mod - obs_mean) + np.ma.abs(obs - obs_mean)) ** 2, axis=axis
-        )
-        return 1.0 - (num / denom)
+IOA_m = IOA
 
 
 # Add the missing functions from the specification
 
 
-def MAPE_mod(obs, mod, axis=None):
+def MAPE_mod(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Modified Mean Absolute Percentage Error (MAPE).
 
@@ -1874,42 +1754,40 @@ def MAPE_mod(obs, mod, axis=None):
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute MAPE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute MAPE.
 
     Returns
     -------
-    mape : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Mean absolute percentage error (in percent).
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
     # Small epsilon to avoid division by zero
     epsilon = 1e-8
 
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
         # Add epsilon to avoid division by zero
-        obs_safe = xr.where(np.abs(obs) < epsilon, epsilon, obs)
-        return (100 * abs(mod - obs) / abs(obs_safe)).mean(dim=axis)
+        obs_safe = xr.where(abs(obs) < epsilon, epsilon, obs)
+        result = (100 * abs(mod - obs) / abs(obs_safe)).mean(dim=dim, keep_attrs=True)
+        return _update_history(result, "MAPE_mod")
     else:
         # Add epsilon to avoid division by zero
         obs_safe = np.where(np.abs(obs) < epsilon, epsilon, obs)
-        return (100 * np.abs(mod - obs) / np.abs(obs_safe)).mean(axis=axis)
+        result = (100 * np.abs(np.subtract(mod, obs)) / np.abs(obs_safe)).mean(axis=axis)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def MASE_mod(obs, mod, axis=None):
+def MASE_mod(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Modified Mean Absolute Scaled Error (MASE).
 
@@ -1918,34 +1796,31 @@ def MASE_mod(obs, mod, axis=None):
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute MASE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute MASE.
 
     Returns
     -------
-    mase : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Mean absolute scaled error (unitless).
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
         # Calculate naive forecast error (using previous observation)
-        naive_error = abs(obs - obs.shift(time=1)).mean(dim=axis, skipna=True)
-        model_error = abs(mod - obs).mean(dim=axis)
+        if "time" in obs.dims:
+            naive_error = abs(obs - obs.shift(time=1)).mean(dim=dim, skipna=True)
+        else:
+            naive_error = abs(obs - obs.shift({obs.dims[0]: 1})).mean(dim=dim, skipna=True)
+
+        model_error = abs(mod - obs).mean(dim=dim, keep_attrs=True)
         # Avoid division by zero
-        return xr.where(naive_error == 0, model_error, model_error / naive_error)
+        result = xr.where(naive_error == 0, model_error, model_error / naive_error)
+        return _update_history(result, "MASE_mod")
     else:
         # Calculate naive forecast error (using previous observation)
         if axis is not None:
@@ -1954,12 +1829,17 @@ def MASE_mod(obs, mod, axis=None):
         else:
             naive_diff = np.diff(obs)
             naive_error = np.mean(np.abs(naive_diff))
-        model_error = np.mean(np.abs(mod - obs), axis=axis)
+        model_error = np.mean(np.abs(np.subtract(mod, obs)), axis=axis)
         # Avoid division by zero
-        return np.where(naive_error == 0, model_error, model_error / naive_error)
+        result = np.where(naive_error == 0, model_error, model_error / naive_error)
+        return result.item() if np.ndim(result) == 0 else result
 
 
-def RMSE_norm(obs, mod, axis=None):
+def RMSE_norm(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Normalized Root Mean Square Error (RMSE_norm).
 
@@ -1967,45 +1847,43 @@ def RMSE_norm(obs, mod, axis=None):
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute normalized RMSE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute normalized RMSE.
 
     Returns
     -------
-    rmse_norm : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Normalized root mean square error (unitless).
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        rmse = ((mod - obs) ** 2).mean(dim=axis) ** 0.5
-        obs_min = obs.min(dim=axis)
-        obs_max = obs.max(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        rmse = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
+        obs_min = obs.min(dim=dim)
+        obs_max = obs.max(dim=dim)
         obs_range = obs_max - obs_min
         # Avoid division by zero
-        return xr.where(obs_range == 0, rmse, rmse / obs_range)
+        result = xr.where(obs_range == 0, rmse, rmse / obs_range)
+        return _update_history(result, "RMSE_norm")
     else:
-        rmse = np.sqrt(np.mean((mod - obs) ** 2, axis=axis))
+        rmse = np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
         obs_min = np.min(obs, axis=axis)
         obs_max = np.max(obs, axis=axis)
         obs_range = obs_max - obs_min
         # Avoid division by zero
-        return np.where(obs_range == 0, rmse, rmse / obs_range)
+        result = np.where(obs_range == 0, rmse, rmse / obs_range)
+        return result.item() if np.ndim(result) == 0 else result
 
 
-def MAE_norm(obs, mod, axis=None):
+def MAE_norm(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Normalized Mean Absolute Error (MAE_norm).
 
@@ -2013,45 +1891,43 @@ def MAE_norm(obs, mod, axis=None):
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute normalized MAE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute normalized MAE.
 
     Returns
     -------
-    mae_norm : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Normalized mean absolute error (unitless).
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        mae = abs(mod - obs).mean(dim=axis)
-        obs_min = obs.min(dim=axis)
-        obs_max = obs.max(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        mae = abs(mod - obs).mean(dim=dim, keep_attrs=True)
+        obs_min = obs.min(dim=dim)
+        obs_max = obs.max(dim=dim)
         obs_range = obs_max - obs_min
         # Avoid division by zero
-        return xr.where(obs_range == 0, mae, mae / obs_range)
+        result = xr.where(obs_range == 0, mae, mae / obs_range)
+        return _update_history(result, "MAE_norm")
     else:
-        mae = np.mean(np.abs(mod - obs), axis=axis)
+        mae = np.mean(np.abs(np.subtract(mod, obs)), axis=axis)
         obs_min = np.min(obs, axis=axis)
         obs_max = np.max(obs, axis=axis)
         obs_range = obs_max - obs_min
         # Avoid division by zero
-        return np.where(obs_range == 0, mae, mae / obs_range)
+        result = np.where(obs_range == 0, mae, mae / obs_range)
+        return result.item() if np.ndim(result) == 0 else result
 
 
-def bias_fraction(obs, mod, axis=None):
+def bias_fraction(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Bias Fraction (BF).
 
@@ -2059,65 +1935,64 @@ def bias_fraction(obs, mod, axis=None):
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute bias fraction. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute bias fraction.
 
     Returns
     -------
-    bf : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Bias fraction (unitless, 0-1).
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        bias = (mod - obs).mean(dim=axis)
-        total_error = np.sqrt(((mod - obs) ** 2).mean(dim=axis))
+        dim = _resolve_axis_to_dim(obs, axis)
+        bias = (mod - obs).mean(dim=dim)
+        total_error = np.sqrt(((mod - obs) ** 2).mean(dim=dim, keep_attrs=True))
         # Avoid division by zero
-        return xr.where(total_error == 0, 0, (bias**2) / (total_error**2))
+        result = xr.where(total_error == 0, 0, (bias**2) / (total_error**2))
+        return _update_history(result, "bias_fraction")
     else:
-        bias = np.mean(mod - obs, axis=axis)
-        total_error = np.sqrt(np.mean((mod - obs) ** 2, axis=axis))
+        bias = np.mean(np.subtract(mod, obs), axis=axis)
+        total_error = np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
         # Avoid division by zero
-        return np.where(total_error == 0, 0, (bias**2) / (total_error**2))
+        result = np.where(total_error == 0, 0, (bias**2) / (total_error**2))
+        return result.item() if np.ndim(result) == 0 else result
 
 
 # Add missing functions from the specification
 
 
-def NMSE(obs, mod, axis=None):
+def NMSE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Normalized Mean Square Error (NMSE).
 
     Typical Use Cases
     -----------------
     - Quantifying the normalized squared error between model and observations.
-    - Used in model evaluation to compare performance across different variables or sites with different scales.
+    - Used in model evaluation to compare performance across different variables
+      or sites with different scales.
     - Provides dimensionless error metric for cross-comparison.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute NMSE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute NMSE.
 
     Returns
     -------
-    nmse : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Normalized mean square error (unitless).
 
     Examples
@@ -2129,50 +2004,48 @@ def NMSE(obs, mod, axis=None):
     >>> NMSE(obs, mod)
     0.25
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        mse = ((mod - obs) ** 2).mean(dim=axis)
-        obs_var = obs.var(dim=axis)
+        dim = _resolve_axis_to_dim(obs, axis)
+        mse = ((mod - obs) ** 2).mean(dim=dim, keep_attrs=True)
+        obs_var = obs.var(dim=dim)
         # Handle case where variance is 0 (perfect agreement)
-        return xr.where(obs_var == 0, 0, mse / obs_var)
+        result = xr.where(obs_var == 0, 0, mse / obs_var)
+        return _update_history(result, "NMSE")
     else:
-        mse = np.mean((mod - obs) ** 2, axis=axis)
-        obs_var = np.var(obs, axis=axis)
+        mse = np.ma.mean(np.ma.masked_invalid(np.subtract(mod, obs)) ** 2, axis=axis)
+        obs_var = np.ma.var(np.ma.masked_invalid(obs), axis=axis)
         # Handle case where variance is 0 (perfect agreement)
-        return np.where(obs_var == 0, 0, mse / obs_var)
+        result = np.where(obs_var == 0, 0, mse / obs_var)
+        return result.item() if np.ndim(result) == 0 else result
 
 
-def LOG_ERROR(obs, mod, axis=None):
+def LOG_ERROR(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Logarithmic Error Metric.
 
     Typical Use Cases
     -----------------
     - Quantifying errors for variables that span several orders of magnitude.
-    - Used in atmospheric sciences for concentration data (e.g., aerosols, pollutants).
+    - Used in atmospheric sciences for concentration data (e.g., pollutants).
     - Helpful when relative rather than absolute errors are important.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values (should be positive).
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values (should be positive).
-    axis : int, optional
-        Axis along which to compute log error. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute log error.
 
     Returns
     -------
-    log_error : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Logarithmic error metric.
 
     Examples
@@ -2184,33 +2057,19 @@ def LOG_ERROR(obs, mod, axis=None):
     >>> LOG_ERROR(obs, mod)
     0.34657359027997264
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
     # Add small epsilon to avoid log(0) and handle negative values
     epsilon = 1e-10
 
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
         # Use abs to handle potential negative values, then add epsilon
-        obs_safe = np.abs(obs) + epsilon
-        mod_safe = np.abs(mod) + epsilon
+        obs_safe = abs(obs) + epsilon
+        mod_safe = abs(mod) + epsilon
         obs_log = np.log(obs_safe)
         mod_log = np.log(mod_safe)
-        if axis is not None:
-            if isinstance(axis, int):
-                dim = obs.dims[axis]
-            else:
-                dim = axis
-            return ((mod_log - obs_log) ** 2).mean(dim=dim) ** 0.5
-        else:
-            return ((mod_log - obs_log) ** 2).mean() ** 0.5
+        result = ((mod_log - obs_log) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
+        return _update_history(result, "LOG_ERROR")
     else:
         # Use abs to handle potential negative values, then add epsilon
         obs_safe = np.abs(obs) + epsilon
@@ -2222,63 +2081,127 @@ def LOG_ERROR(obs, mod, axis=None):
         # Return 0 for perfect agreement
         if np.array_equal(obs, mod):
             return 0.0
-        return result
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def COE(obs, mod, axis=None):
+def COE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Center of Mass Error (COE).
 
-    Typical Use Cases
-    -----------------
-    - Evaluating the displacement error of spatial features.
-    - Used in meteorology for precipitation field verification.
-    - Assesses how much model features are shifted compared to observations.
+    The COE measures the displacement between the centroids (centers of mass)
+    of two fields. For spatial data, this represents the shift in the center
+    of a feature (e.g., a storm or a pollutant plume).
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values (typically 2D spatial field).
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values (typically 2D spatial field).
-    axis : int, optional
-        Axis along which to compute COE. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension(s) over which to compute the centroid.
+        If None, computes over all axes.
 
     Returns
     -------
-    coe : float or ndarray
-        Center of mass error.
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Center of mass error (Euclidean distance between centroids).
 
     Examples
     --------
     >>> import numpy as np
     >>> from monet_stats.error_metrics import COE
-    >>> obs = np.array([[1, 0], [0, 1]])  # Diagonal pattern
-    >>> mod = np.array([[0, 1], [1, 0]])  # Opposite diagonal
-    >>> COE(obs, mod)
-    1.4142135623730951
+    >>> obs = np.zeros((5, 5))
+    >>> obs[2, 2] = 1.0  # Peak at center (2, 2)
+    >>> mod = np.zeros((5, 5))
+    >>> mod[3, 3] = 1.0  # Peak shifted to (3, 3)
+    >>> # Displacement is sqrt(1^2 + 1^2) = sqrt(2) approx 1.414
+    >>> np.allclose(COE(obs, mod), np.sqrt(2))
+    True
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
 
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    def _get_centroid(da: xr.DataArray, dims: Iterable[str]) -> List[xr.DataArray]:
+        """Helper to calculate centroid of a DataArray."""
+        total = da.sum(dim=dims)
+        # Handle zero sum to avoid division by zero
+        total_safe = xr.where(total == 0, 1e-10, total)
+        coords_list = []
+        for d in dims:
+            # Check if coord exists and is numeric
+            if d in da.coords and np.issubdtype(da.coords[d].dtype, np.number):
+                coord = da.coords[d]
+            else:
+                # Fallback to dimension indices
+                coord = xr.DataArray(np.arange(da.sizes[d]), dims=d, name=d)
+            # Weighted mean of coordinate
+            c = (da * coord).sum(dim=dims) / total_safe
+            coords_list.append(c)
+        return coords_list
+
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # For simplicity, returning RMSE for xarray case
-        return ((mod - obs) ** 2).mean(dim=axis) ** 0.5
+        dim = _resolve_axis_to_dim(obs, axis)
+        if dim is None:
+            dims = list(obs.dims)
+        elif isinstance(dim, str):
+            dims = [dim]
+        else:
+            dims = list(dim)
+
+        c_obs = _get_centroid(obs, dims)
+        c_mod = _get_centroid(mod, dims)
+
+        # Euclidean distance
+        dist_sq = sum((cm - co) ** 2 for cm, co in zip(c_mod, c_obs))
+        result = dist_sq**0.5
+
+        return _update_history(result, "Center of Mass Error (COE)")
+
+    # Fallback to numpy
+    obs_arr = np.asanyarray(obs)
+    mod_arr = np.asanyarray(mod)
+
+    if axis is None:
+        axes = tuple(range(obs_arr.ndim))
+    elif isinstance(axis, int):
+        axes = (axis,)
+    elif isinstance(axis, str):
+        # Handle single string axis for consistency with xarray path
+        axes = (obs_arr.ndim - 1,)  # Best guess for numpy if only string provided
     else:
-        # For numpy arrays, compute center of mass error
-        # This is a simplified implementation - a full implementation would compute
-        # centers of mass and measure distance between them
-        return np.sqrt(np.mean((mod - obs) ** 2, axis=axis))
+        axes = tuple(axis)
+
+    def _get_numpy_centroid(arr: np.ndarray, axes_tuple: Tuple[int, ...]) -> List[np.ndarray]:
+        """Helper to calculate centroid of a NumPy array."""
+        total = np.sum(arr, axis=axes_tuple)
+        total_safe = np.where(total == 0, 1e-10, total)
+        c_list = []
+        for ax in axes_tuple:
+            # Create coordinate array for this axis
+            shape = [1] * arr.ndim
+            shape[ax] = arr.shape[ax]
+            coord = np.arange(arr.shape[ax]).reshape(shape)
+            c = np.sum(arr * coord, axis=axes_tuple) / total_safe
+            c_list.append(c)
+        return c_list
+
+    c_obs_np = _get_numpy_centroid(obs_arr, axes)
+    c_mod_np = _get_numpy_centroid(mod_arr, axes)
+
+    dist_sq_np = sum((cm - co) ** 2 for cm, co in zip(c_mod_np, c_obs_np))
+    result = dist_sq_np**0.5
+    return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def VOLUMETRIC_ERROR(obs, mod, axis=None):
+def VOLUMETRIC_ERROR(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Volumetric Error Metric.
 
@@ -2290,16 +2213,16 @@ def VOLUMETRIC_ERROR(obs, mod, axis=None):
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute volumetric error. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute volumetric error.
 
     Returns
     -------
-    vol_error : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Volumetric error metric.
 
     Examples
@@ -2311,27 +2234,25 @@ def VOLUMETRIC_ERROR(obs, mod, axis=None):
     >>> VOLUMETRIC_ERROR(obs, mod)
     0.2
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        obs_sum = obs.sum(dim=axis)
-        mod_sum = mod.sum(dim=axis)
-        return np.abs(mod_sum - obs_sum) / np.abs(obs_sum)
+        dim = _resolve_axis_to_dim(obs, axis)
+        obs_sum = obs.sum(dim=dim)
+        mod_sum = mod.sum(dim=dim)
+        result = abs(mod_sum - obs_sum) / abs(obs_sum)
+        return _update_history(result, "VOLUMETRIC_ERROR")
     else:
         obs_sum = np.sum(obs, axis=axis)
         mod_sum = np.sum(mod, axis=axis)
-        return np.abs(mod_sum - obs_sum) / np.abs(obs_sum)
+        result = np.abs(mod_sum - obs_sum) / np.abs(obs_sum)
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
-def CORR_INDEX(obs, mod, axis=None):
+def CORR_INDEX(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Correlation Index (CORR_INDEX).
 
@@ -2343,16 +2264,16 @@ def CORR_INDEX(obs, mod, axis=None):
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
+    obs : numpy.ndarray or xarray.DataArray
         Observed values.
-    mod : array_like or xarray.DataArray
+    mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
-    axis : int, optional
-        Axis along which to compute correlation index. Default is None (all elements).
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute correlation index.
 
     Returns
     -------
-    corr_index : float or ndarray
+    numpy.number, numpy.ndarray, or xarray.DataArray
         Correlation index (unitless, -1 to 1).
 
     Examples
@@ -2364,30 +2285,142 @@ def CORR_INDEX(obs, mod, axis=None):
     >>> CORR_INDEX(obs, mod)
     1.0
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    from scipy.stats import pearsonr
-
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
         # Using xarray's built-in correlation function
-        return xr.corr(obs, mod, dim=axis)
+        result = xr.corr(obs, mod, dim=dim)
+        return _update_history(result, "CORR_INDEX")
     else:
-        # Use scipy for numpy arrays
+        # Fallback to numpy-compatible logic
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
         if axis is None:
-            r_val, _ = pearsonr(obs.flatten(), mod.flatten())
-            return r_val
+            from scipy.stats import pearsonr
+
+            result = pearsonr(obs.flatten(), mod.flatten())[0]
+            return result.item() if hasattr(result, "item") else float(result)
         else:
-            # For specific axis, we need to correlate along that axis
-            r_val, _ = pearsonr(obs, mod)
-            if isinstance(r_val, tuple):
-                return r_val[0]
-            else:
-                return r_val
+            # Manual vectorized correlation over axis for robustness across scipy versions
+            obs_mean = np.mean(obs, axis=axis, keepdims=True)
+            mod_mean = np.mean(mod, axis=axis, keepdims=True)
+            obs_std = obs - obs_mean
+            mod_std = mod - mod_mean
+            num = np.sum(obs_std * mod_std, axis=axis)
+            den = np.sqrt(np.sum(obs_std**2, axis=axis) * np.sum(mod_std**2, axis=axis))
+            result = num / den
+            return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def FAC2(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Fraction of predictions within a factor of two (FAC2).
+
+    Typical Use Cases
+    -----------------
+    - Air quality model evaluation (e.g., PM2.5, NO2).
+    - Robust to outliers as it only cares about the ratio.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute FAC2.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Fraction of data where 0.5 <= mod/obs <= 2.0.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import FAC2
+    >>> obs = np.array([1, 2, 3])
+    >>> mod = np.array([1.5, 5, 2.5])
+    >>> FAC2(obs, mod)
+    0.6666666666666666
+    """
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        mask = obs.notnull() & mod.notnull()
+        # Avoid division by zero warnings
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = mod / obs
+            in_range = (ratio >= 0.5) & (ratio <= 2.0)
+        # Only count valid pairs in the fraction
+        result = in_range.where(mask).mean(dim=dim)
+        return _update_history(result, "FAC2")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        mask = ~np.isnan(obs) & ~np.isnan(mod)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = mod / obs
+            in_range = (ratio >= 0.5) & (ratio <= 2.0)
+            # Use float conversion to allow np.nan insertion for correct nanmean behavior
+            res_data = np.where(mask, in_range.astype(float), np.nan)
+            result = np.nanmean(res_data, axis=axis)
+        return result.item() if np.ndim(result) == 0 else result
+
+
+def RMSLE(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Root Mean Square Logarithmic Error (RMSLE).
+
+    Typical Use Cases
+    -----------------
+    - When you don't want to penalize huge differences when both values are very large.
+    - Useful for variables spanning several orders of magnitude.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model or predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute RMSLE.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Root mean square logarithmic error.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from monet_stats.error_metrics import RMSLE
+    >>> obs = np.array([1, 10, 100])
+    >>> mod = np.array([1.1, 15, 80])
+    >>> RMSLE(obs, mod)
+    0.2520847936171813
+    """
+    # Ensure positive values
+    epsilon = 1e-10
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+        log_obs = np.log1p(xr.where(obs < 0, 0, obs) + epsilon)
+        log_mod = np.log1p(xr.where(mod < 0, 0, mod) + epsilon)
+        result = ((log_mod - log_obs) ** 2).mean(dim=dim) ** 0.5
+        return _update_history(result, "RMSLE")
+    else:
+        obs = np.asarray(obs)
+        mod = np.asarray(mod)
+        log_obs = np.log1p(np.where(obs < 0, 0, obs) + epsilon)
+        log_mod = np.log1p(np.where(mod < 0, 0, mod) + epsilon)
+        result = np.sqrt(np.nanmean((log_mod - log_obs) ** 2, axis=axis))
+        return result.item() if np.ndim(result) == 0 else result

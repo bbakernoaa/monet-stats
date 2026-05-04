@@ -1,240 +1,354 @@
 """
-Utility Functions for Statistics
+Utility Functions for Statistics (Aero Protocol Compliant).
 """
 
-from typing import Any, Optional, Tuple
+import warnings
+from typing import Any, Iterable, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
+import xarray as xr
 from numpy.typing import ArrayLike
+
+
+def is_lazy(obj: Any) -> bool:
+    """
+    Check if an xarray object or array is lazy (Dask or Cubed-backed) (Aero Protocol).
+
+    Parameters
+    ----------
+    obj : Any
+        Object to check (DataArray, Dataset, or array).
+
+    Returns
+    -------
+    bool
+        True if the object contains chunks (Dask or Cubed), False otherwise.
+    """
+    if isinstance(obj, xr.DataArray):
+        data = obj.data
+        return hasattr(data, "chunks") and data.chunks is not None
+    if isinstance(obj, xr.Dataset):
+        return any(hasattr(obj[v].data, "chunks") and obj[v].data.chunks is not None for v in obj.data_vars)
+    return hasattr(obj, "chunks") and obj.chunks is not None
+
+
+def ensure_single_chunk(
+    obj: Union[xr.DataArray, xr.Dataset], dim: Union[str, Iterable[str]]
+) -> Union[xr.DataArray, xr.Dataset]:
+    """
+    Ensure specific dimensions are in a single chunk for lazy objects (Aero Protocol).
+
+    Required for operations like apply_ufunc(dask='parallelized') that cannot
+    handle chunks along core dimensions. Supports both Dask and Cubed backends.
+
+    Parameters
+    ----------
+    obj : xarray.DataArray or xarray.Dataset
+        Object to rechunk.
+    dim : str or iterable of str
+        Dimension(s) to rechunk to a single chunk (-1).
+
+    Returns
+    -------
+    xarray.DataArray or xarray.Dataset
+        The object with specified dimensions rechunked to single chunks if it was lazy.
+    """
+    if not is_lazy(obj):
+        return obj
+
+    if isinstance(dim, str):
+        dims_to_rechunk = [dim]
+    else:
+        dims_to_rechunk = list(dim)
+
+    # Check for Cubed backend
+    is_cubed = False
+    try:
+        import cubed
+
+        if isinstance(obj, xr.DataArray):
+            if isinstance(obj.data, cubed.array_api.array_object.Array):
+                is_cubed = True
+        elif isinstance(obj, xr.Dataset):
+            if any(isinstance(obj[v].data, cubed.array_api.array_object.Array) for v in obj.data_vars):
+                is_cubed = True
+
+        if is_cubed:
+            if isinstance(obj, xr.DataArray):
+                new_chunks = list(obj.data.chunks)
+                for d in dims_to_rechunk:
+                    axis = obj.get_axis_num(d)
+                    new_chunks[axis] = obj.sizes[d]
+                return xr.DataArray(
+                    obj.data.rechunk(tuple(new_chunks)),
+                    coords=obj.coords,
+                    dims=obj.dims,
+                    attrs=obj.attrs,
+                )
+            else:
+                # For Dataset, rechunk each variable that is cubed
+                new_vars = {}
+                for v in obj.data_vars:
+                    var = obj[v]
+                    if isinstance(var.data, cubed.array_api.array_object.Array):
+                        new_chunks = list(var.data.chunks)
+                        for d in dims_to_rechunk:
+                            if d in var.dims:
+                                axis = var.get_axis_num(d)
+                                new_chunks[axis] = var.sizes[d]
+                        new_vars[v] = xr.DataArray(
+                            var.data.rechunk(tuple(new_chunks)), coords=var.coords, dims=var.dims, attrs=var.attrs
+                        )
+                    else:
+                        new_vars[v] = var
+                return xr.Dataset(new_vars, coords=obj.coords, attrs=obj.attrs)
+    except ImportError:
+        pass
+
+    # Default to Dask/Xarray rechunking
+    dims_to_chunk = {d: -1 for d in dims_to_rechunk}
+    return obj.chunk(dims_to_chunk)
+
+
+def _resolve_axis_to_dim(
+    obj: Any, axis: Optional[Union[int, str, Iterable[Union[int, str]]]]
+) -> Optional[Union[str, Iterable[str]]]:
+    """
+    Resolve axis index or name(s) to Xarray dimension name(s).
+
+    Parameters
+    ----------
+    obj : Any
+        Xarray DataArray or Dataset.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute.
+
+    Returns
+    -------
+    str or iterable of str, optional
+        Dimension name(s) corresponding to the axis.
+    """
+    # Centralized resolution for Aero Protocol compliance
+    if not hasattr(obj, "dims"):
+        return axis
+
+    if axis is None:
+        return obj.dims
+
+    if isinstance(axis, int):
+        return obj.dims[axis]
+
+    if isinstance(axis, str):
+        return axis
+
+    if isinstance(axis, Iterable):
+        return [obj.dims[a] if isinstance(a, int) else a for a in axis]
+
+    return axis
 
 
 def matchedcompressed(a1: ArrayLike, a2: ArrayLike) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Return compressed (non-masked) values from two masked arrays with matched masks.
+    Return compressed (non-masked) values from two matched arrays.
 
-    Typical Use Cases
-    -----------------
-    - Ensuring paired, valid (non-masked) values for statistical calculations (e.g., correlation, regression).
-    - Used in metrics that require both arrays to have valid data at the same locations.
+    Note: For Xarray DataArrays, this function will trigger a computation if
+    the data is Dask-backed, as it returns NumPy ndarrays. For lazy operations,
+    prefer using Xarray-native methods with `skipna=True`.
 
     Parameters
     ----------
-    a1 : array-like or numpy.ma.MaskedArray
+    a1 : ArrayLike
         First input array.
-    a2 : array-like or numpy.ma.MaskedArray
+    a2 : ArrayLike
         Second input array.
 
     Returns
     -------
-    tuple of ndarray
+    Tuple[np.ndarray, np.ndarray]
         Tuple of (a1_compressed, a2_compressed), both 1D arrays of valid values.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from monet_stats import utils_stats as stats
-    >>> a1 = np.ma.array([1, 2, 3], mask=[0, 1, 0])
-    >>> a2 = np.ma.array([4, 5, 6], mask=[0, 0, 1])
-    >>> stats.matchedcompressed(a1, a2)
-    (array([1]), array([4]))
+    >>> a = np.array([1, np.nan, 3])
+    >>> b = np.array([4, 5, 6])
+    >>> matchedcompressed(a, b)
+    (array([1., 3.]), array([4., 6.]))
     """
-    a1, a2 = matchmasks(a1, a2)
-    return a1.compressed(), a2.compressed()
+    # Handle Xarray objects by extracting values (triggers computation for Dask)
+    if isinstance(a1, (xr.DataArray, xr.Dataset)):
+        if hasattr(a1, "data") and hasattr(a1.data, "chunks"):
+            warnings.warn(
+                "matchedcompressed triggered computation on Dask-backed array. "
+                "Consider using backend-agnostic xarray operations instead.",
+                UserWarning,
+                stacklevel=2,
+            )
+        a1 = a1.values
+    if isinstance(a2, (xr.DataArray, xr.Dataset)):
+        if hasattr(a2, "data") and hasattr(a2.data, "chunks"):
+            warnings.warn(
+                "matchedcompressed triggered computation on Dask-backed array. "
+                "Consider using backend-agnostic xarray operations instead.",
+                UserWarning,
+                stacklevel=2,
+            )
+        a2 = a2.values
+
+    # Convert to masked arrays to handle existing masks and NaNs
+    a1_m = np.ma.masked_invalid(a1)
+    a2_m = np.ma.masked_invalid(a2)
+
+    # Handle mismatched shapes by truncating both to the minimum size
+    if a1_m.shape != a2_m.shape:
+        min_size = min(a1_m.size, a2_m.size)
+        a1_m = a1_m.flat[:min_size]
+        a2_m = a2_m.flat[:min_size]
+
+    mask = np.ma.getmaskarray(a1_m) | np.ma.getmaskarray(a2_m)
+    a1_matched = np.ma.masked_where(mask, a1_m)
+    a2_matched = np.ma.masked_where(mask, a2_m)
+
+    return a1_matched.compressed(), a2_matched.compressed()
 
 
-def matchmasks(a1: ArrayLike, a2: ArrayLike) -> Tuple[Any, Any]:
+def _update_history(obj: Any, metric_name: str) -> Any:
     """
-    Match and combine masks from two masked arrays, supporting numpy, masked, and xarray arrays.
-
-    This function is designed to handle mixed-type inputs, including dask-backed xarray.DataArray objects.
-    It ensures that if a dask array is involved, its boolean mask is explicitly computed before being applied.
-
-    Typical Use Cases
-    -----------------
-    - Ensuring that two arrays have the same mask for paired statistical calculations.
-    - Used in metrics that require both arrays to have valid data at the same locations (e.g., correlation, regression).
+    Update the scientific history attribute of an xarray object.
 
     Parameters
     ----------
-    a1 : array-like, numpy.ma.MaskedArray, or xarray.DataArray
-        First input array.
-    a2 : array-like, numpy.ma.MaskedArray, or xarray.DataArray
-        Second input array.
+    obj : Any
+        The object to update.
+    metric_name : str
+        The name of the metric or operation performed.
 
     Returns
     -------
-    tuple of numpy.ma.MaskedArray or xarray.DataArray
-        Tuple of (a1_masked, a2_masked) with a combined, synchronized mask.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats.utils_stats import matchmasks
-    >>> a1 = np.ma.array([1, 2, 3], mask=[0, 1, 0])
-    >>> a2 = np.ma.array([4, 5, 6], mask=[0, 0, 1])
-    >>> a1_m, a2_m = matchmasks(a1, a2)
-    >>> a1_m.compressed()
-    array([1])
-    >>> a2_m.compressed()
-    array([4])
+    Any
+        The original object with an updated history attribute if applicable.
     """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-
-    is_a1_xr = xr is not None and isinstance(a1, xr.DataArray)
-    is_a2_xr = xr is not None and isinstance(a2, xr.DataArray)
-
-    if is_a1_xr and is_a2_xr:
-        # If both are xarray, align them, which also aligns their masks
-        a1, a2 = xr.align(a1, a2, join="inner")
-        # Ensure that NaN values are also treated as masked
-        # The returned arrays from align will have NaNs where there was no overlap
-        # isnull() will create a boolean mask for these
-        mask = a1.isnull() | a2.isnull()
-        return a1.where(~mask), a2.where(~mask)
-
-    # For mixed types (e.g., xarray and numpy) or just numpy arrays.
-    # We will work with numpy masks.
-
-    # Extract masks. np.ma.getmaskarray returns `False` for unmasked arrays.
-    mask1 = np.ma.getmaskarray(a1)
-    mask2 = np.ma.getmaskarray(a2)
-
-    # Also consider NaNs as masked values.
-    # Need to handle non-numeric data that would raise TypeError with np.isnan
-    # Also, np.isnan on a masked array can be problematic, so get the data.
-    data1 = a1.data if hasattr(a1, "data") else a1
-    data2 = a2.data if hasattr(a2, "data") else a2
-    try:
-        nan_mask1 = np.isnan(data1)
-        mask1 = mask1 | nan_mask1
-    except TypeError:
-        pass  # Non-numeric data
-
-    try:
-        nan_mask2 = np.isnan(data2)
-        mask2 = mask2 | nan_mask2
-    except TypeError:
-        pass  # Non-numeric data
-
-    # Combine the masks
-    combined_mask = mask1 | mask2
-
-    # If the combined_mask is a dask array, compute it to get a numpy array.
-    if hasattr(combined_mask, "dask"):
-        combined_mask = combined_mask.compute()
-
-    # Apply the combined mask. masked_where works for numpy, masked, and xarray inputs.
-    a1_masked = np.ma.masked_where(combined_mask, a1)
-    a2_masked = np.ma.masked_where(combined_mask, a2)
-
-    # If inputs were xarray, we should try to return xarray objects.
-    # However, np.ma.masked_where returns a MaskedArray.
-    # For now, this is acceptable, as downstream functions can handle it.
-    # The key is that the data and mask are correct.
-
-    return a1_masked, a2_masked
+    if hasattr(obj, "attrs"):
+        try:
+            timestamp = pd.Timestamp.now().isoformat()
+            new_entry = f"[{timestamp}] Calculated {metric_name} using monet-stats."
+            if obj.attrs is not None:
+                history = obj.attrs.get("history", "")
+                obj.attrs["history"] = f"{history}\n{new_entry}".strip()
+            else:
+                obj.attrs = {"history": new_entry}
+        except Exception:
+            pass
+    return obj
 
 
-def circlebias_m(b: ArrayLike) -> Any:
+def matchmasks(a1: Any, a2: Any) -> Tuple[Any, Any]:
     """
-    Circular bias for wind direction (avoid single block error in np.ma).
-
-    Typical Use Cases
-    -----------------
-    - Calculating the signed difference between two wind directions, accounting for circularity,
-      robust to masked arrays.
-    - Used in wind direction bias and error metrics for masked or missing data.
+    Match and combine masks from two arrays or align Xarray objects (Aero Protocol).
 
     Parameters
     ----------
-    b : array-like or numpy.ma.MaskedArray
-        Difference between two wind directions (degrees).
+    a1 : Any
+        First input array or DataArray.
+    a2 : Any
+        Second input array or DataArray.
 
     Returns
     -------
-    array-like or numpy.ma.MaskedArray
-        Circularly wrapped difference (degrees).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> stats.circlebias_m(np.array([190, -190, 10, -10]))
-    array([-170, 170,  10, -10])
+    Tuple[Any, Any]
+        Tuple of (a1_matched, a2_matched).
     """
-    b = np.ma.masked_invalid(b)
-    out = (b + 180) % 360 - 180
-    return out
+    if isinstance(a1, (xr.DataArray, xr.Dataset)) and isinstance(a2, (xr.DataArray, xr.Dataset)):
+        return xr.align(a1, a2, join="inner")
+
+    a1_arr = np.asanyarray(a1)
+    a2_arr = np.asanyarray(a2)
+
+    # Unify mask handling for numpy
+    a1_m = np.ma.masked_invalid(a1_arr)
+    a2_m = np.ma.masked_invalid(a2_arr)
+
+    common_mask = np.ma.getmaskarray(a1_m) | np.ma.getmaskarray(a2_m)
+    return np.ma.masked_where(common_mask, a1_m), np.ma.masked_where(common_mask, a2_m)
 
 
 def circlebias(b: ArrayLike) -> Any:
     """
-    Circular bias (wind direction difference, wrapped to [-180, 180] degrees).
+    Circular bias (wrapped to [-180, 180] degrees) (Aero Protocol).
 
-    Typical Use Cases
-    -----------------
-    - Calculating the signed difference between two wind directions, accounting for circularity.
-    - Used in wind direction bias and error metrics to avoid artificial large errors across 0/360 boundaries.
+    Handles both dense and masked arrays, as well as Xarray/Dask objects.
 
     Parameters
     ----------
-    b : array-like
+    b : ArrayLike
         Difference between two wind directions (degrees).
 
     Returns
     -------
-    array-like
+    Any
         Circularly wrapped difference (degrees).
 
     Examples
     --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> stats.circlebias(np.array([190, -190, 10, -10]))
-    array([-170, 170,  10, -10])
+    >>> circlebias(190)
+    -170
+    >>> circlebias(-190)
+    170
     """
-    b = np.asarray(b)
-    return (b + 180) % 360 - 180
+    if isinstance(b, (xr.DataArray, xr.Dataset)):
+        res = (b + 180) % 360 - 180
+        return _update_history(res, "circlebias")
+
+    # Handle both dense and masked numpy arrays
+    b_arr = np.ma.masked_invalid(b)
+    res_arr = (b_arr + 180) % 360 - 180
+
+    if not np.ma.is_masked(res_arr) and not isinstance(b, np.ma.MaskedArray):
+        if np.issubdtype(res_arr.dtype, np.floating):
+            return res_arr.filled(np.nan)
+        return np.ma.getdata(res_arr)
+
+    return res_arr
 
 
-def angular_difference(
-    angle1: ArrayLike, angle2: ArrayLike, units: str = "degrees"
-) -> Any:
+def circlebias_m(b: ArrayLike) -> Any:
     """
-    Calculate the smallest angular difference between two angles.
-
-    Typical Use Cases
-    -----------------
-    - Computing the difference between wind directions, headings, or other angular measurements.
-    - Used in meteorology, navigation, and circular statistics.
+    Robust circular bias for wind direction (Alias for circlebias).
 
     Parameters
     ----------
-    angle1 : array-like
+    b : ArrayLike
+        Difference between two wind directions (degrees).
+
+    Returns
+    -------
+    Any
+        Circularly wrapped difference.
+    """
+    return circlebias(b)
+
+
+def angular_difference(angle1: ArrayLike, angle2: ArrayLike, units: str = "degrees") -> Any:
+    """
+    Calculate the smallest angular difference between two angles (Aero Protocol).
+
+    Backend-agnostic (supports NumPy and Xarray/Dask).
+
+    Parameters
+    ----------
+    angle1 : ArrayLike
         First angle(s).
-    angle2 : array-like
+    angle2 : ArrayLike
         Second angle(s).
     units : str, optional
         Units of angles ('degrees' or 'radians'). Default is 'degrees'.
 
     Returns
     -------
-    array-like
+    Any
         Smallest angular difference between the two angles.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> stats.angular_difference(10, 350, units='degrees')
-    20.0
     """
-    angle1 = np.asarray(angle1)
-    angle2 = np.asarray(angle2)
-
     if units == "degrees":
         max_val = 360.0
     elif units == "radians":
@@ -242,118 +356,115 @@ def angular_difference(
     else:
         raise ValueError("units must be 'degrees' or 'radians'")
 
-    diff = np.abs(angle1 - angle2)
+    if isinstance(angle1, (xr.DataArray, xr.Dataset)) or isinstance(angle2, (xr.DataArray, xr.Dataset)):
+        if isinstance(angle1, (xr.DataArray, xr.Dataset)) and isinstance(angle2, (xr.DataArray, xr.Dataset)):
+            angle1, angle2 = xr.align(angle1, angle2, join="inner")
+
+        diff = abs(angle1 - angle2)
+        result = xr.where(diff > max_val / 2, max_val - diff, diff)
+        return _update_history(result, "angular_difference")
+
+    angle1_arr = np.asanyarray(angle1)
+    angle2_arr = np.asanyarray(angle2)
+    diff = np.abs(angle1_arr - angle2_arr)
     return np.minimum(diff, max_val - diff)
 
 
-def rmse(predictions: ArrayLike, targets: ArrayLike, axis: Optional[int] = None) -> Any:
+def rmse(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Calculate Root Mean Square Error between predictions and targets.
+    Calculate Root Mean Square Error (Alias for error_metrics.RMSE).
 
     Parameters
     ----------
-    predictions : array-like
-        Predicted values.
-    targets : array-like
-        Target (true) values.
-    axis : int, optional
+    obs : Union[np.ndarray, xr.DataArray]
+        Observed values.
+    mod : Union[np.ndarray, xr.DataArray]
+        Model or predicted values.
+    axis : Union[int, str, Iterable], optional
         Axis along which to compute RMSE.
 
     Returns
     -------
-    float or array
+    Union[np.number, np.ndarray, xr.DataArray]
         Root mean square error.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> stats.rmse([1, 2, 3], [1.1, 2.1, 2.9])
-    0.1
     """
-    predictions = np.asarray(predictions)
-    targets = np.asarray(targets)
-    return np.sqrt(np.mean((predictions - targets) ** 2, axis=axis))
+    from .error_metrics import RMSE
+
+    res = RMSE(obs, mod, axis=axis)
+    if isinstance(res, (xr.DataArray, xr.Dataset)):
+        return _update_history(res, "rmse")
+    return res
 
 
-def mae(predictions: ArrayLike, targets: ArrayLike, axis: Optional[int] = None) -> Any:
+def mae(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Calculate Mean Absolute Error between predictions and targets.
+    Calculate Mean Absolute Error (Alias for error_metrics.MAE).
 
     Parameters
     ----------
-    predictions : array-like
-        Predicted values.
-    targets : array-like
-        Target (true) values.
-    axis : int, optional
+    obs : Union[np.ndarray, xr.DataArray]
+        Observed values.
+    mod : Union[np.ndarray, xr.DataArray]
+        Model or predicted values.
+    axis : Union[int, str, Iterable], optional
         Axis along which to compute MAE.
 
     Returns
     -------
-    float or array
+    Union[np.number, np.ndarray, xr.DataArray]
         Mean absolute error.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> stats.mae([1, 2, 3], [1.1, 2.1, 2.9])
-    0.1
     """
-    predictions = np.asarray(predictions)
-    targets = np.asarray(targets)
-    return np.mean(np.abs(predictions - targets), axis=axis)
+    from .error_metrics import MAE
+
+    res = MAE(obs, mod, axis=axis)
+    if isinstance(res, (xr.DataArray, xr.Dataset)):
+        return _update_history(res, "mae")
+    return res
 
 
-def correlation(x: ArrayLike, y: ArrayLike, axis: Optional[int] = None) -> Any:
+def correlation(
+    x: Union[np.ndarray, xr.DataArray],
+    y: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Calculate Pearson correlation coefficient between x and y.
+    Calculate Pearson correlation coefficient (Alias for correlation_metrics.pearsonr).
 
     Parameters
     ----------
-    x : array-like
+    x : Union[np.ndarray, xr.DataArray]
         First variable.
-    y : array-like
+    y : Union[np.ndarray, xr.DataArray]
         Second variable.
-    axis : int, optional
+    axis : Union[int, str, Iterable], optional
         Axis along which to compute correlation.
 
     Returns
     -------
-    float
+    Union[np.number, np.ndarray, xr.DataArray]
         Pearson correlation coefficient.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from monet_stats import efficiency_metrics as stats
-    >>> x = [1, 2, 3, 4, 5]
-    >>> y = [2, 4, 6, 8, 10]
-    >>> stats.correlation(x, y)
-    1.0
+    Raises
+    ------
+    ValueError
+        If input arrays are empty.
     """
-    x = np.asarray(x)
-    y = np.asarray(y)
-
-    if x.size == 0 or y.size == 0:
+    if hasattr(x, "size") and x.size == 0:
+        raise ValueError("Input arrays cannot be empty")
+    if hasattr(y, "size") and y.size == 0:
         raise ValueError("Input arrays cannot be empty")
 
-    if axis is None:
-        # Flatten arrays for 1D correlation
-        x = x.flatten()
-        y = y.flatten()
+    from .correlation_metrics import pearsonr
 
-    # Calculate means
-    mean_x = np.mean(x, axis=axis, keepdims=True)
-    mean_y = np.mean(y, axis=axis, keepdims=True)
-
-    # Calculate numerator and denominators
-    numerator = np.mean((x - mean_x) * (y - mean_y), axis=axis)
-    var_x = np.mean((x - mean_x) ** 2, axis=axis)
-    var_y = np.mean((y - mean_y) ** 2, axis=axis)
-
-    # Calculate correlation
-    correlation = numerator / np.sqrt(var_x * var_y)
-
-    return correlation
+    res = pearsonr(x, y, axis=axis)
+    if isinstance(res, (xr.DataArray, xr.Dataset)):
+        return _update_history(res, "correlation")
+    return res

@@ -162,9 +162,52 @@ mod_da = xr.DataArray(
     attrs={'units': '°C', 'long_name': 'Modeled Temperature'}
 )
 
-# Metrics return DataArray with coordinates
+# Metrics return DataArray with coordinates and history metadata
 r2_da = ms.R2(obs_da, mod_da)
 print(f"XArray result with coordinates:\n{r2_da}")
+print(f"Operation history:\n{r2_da.attrs['history']}")
+```
+
+### Xarray Accessor (Pangeo Integration)
+
+For the best experience in the Pangeo ecosystem, use the `.monet_stats` accessor. This allows for cleaner code and method chaining while automatically handling metadata and laziness.
+
+```python
+# Compute climatology directly on the DataArray
+climo = obs_da.monet_stats.climatology(freq="month")
+
+# Calculate summary statistics on a Dataset
+ds = xr.Dataset({"Obs": obs_da, "Mod": mod_da})
+stats_dict = ds.monet_stats.stats()
+
+# Chain operations
+spatial_mean = obs_da.monet_stats.resample_data(freq="D").monet_stats.weighted_spatial_mean()
+
+# Perform verification directly on the DataArray
+rmse = mod_da.monet_stats.rmse(obs_da, dim="time")
+
+# Get a comprehensive bundle of metrics as a Dataset
+metrics = mod_da.monet_stats.verify(obs_da, dim="time")
+print(metrics.MAE.values)
+```
+
+### Lazy Evaluation with Dask
+
+For datasets larger than RAM, `monet-stats` leverages Dask for lazy evaluation and parallel processing.
+
+```python
+import xarray as xr
+import monet_stats as ms
+
+# Open large dataset with chunks
+ds = xr.open_dataset("large_model_output.nc", chunks={"time": 100, "lat": 100, "lon": 100})
+obs = xr.open_dataset("large_observations.nc", chunks={"time": 100, "lat": 100, "lon": 100})
+
+# Compute metric lazily (returns a Dask-backed DataArray)
+rmse_lazy = ms.RMSE(obs.temperature, ds.temperature, axis="time")
+
+# The computation only happens when you explicitly call .compute()
+rmse_map = rmse_lazy.compute()
 ```
 
 ## Categorical Event Analysis
@@ -234,6 +277,80 @@ sal_s, sal_a, sal_l = ms.SAL(obs_field, mod_field, threshold=5)
 print(f"\nSpatial Verification:")
 print(f"  Fractions Skill Score: {fss:.3f}")
 print(f"  SAL - Structure: {sal_s:.3f}, Amplitude: {sal_a:.3f}, Location: {sal_l:.3f}")
+```
+
+## Advanced Analysis Methods
+
+### 1. Kolmogorov-Zurbenko (KZ) Filter
+
+The KZ filter is a low-pass filter widely used in air quality analysis to separate different time scales.
+
+```python
+# Separate long-term trend from daily variations
+filtered_data = ms.kz_filter(observed_temps, m=5, k=3)
+```
+
+### 2. Air Quality Metrics (MDA8)
+
+Maximum Daily 8-hour Average (MDA8) is a standard regulatory metric for ozone.
+
+```python
+# Assuming hourly ozone data
+mda8_ozone = ms.mda8(hourly_ozone_da)
+```
+
+### 3. Climatology and Diurnal Cycle
+
+```python
+# Compute monthly climatology
+monthly_climo = ms.climatology(obs_da, freq="month")
+
+# Compute average hourly profile
+diurnal = ms.diurnal_cycle(obs_da)
+```
+
+### 4. Weighted Spatial Mean
+
+For global or regional lat/lon grids, area-weighting (cos(lat)) is crucial.
+
+```python
+spatial_mean = ms.weighted_spatial_mean(da_2d, lat_dim="lat", lon_dim="lon")
+```
+
+### 5. FFT Analysis
+
+Fast Fourier Transform (FFT) analysis for periodicities and spectral decomposition.
+
+```python
+# Compute Power Spectral Density
+psd = ms.fft_analysis(obs_da, dim="time", output="psd")
+```
+
+### 6. Power Spectrum (Welch's Method)
+
+For smoother spectral estimates, use Welch's method.
+
+```python
+# Compute Power Spectrum using Welch's method
+psd_smooth = ms.power_spectrum(obs_da, dim="time", fs=1.0, nperseg=256)
+```
+
+### 7. Anomalies
+
+Compute anomalies by subtracting the climatology (monthly, seasonal, or daily).
+
+```python
+# Compute monthly anomalies directly using the accessor
+monthly_anom = obs_da.monet_stats.anomalies(freq="month")
+```
+
+### 8. Detrending
+
+Remove linear or constant trends from your data.
+
+```python
+# Remove a linear trend from a DataArray
+detrended_data = obs_da.monet_stats.detrend(method="linear")
 ```
 
 ## Wind Direction Analysis
@@ -308,36 +425,15 @@ rmse_clean = ms.RMSE(obs_with_nan, mod_with_nan)
 print(f"\nRMSE with NaN handling: {rmse_clean:.3f}")
 ```
 
-## Visualization Integration
-
-```python
-import matplotlib.pyplot as plt
-
-# Scatter plot with perfect correlation line
-plt.figure(figsize=(8, 6))
-plt.scatter(observed_temps, model_temps, alpha=0.6, s=50)
-plt.plot([observed_temps.min(), observed_temps.max()],
-         [observed_temps.min(), observed_temps.max()],
-         'r--', lw=2, label='Perfect correlation')
-
-plt.xlabel('Observed Temperature (°C)')
-plt.ylabel('Modeled Temperature (°C)')
-plt.title(f'Temperature Forecast Verification (R² = {ms.R2(observed_temps, model_temps):.3f})')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.show()
-```
-
 ## Next Steps
 
 Now that you've learned the basics:
 
 1. **Explore Advanced Features**: Check out the [Climate Data Analysis Workflows](workflows/climate-data-analysis.md)
 2. **Dive into API**: Browse the complete [API Reference](api/overview.md)
-3. **Learn Spatial Methods**: Discover [Spatial Verification](workflows/spatial-verification.md)
-4. **Ensemble Analysis**: Understand [Ensemble Verification](workflows/ensemble-verification.md)
-5. **View Examples**: See practical [Examples](examples/basic-usage.md)
+3. **Learn Spatial Methods**: Discover [Spatial & Ensemble Metrics](api/spatial-ensemble-metrics.md)
+4. **Ensemble Analysis**: Understand [Ensemble Analysis](api/spatial-ensemble-metrics.md)
+5. **View Examples**: See practical [Examples](notebooks/01_basic_statistical_analysis.ipynb)
 
 ## Tips for Best Practices
 

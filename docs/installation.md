@@ -358,7 +358,7 @@ After completing the installation:
 1. **Basic Usage**: Start with the [Getting Started Guide](getting-started.md)
 2. **API Reference**: Explore the complete [API Documentation](api/overview.md)
 3. **Workflows**: Learn specific [Climate Data Workflows](workflows/climate-data-analysis.md)
-4. **Examples**: Check out practical [Examples](examples/basic-usage.md)
+4. **Examples**: Check out practical [Examples](notebooks/01_basic_statistical_analysis.ipynb)
 
 ## Support
 

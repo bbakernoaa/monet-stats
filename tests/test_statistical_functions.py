@@ -10,20 +10,9 @@ from monet_stats.contingency_metrics import FAR, POD
 from monet_stats.correlation_metrics import AC, R2
 from monet_stats.correlation_metrics import pearsonr as stats_pearsonr
 from monet_stats.efficiency_metrics import NSE as eff_NSE
-from monet_stats.error_metrics import (
-    LOG_ERROR,
-    MAE,
-    MAPE,
-    MASE,
-    MB,
-    NMSE,
-    NRMSE,
-    RMSE,
-    MedAE,
-    sMAPE,
-)
+from monet_stats.error_metrics import LOG_ERROR, MAE, MAPE, MASE, MB, NMSE, NRMSE, RMSE, MedAE, sMAPE
 from monet_stats.relative_metrics import NMB
-from monet_stats.spatial_ensemble_metrics import CRPS, FSS
+from monet_stats.spatial_ensemble_metrics import CRPS
 from monet_stats.utils_stats import mae, rmse
 
 
@@ -37,28 +26,28 @@ class TestErrorMetrics:
         mod = np.array([1.1, 1.9, 3.1, 3.9, 5.2])
         return obs, mod
 
-    def test_MAE(self, sample_data) -> None:
+    def test_MAE(self, sample_data):
         """Test Mean Absolute Error."""
         obs, mod = sample_data
         result = MAE(obs, mod)
         expected = np.mean(np.abs(obs - mod))
         assert np.isclose(result, expected)
 
-    def test_RMSE(self, sample_data) -> None:
+    def test_RMSE(self, sample_data):
         """Test Root Mean Square Error."""
         obs, mod = sample_data
         result = RMSE(obs, mod)
         expected = np.sqrt(np.mean((obs - mod) ** 2))
         assert np.isclose(result, expected)
 
-    def test_MB(self, sample_data) -> None:
+    def test_MB(self, sample_data):
         """Test Mean Bias."""
         obs, mod = sample_data
         result = MB(obs, mod)
-        expected = np.mean(obs - mod)
+        expected = np.mean(mod - obs)
         assert np.isclose(result, expected)
 
-    def test_NRMSE(self, sample_data) -> None:
+    def test_NRMSE(self, sample_data):
         """Test Normalized Root Mean Square Error."""
         obs, mod = sample_data
         result = NRMSE(obs, mod)
@@ -67,14 +56,14 @@ class TestErrorMetrics:
         expected = rmse_val / obs_range
         assert np.isclose(result, expected)
 
-    def test_MAPE(self, sample_data) -> None:
+    def test_MAPE(self, sample_data):
         """Test Mean Absolute Percentage Error."""
         obs, mod = sample_data
         result = MAPE(obs, mod)
         expected = np.mean(np.abs((mod - obs) / obs)) * 100
         assert np.isclose(result, expected)
 
-    def test_MASE(self, sample_data) -> None:
+    def test_MASE(self, sample_data):
         """Test Mean Absolute Scaled Error."""
         obs, mod = sample_data
         result = MASE(obs, mod)
@@ -85,21 +74,21 @@ class TestErrorMetrics:
         expected = model_error / naive_error
         assert np.isclose(result, expected)
 
-    def test_MedAE(self, sample_data) -> None:
+    def test_MedAE(self, sample_data):
         """Test Median Absolute Error."""
         obs, mod = sample_data
         result = MedAE(obs, mod)
         expected = np.median(np.abs(obs - mod))
         assert np.isclose(result, expected)
 
-    def test_sMAPE(self, sample_data) -> None:
+    def test_sMAPE(self, sample_data):
         """Test Symmetric Mean Absolute Percentage Error."""
         obs, mod = sample_data
         result = sMAPE(obs, mod)
         expected = np.mean(200 * np.abs(mod - obs) / (np.abs(mod) + np.abs(obs)))
         assert np.isclose(result, expected)
 
-    def test_NMSE(self, sample_data) -> None:
+    def test_NMSE(self, sample_data):
         """Test Normalized Mean Square Error."""
         obs, mod = sample_data
         result = NMSE(obs, mod)
@@ -108,7 +97,7 @@ class TestErrorMetrics:
         expected = mse / obs_var
         assert np.isclose(result, expected)
 
-    def test_LOG_ERROR(self, sample_data) -> None:
+    def test_LOG_ERROR(self, sample_data):
         """Test Logarithmic Error Metric."""
         obs, mod = sample_data
         # Add small offset to ensure positive values
@@ -131,7 +120,7 @@ class TestCorrelationMetrics:
         mod = np.array([1.1, 1.9, 3.1, 3.9, 5.2])
         return obs, mod
 
-    def test_R2(self, sample_data) -> None:
+    def test_R2(self, sample_data):
         """Test Coefficient of Determination."""
         obs, mod = sample_data
         result = R2(obs, mod)
@@ -146,14 +135,14 @@ class TestCorrelationMetrics:
         expected = float(r_val) ** 2
         assert np.isclose(result, expected, rtol=1e-10)
 
-    def test_pearsonr(self, sample_data) -> None:
+    def test_pearsonr(self, sample_data):
         """Test Pearson correlation coefficient."""
         obs, mod = sample_data
         result = stats_pearsonr(obs, mod)
         expected, _ = pearsonr(obs, mod)
         assert np.isclose(result, expected)
 
-    def test_AC(self, sample_data) -> None:
+    def test_AC(self, sample_data):
         """Test Anomaly Correlation."""
         obs, mod = sample_data
         result = AC(obs, mod)
@@ -179,14 +168,14 @@ class TestContingencyMetrics:
         mod = np.array([1, 1, 0, 0])  # Perfect forecast
         return obs, mod
 
-    def test_POD(self, contingency_data) -> None:
+    def test_POD(self, contingency_data):
         """Test Probability of Detection."""
         obs, mod = contingency_data
         result = POD(obs, mod, 0.5)  # Threshold
         # With our test data, this should be 1.0 (perfect detection)
         assert np.isclose(result, 1.0)
 
-    def test_FAR(self, contingency_data) -> None:
+    def test_FAR(self, contingency_data):
         """Test False Alarm Rate."""
         obs, mod = contingency_data
         result = FAR(obs, mod, 0.5)  # Threshold
@@ -204,7 +193,7 @@ class TestEfficiencyMetrics:
         mod = np.array([1.1, 1.9, 3.1, 3.9, 5.2])
         return obs, mod
 
-    def test_NSE(self, sample_data) -> None:
+    def test_NSE(self, sample_data):
         """Test Nash-Sutcliffe Efficiency."""
         obs, mod = sample_data
         result = eff_NSE(obs, mod)
@@ -224,7 +213,7 @@ class TestRelativeMetrics:
         mod = np.array([1.1, 1.9, 3.1, 3.9, 5.2])
         return obs, mod
 
-    def test_NMB(self, sample_data) -> None:
+    def test_NMB(self, sample_data):
         """Test Normalized Mean Bias."""
         obs, mod = sample_data
         result = NMB(obs, mod)
@@ -242,14 +231,14 @@ class TestUtilsStats:
         mod = np.array([1.1, 1.9, 3.1, 3.9, 5.2])
         return obs, mod
 
-    def test_rmse(self, sample_data) -> None:
+    def test_rmse(self, sample_data):
         """Test RMSE utility function."""
         obs, mod = sample_data
         result = rmse(obs, mod)
         expected = np.sqrt(np.mean((obs - mod) ** 2))
         assert np.isclose(result, expected)
 
-    def test_mae(self, sample_data) -> None:
+    def test_mae(self, sample_data):
         """Test MAE utility function."""
         obs, mod = sample_data
         result = mae(obs, mod)
@@ -260,16 +249,7 @@ class TestUtilsStats:
 class TestSpatialEnsembleMetrics:
     """Test spatial and ensemble metrics."""
 
-    def test_FSS(self) -> None:
-        """Test Fractions Skill Score."""
-        # Simple 2D arrays for testing
-        obs = np.array([[1, 0], [0, 1]], dtype=float)
-        mod = np.array([[1, 0], [0, 1]], dtype=float)
-        result = FSS(obs, mod, window=1, threshold=0.5)
-        # Perfect match should give high FSS
-        assert 0 <= result <= 1
-
-    def test_CRPS(self) -> None:
+    def test_CRPS(self):
         """Test Continuous Ranked Probability Score."""
         # Ensemble with 3 members
         ensemble = np.array([[1, 2], [2, 3], [3, 4]], dtype=float)

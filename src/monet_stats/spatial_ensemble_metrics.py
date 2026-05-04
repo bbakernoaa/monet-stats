@@ -1,463 +1,583 @@
 """
-Spatial and Ensemble Metrics for Atmospheric Sciences
+Spatial and Ensemble Metrics for Atmospheric Sciences (Aero Protocol Compliant)
 """
 
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
-from numpy.typing import ArrayLike
+import xarray as xr
+
+from .utils_stats import _resolve_axis_to_dim, _update_history
 
 
-def FSS(
-    obs: ArrayLike, mod: ArrayLike, window: int = 3, threshold: Optional[float] = None
-) -> Any:
+def EDS(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    threshold: float,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, Iterable[int]]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
-    Fractions Skill Score (FSS) for spatial fields.
+    Extreme Dependency Score (EDS) for rare event detection (Aero Protocol).
 
     Typical Use Cases
     -----------------
-    - Assessing spatial skill of high-resolution models for precipitation, air quality, or other gridded fields.
-    - Used in spatial verification to compare observed and modeled event patterns at different scales.
+    - Assessing model performance for rare extreme events (e.g., heavy precipitation).
+    - Used when traditional scores like CSI or ETS go to zero as the event becomes rarer.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
-        Observed field (2D).
-    mod : array_like or xarray.DataArray
-        Model field (2D).
-    window : int, optional
-        Size of square window (odd integer), default is 3.
-    threshold : float, optional
-        Event threshold. If None, uses mean of obs.
-
-    Returns
-    -------
-    fss : float
-        Fractions Skill Score (1 is perfect, 0 is no skill).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> obs = np.zeros((5, 5)); obs[2, 2] = 1
-    >>> mod = np.zeros((5, 5)); mod[2, 3] = 1
-    >>> FSS(obs, mod, window=3, threshold=0.5)
-    0.8888888888888888
-    """
-    try:
-        import xarray as xr
-    except ImportError:
-        xr = None
-    from scipy.ndimage import uniform_filter
-
-    if threshold is None:
-        threshold = np.nanmean(obs)
-    if (
-        xr is not None
-        and isinstance(obs, xr.DataArray)
-        and isinstance(mod, xr.DataArray)
-    ):
-        obs_bin = (obs >= threshold).astype(float)
-        mod_bin = (mod >= threshold).astype(float)
-        obs_frac = xr.DataArray(
-            uniform_filter(obs_bin, window, mode="nearest"),
-            dims=obs.dims,
-            coords=obs.coords,
-        )
-        mod_frac = xr.DataArray(
-            uniform_filter(mod_bin, window, mode="nearest"),
-            dims=mod.dims,
-            coords=mod.coords,
-        )
-        num = ((obs_frac - mod_frac) ** 2).mean().item()
-        denom = (obs_frac**2).mean().item() + (mod_frac**2).mean().item()
-    else:
-        obs_bin = (np.asarray(obs) >= threshold).astype(float)
-        mod_bin = (np.asarray(mod) >= threshold).astype(float)
-        obs_frac = uniform_filter(obs_bin, window, mode="nearest")
-        mod_frac = uniform_filter(mod_bin, window, mode="nearest")
-        num = np.nanmean((obs_frac - mod_frac) ** 2)
-        denom = np.nanmean(obs_frac**2) + np.nanmean(mod_frac**2)
-    if denom == 0:
-        return 1.0
-    return 1 - num / denom
-
-
-def EDS(obs: ArrayLike, mod: ArrayLike, threshold: float) -> Any:
-    """
-    Extreme Dependency Score (EDS) for rare event detection.
-
-    Parameters
-    ----------
-    obs : array_like or xarray.DataArray
-        Observed field (2D).
-    mod : array_like or xarray.DataArray
-        Model field (2D).
+    obs : xarray.DataArray or numpy.ndarray
+        Observed field.
+    mod : xarray.DataArray or numpy.ndarray
+        Model field.
     threshold : float
-        Event threshold.
+        Event threshold to define the extreme event.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the score (xarray only).
+        If None, reduces over all dimensions.
+    axis : int or iterable of int, optional
+        Axis or axes along which to compute the score (numpy only).
 
     Returns
     -------
-    eds : float
+    xarray.DataArray, numpy.ndarray, or float
         Extreme Dependency Score.
 
     Examples
     --------
     >>> import numpy as np
-    >>> obs = np.zeros((5, 5)); obs[2, 2] = 1
-    >>> mod = np.zeros((5, 5)); mod[2, 3] = 1
+    >>> obs = np.zeros((10, 10)); obs[5, 5] = 1
+    >>> mod = np.zeros((10, 10)); mod[5, 5] = 1
     >>> EDS(obs, mod, threshold=0.5)
-    0.0
+    1.0
     """
-    obs_bin = np.asarray(obs) >= threshold
-    mod_bin = np.asarray(mod) >= threshold
-    hits = np.logical_and(obs_bin, mod_bin).sum()
-    n_obs = obs_bin.sum()
-    n_mod = mod_bin.sum()
-    n = np.size(obs)
-    if hits == 0 or n_obs == 0 or n_mod == 0:
-        return np.nan
-    p = n_obs / n
-    q = n_mod / n
-    eds = np.log(hits / n) / np.log(p * q) if p > 0 and q > 0 else np.nan
-    return eds
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        obs_bin = obs >= threshold
+        mod_bin = mod >= threshold
+
+        mask = obs.notnull() & mod.notnull()
+        obs_bin = obs_bin & mask
+        mod_bin = mod_bin & mask
+
+        hits = (obs_bin & mod_bin).sum(dim=dim)
+        n_obs = obs_bin.sum(dim=dim)
+        n_mod = mod_bin.sum(dim=dim)
+        n = mask.sum(dim=dim)
+
+        # EDS = log(hits/n) / log(n_obs*n_mod / n^2)
+        # Avoid log(0) and division by zero
+        # p = n_obs / n, q = n_mod / n
+        with np.errstate(divide="ignore", invalid="ignore"):
+            eds = xr.where(
+                (hits > 0) & (n_obs > 0) & (n_mod > 0), np.log(hits / n) / np.log((n_obs / n) * (n_mod / n)), np.nan
+            )
+
+        return _update_history(eds, "Extreme Dependency Score (EDS)")
+
+    # NumPy path
+    obs_arr = np.asarray(obs)
+    mod_arr = np.asarray(mod)
+    mask = ~np.isnan(obs_arr) & ~np.isnan(mod_arr)
+
+    obs_bin = (obs_arr >= threshold) & mask
+    mod_bin = (mod_arr >= threshold) & mask
+
+    hits = np.sum(obs_bin & mod_bin, axis=axis)
+    n_obs = np.sum(obs_bin, axis=axis)
+    n_mod = np.sum(mod_bin, axis=axis)
+    n = np.sum(mask, axis=axis)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        res = np.where(
+            (hits > 0) & (n_obs > 0) & (n_mod > 0), np.log(hits / n) / np.log((n_obs / n) * (n_mod / n)), np.nan
+        )
+        return res.item() if np.ndim(res) == 0 else res
 
 
-def CRPS(ensemble: ArrayLike, obs: ArrayLike, axis: int = 0) -> Any:
+def CRPS(
+    ensemble: Union[xr.DataArray, np.ndarray],
+    obs: Union[xr.DataArray, np.ndarray],
+    axis: Union[int, str] = 0,
+) -> Union[xr.DataArray, np.ndarray]:
     """
     Continuous Ranked Probability Score (CRPS) for ensemble forecasts.
 
+    Supports lazy evaluation via Xarray/Dask.
+
     Parameters
     ----------
-    ensemble : array_like
-        Ensemble forecasts, shape (n_ensemble, ...).
-    obs : array_like
-        Observed values, shape (...).
-    axis : int, optional
-        Axis corresponding to ensemble members. Default is 0.
+    ensemble : xarray.DataArray or numpy.ndarray
+        Ensemble forecasts. If DataArray, should have an ensemble dimension.
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    axis : int or str, optional
+        Axis or dimension corresponding to ensemble members. Default is 0.
 
     Returns
     -------
-    crps : ndarray
-        CRPS values, shape (...).
+    xarray.DataArray or numpy.ndarray
+        CRPS values.
 
     Examples
     --------
     >>> import numpy as np
     >>> ens = np.array([[1, 2], [2, 3], [3, 4]])
     >>> obs = np.array([2, 3])
-    >>> CRPS(ens, obs)
+    >>> CRPS(ens, obs, axis=0)
     array([0.22222222, 0.22222222])
     """
-    ens = np.asarray(ensemble)
-    obs = np.asarray(obs)
-    ens_sorted = np.sort(ens, axis=axis)
-    n = ens.shape[axis]
-    # Compute empirical CDFs
-    cdf_ens = np.arange(1, n + 1) / n
-    shape = [1] * ens.ndim
-    shape[axis] = n
-    cdf_ens = np.reshape(cdf_ens, shape)
-    # Broadcast obs for comparison
-    obs_broadcast = np.expand_dims(obs, axis)
-    cdf_obs = (ens_sorted >= obs_broadcast).astype(float)
-    crps = np.sum((cdf_ens - cdf_obs) ** 2, axis=axis)
-    return crps
+
+    def _crps_numpy(ens: np.ndarray, observation: np.ndarray, ens_axis: int = 0) -> np.ndarray:
+        """
+        Core NumPy implementation of CRPS using the energy form.
+        CRPS = E|X-y| - 0.5 * E|X-X'|
+        """
+        n = ens.shape[ens_axis]
+        if n == 0:
+            return np.nan
+
+        # 1. Mean absolute error part: E|X-y|
+        obs_broadcast = np.expand_dims(observation, axis=ens_axis)
+        mae = np.mean(np.abs(ens - obs_broadcast), axis=ens_axis)
+
+        # 2. Ensemble spread part: 0.5 * E|X-X'|
+        # Optimized O(N log N) spread calculation using sorted weights
+        ens_sorted = np.sort(ens, axis=ens_axis)
+        i = np.arange(1, n + 1)
+        weights = (2 * i - n - 1) / (n * n)
+
+        # Reshape weights for broadcasting
+        w_shape = [1] * ens.ndim
+        w_shape[ens_axis] = n
+        weights = weights.reshape(w_shape)
+
+        spread = np.sum(weights * ens_sorted, axis=ens_axis)
+
+        return mae - spread
+
+    if isinstance(ensemble, xr.DataArray) and isinstance(obs, xr.DataArray):
+        # Determine core dimension
+        if isinstance(axis, int):
+            ens_dim = ensemble.dims[axis]
+        else:
+            ens_dim = axis
+
+        res = xr.apply_ufunc(
+            _crps_numpy,
+            ensemble,
+            obs,
+            input_core_dims=[[ens_dim], []],
+            output_core_dims=[[]],
+            kwargs={"ens_axis": -1},
+            dask="parallelized",
+            output_dtypes=[float],
+            dask_gufunc_kwargs={"allow_rechunk": True},
+        )
+        return _update_history(res, "Continuous Ranked Probability Score (CRPS)")
+
+    return _crps_numpy(np.asarray(ensemble), np.asarray(obs), ens_axis=axis)
 
 
-def spread_error(ensemble: ArrayLike, obs: ArrayLike, axis: int = 0) -> Any:
+def spread_error(
+    ensemble: Union[xr.DataArray, np.ndarray],
+    obs: Union[xr.DataArray, np.ndarray],
+    axis: Union[int, str] = 0,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    reduce_axis: Optional[Union[int, Iterable[int]]] = None,
+) -> Tuple[Any, Any]:
     """
-    Spread-Error Relationship for ensemble forecasts.
+    Spread-Error Relationship for ensemble forecasts (Aero Protocol).
+
+    Typical Use Cases
+    -----------------
+    - Assessing if the ensemble spread is a good proxy for the forecast error.
+    - Ideally, mean spread should equal RMSE of the ensemble mean.
 
     Parameters
     ----------
-    ensemble : array_like
-        Ensemble forecasts, shape (n_ensemble, ...).
-    obs : array_like
-        Observed values, shape (...).
-    axis : int, optional
-        Axis corresponding to ensemble members. Default is 0.
+    ensemble : xarray.DataArray or numpy.ndarray
+        Ensemble forecasts.
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    axis : int or str, optional
+        Axis or dimension corresponding to ensemble members. Default is 0.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the mean spread and error (xarray only).
+        If None, reduces over all dimensions.
+    reduce_axis : int or iterable of int, optional
+        Axis or axes along which to compute the mean spread and error (numpy only).
 
     Returns
     -------
-    mean_spread : float
+    mean_spread : float, numpy.ndarray, or xarray.DataArray
         Mean ensemble spread.
-    mean_error : float
+    mean_error : float, numpy.ndarray, or xarray.DataArray
         Mean absolute error of ensemble mean vs. obs.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> ens = np.array([[1, 2], [2, 3], [3, 4]])
-    >>> obs = np.array([2, 3])
-    >>> spread_error(ens, obs)
-    (0.816496580927726, 0.3333333333333333)
     """
+    if isinstance(ensemble, xr.DataArray) and isinstance(obs, xr.DataArray):
+        # Resolve ensemble dimension
+        e_dim = axis
+        if isinstance(axis, int):
+            e_dim = ensemble.dims[axis]
+
+        spread_field = ensemble.std(dim=e_dim)
+        ens_mean_field = ensemble.mean(dim=e_dim)
+        error_field = abs(ens_mean_field - obs)
+
+        # Average over specified dimensions (or all remaining)
+        m_spread = spread_field.mean(dim=dim)
+        m_error = error_field.mean(dim=dim)
+
+        return _update_history(m_spread, "Mean Ensemble Spread"), _update_history(m_error, "Mean Ensemble Error")
+
+    # NumPy path
     ens = np.asarray(ensemble)
-    obs = np.asarray(obs)
-    spread = np.std(ens, axis=axis)
-    ens_mean = np.mean(ens, axis=axis)
-    error = np.abs(ens_mean - obs)
-    return np.mean(spread), np.mean(error)
+    observation = np.asarray(obs)
+
+    # Calculate spread and ensemble mean
+    spread_f = np.std(ens, axis=axis)
+    ens_m_f = np.mean(ens, axis=axis)
+    error_f = np.abs(ens_m_f - observation)
+
+    # Average over specified axes
+    m_spread = np.nanmean(spread_f, axis=reduce_axis)
+    m_error = np.nanmean(error_f, axis=reduce_axis)
+
+    if np.ndim(m_spread) == 0:
+        return float(m_spread), float(m_error)
+    return m_spread, m_error
 
 
-def BSS(obs: ArrayLike, mod: ArrayLike, threshold: float) -> Any:
+def BSS(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    threshold: float,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, Iterable[int]]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
     """
-    Brier Skill Score (BSS) for probabilistic forecasts.
+    Brier Skill Score (BSS) for probabilistic forecasts (Aero Protocol).
 
     Typical Use Cases
     -----------------
-    - Evaluating the accuracy of probabilistic binary forecasts (e.g., precipitation occurrence).
-    - Used in meteorology and environmental modeling to assess forecast skill relative to a reference.
-
-    Typical Values and Range
-    ------------------------
-    - Range: -∞ to 1
-    - 1: Perfect forecast
-    - 0: Same skill as reference forecast
-    - Negative: Worse than reference forecast
+    - Evaluating the accuracy of probabilistic binary forecasts relative to climatology.
+    - Common in meteorological verification for event occurrence.
 
     Parameters
     ----------
-    obs : array_like
-        Observed binary outcomes (0 or 1).
-    mod : array_like
-        Forecast probabilities (0 to 1).
+    obs : xarray.DataArray or numpy.ndarray
+        Observed binary outcomes (0 or 1) or continuous values (will be binarized).
+    mod : xarray.DataArray or numpy.ndarray
+        Forecast probabilities (0 to 1) or continuous values (will be binarized).
     threshold : float
-        Probability threshold for converting forecast to binary.
+        Threshold for converting values to binary events.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the score (xarray only).
+    axis : int or iterable of int, optional
+        Axis or axes along which to compute the score (numpy only).
 
     Returns
     -------
-    float
+    xarray.DataArray, numpy.ndarray, or float
         Brier Skill Score.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> obs = np.array([0, 1, 1, 0])
-    >>> mod = np.array([0.2, 0.8, 0.9, 0.3])
-    >>> BSS(obs, mod, threshold=0.5)
-    0.75
     """
-    obs = np.asarray(obs)
-    mod = np.asarray(mod)
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        # Binarize if not already
+        o_bin = (obs >= threshold).astype(float)
+        m_prob = (mod >= threshold).astype(float)
 
-    # Convert forecast probabilities to binary based on threshold
-    mod_binary = (mod >= threshold).astype(float)
+        bs = ((m_prob - o_bin) ** 2).mean(dim=dim)
+        obs_clim = o_bin.mean(dim=dim)
+        bs_ref = ((obs_clim - o_bin) ** 2).mean(dim=dim)
 
-    # Calculate Brier Score
-    bs = np.mean((mod_binary - obs) ** 2)
+        res = xr.where(bs_ref != 0, 1.0 - (bs / bs_ref), 0.0)
+        return _update_history(res, "Brier Skill Score (BSS)")
 
-    # Calculate reference Brier Score (climatology)
-    obs_clim = np.mean(obs)
-    bs_ref = np.mean((obs_clim - obs) ** 2)
+    o = np.asarray(obs)
+    m = np.asarray(mod)
+    o_bin = (o >= threshold).astype(float)
+    m_prob = (m >= threshold).astype(float)
 
-    # Calculate Brier Skill Score
-    bss = 1 - (bs / bs_ref) if bs_ref != 0 else 0
-
-    return bss
-
-
-def _sal_structure(X: ArrayLike, threshold: float) -> Tuple[float, float]:
-    """Helper function to calculate structure component for SAL."""
-    import scipy.ndimage as ndi
-
-    result = ndi.label(threshold <= X)
-    if isinstance(result, tuple):
-        labeled, n = result
+    bs = np.nanmean((m_prob - o_bin) ** 2, axis=axis)
+    obs_clim = np.nanmean(o_bin, axis=axis)
+    if axis is not None:
+        # Keep dimensions for subtraction
+        obs_clim_kd = np.nanmean(o_bin, axis=axis, keepdims=True)
     else:
-        labeled = result
-        n = 0 if labeled is None else 1
-    if n == 0:
-        return 0.0, 0.0
-    masses = ndi.sum(X, labeled, index=np.arange(1, n + 1))
-    max_mass = np.max(masses)
-    total_mass = np.sum(masses)
-    return max_mass, total_mass
+        obs_clim_kd = obs_clim
+
+    bs_ref = np.nanmean((obs_clim_kd - o_bin) ** 2, axis=axis)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        res = np.where(bs_ref != 0, 1.0 - (bs / bs_ref), 0.0)
+        return res.item() if np.ndim(res) == 0 else res
 
 
-def _sal_centroid(X: ArrayLike, threshold: float) -> Any:
-    """Helper function to calculate centroid for SAL location component."""
-    import scipy.ndimage as ndi
-
-    result = ndi.label(threshold <= X)
-    if isinstance(result, tuple):
-        labeled, n = result
-    else:
-        labeled = result
-        n = 0 if labeled is None else 1
-    if n == 0:
-        return np.array([np.nan, np.nan])
-    centers = np.array(ndi.center_of_mass(X, labeled, index=np.arange(1, n + 1)))
-    masses = ndi.sum(X, labeled, index=np.arange(1, n + 1))
-    weighted = np.average(centers, axis=0, weights=masses)
-    return weighted
-
-
-def _sal_spread(X: ArrayLike, threshold: float) -> Any:
-    """Helper function to calculate spread for SAL location component."""
-    import scipy.ndimage as ndi
-
-    result = ndi.label(threshold <= X)
-    if isinstance(result, tuple):
-        labeled, n = result
-    else:
-        labeled = result
-        n = 0 if labeled is None else 1
-    if n == 0:
-        return 0.0
-    centers = np.array(ndi.center_of_mass(X, labeled, index=np.arange(1, n + 1)))
-    masses = ndi.sum(X, labeled, index=np.arange(1, n + 1))
-    c = np.average(centers, axis=0, weights=masses)
-    return np.average(np.linalg.norm(centers - c, axis=1), weights=masses)
-
-
-def SAL(obs: ArrayLike, mod: ArrayLike, threshold: Optional[float] = None) -> Any:
+def _sal_numpy(
+    obs_2d: np.ndarray,
+    mod_2d: np.ndarray,
+    threshold: Optional[float] = None,
+) -> Tuple[float, float, float]:
     """
-    Structure-Amplitude-Location (SAL) score for spatial verification.
-
-    Typical Use Cases
-    -----------------
-    - Evaluating the structure, amplitude, and location components of spatial forecasts.
-    - Used in meteorology for precipitation and other spatial field verification.
-    - Assessing the performance of high-resolution models.
-
-    Typical Values and Range
-    ------------------------
-    - Structure (S): -2 to 2, 0 is perfect
-    - Amplitude (A): -2 to 2, 0 is perfect
-    - Location (L): 0 to 2, 0 is perfect
+    Core NumPy implementation of SAL for a 2D field.
 
     Parameters
     ----------
-    obs : array_like or xarray.DataArray
-        Observed field (2D).
-    mod : array_like or xarray.DataArray
-        Model field (2D).
+    obs_2d : numpy.ndarray
+        Observed 2D field.
+    mod_2d : numpy.ndarray
+        Model 2D field.
     threshold : float, optional
-        Threshold for object identification. If None, uses mean of obs.
+        Threshold for object identification.
 
     Returns
     -------
-    S : float
-        Structure component (-2 to 2, 0 is best).
-    A : float
-        Amplitude component (-2 to 2, 0 is best).
-    L : float
-        Location component (0 to 2, 0 is best).
-
-    Notes
-    -----
-    SAL is a feature-based spatial verification metric. It compares the structure,
-    amplitude, and location of features (objects) in the observed and model fields.
+    S, A, L : float
+        Structure, Amplitude, and Location components.
 
     Examples
     --------
     >>> import numpy as np
-    >>> obs = np.zeros((5, 5)); obs[2, 2] = 1
-    >>> mod = np.zeros((5, 5)); mod[2, 3] = 1
-    >>> SAL(obs, mod)
-    (0.0, 0.0, 0.06324555320336758)
+    >>> obs = np.random.rand(10, 10)
+    >>> mod = np.random.rand(10, 10)
+    >>> _sal_numpy(obs, mod)
     """
-    obs = np.asarray(obs)
-    mod = np.asarray(mod)
+    import scipy.ndimage as ndi
+
     if threshold is None:
-        threshold = np.mean(obs)
+        threshold = np.nanmean(obs_2d)
 
     # Amplitude
-    A = 2 * (np.mean(mod) - np.mean(obs)) / (np.mean(mod) + np.mean(obs))
+    m_mod = np.nanmean(mod_2d)
+    m_obs = np.nanmean(obs_2d)
+    denom_a = m_mod + m_obs
+    A = 2 * (m_mod - m_obs) / denom_a if denom_a != 0 else 0.0
 
     # Structure
-    max_mod, sum_mod = _sal_structure(mod, threshold)
-    max_obs, sum_obs = _sal_structure(obs, threshold)
-    S = (
-        2
-        * (max_mod / sum_mod - max_obs / sum_obs)
-        / (max_mod / sum_mod + max_obs / sum_obs)
-        if sum_mod > 0 and sum_obs > 0
-        else np.nan
-    )
+    def structure(X):
+        mask = threshold <= X
+        if not np.any(mask):
+            return 0.0, 0.0
+        labeled, n = ndi.label(mask)
+        masses = ndi.sum(X, labeled, index=np.arange(1, n + 1))
+        max_mass = np.max(masses)
+        total_mass = np.sum(masses)
+        return max_mass, total_mass
+
+    max_mod, sum_mod = structure(mod_2d)
+    max_obs, sum_obs = structure(obs_2d)
+    denom_s = (max_mod / sum_mod + max_obs / sum_obs) if sum_mod > 0 and sum_obs > 0 else 0
+    S = 2 * (max_mod / sum_mod - max_obs / sum_obs) / denom_s if denom_s != 0 else 0.0
 
     # Location
-    c_mod = _sal_centroid(mod, threshold)
-    c_obs = _sal_centroid(obs, threshold)
-    L1 = np.linalg.norm(c_mod - c_obs) / np.sqrt(obs.shape[0] ** 2 + obs.shape[1] ** 2)
+    def centroid_and_spread(X):
+        mask = threshold <= X
+        if not np.any(mask):
+            return np.array([0.0, 0.0]), 0.0, 0.0
+        labeled, n = ndi.label(mask)
+        centers = np.array(ndi.center_of_mass(X, labeled, index=np.arange(1, n + 1)))
+        masses = ndi.sum(X, labeled, index=np.arange(1, n + 1))
+        # Total mass-weighted center of the field's objects
+        c = np.average(centers, axis=0, weights=masses)
+        # Spread
+        r = np.average(np.linalg.norm(centers - c, axis=1), weights=masses)
+        return c, masses, r
 
-    # Spread of objects
-    r_mod = _sal_spread(mod, threshold)
-    r_obs = _sal_spread(obs, threshold)
-    L2 = abs(r_mod - r_obs) / np.sqrt(obs.shape[0] ** 2 + obs.shape[1] ** 2)
+    c_mod, _, r_mod = centroid_and_spread(mod_2d)
+    c_obs, _, r_obs = centroid_and_spread(obs_2d)
+
+    dist = np.linalg.norm(c_mod - c_obs)
+    max_dist = np.sqrt(obs_2d.shape[0] ** 2 + obs_2d.shape[1] ** 2)
+    L1 = dist / max_dist if max_dist != 0 else 0.0
+    L2 = abs(r_mod - r_obs) / max_dist if max_dist != 0 else 0.0
     L = L1 + L2
-    return S, A, L
+    return float(S), float(A), float(L)
 
 
-def ensemble_mean(ensemble: ArrayLike, axis: int = 0) -> Any:
+def SAL(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    threshold: Optional[float] = None,
+    lat_dim: str = "lat",
+    lon_dim: str = "lon",
+) -> Union[
+    Tuple[xr.DataArray, xr.DataArray, xr.DataArray],
+    Tuple[np.ndarray, np.ndarray, np.ndarray],
+    Tuple[float, float, float],
+]:
     """
-    Calculate the ensemble mean across ensemble members.
+    Structure-Amplitude-Location (SAL) score for spatial verification (Aero Protocol).
+
+    This implementation is vectorized over non-spatial dimensions using `xarray.apply_ufunc`
+    and supports lazy evaluation for dimensions other than the spatial ones.
 
     Parameters
     ----------
-    ensemble : array_like
-        Ensemble forecasts, shape (n_ensemble, ...).
-    axis : int, optional
-        Axis corresponding to ensemble members. Default is 0.
+    obs : xarray.DataArray or numpy.ndarray
+        Observed field. Should be 2D (lat, lon) or multi-dimensional.
+    mod : xarray.DataArray or numpy.ndarray
+        Model field.
+    threshold : float, optional
+        Threshold for object identification. If None, uses mean of observations
+        per slice (Lazy-friendly).
+    lat_dim : str, optional
+        Name of the latitude dimension. Default is 'lat'.
+    lon_dim : str, optional
+        Name of the longitude dimension. Default is 'lon'.
 
     Returns
     -------
-    ndarray
-        Ensemble mean, shape (...).
+    S, A, L : xarray.DataArray, numpy.ndarray, or float
+        Structure, Amplitude, and Location components.
 
     Examples
     --------
+    >>> import xarray as xr
     >>> import numpy as np
-    >>> ens = np.array([[1, 2], [2, 3], [3, 4]])
-    >>> ensemble_mean(ens)
-    array([2., 3.])
+    >>> obs = xr.DataArray(np.random.rand(10, 10, 10), dims=['time', 'lat', 'lon'])
+    >>> mod = xr.DataArray(np.random.rand(10, 10, 10), dims=['time', 'lat', 'lon'])
+    >>> S, A, L = SAL(obs, mod)
     """
-    ens = np.asarray(ensemble)
-    return np.mean(ens, axis=axis)
+    is_xr = isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray)
+
+    if is_xr:
+        obs, mod = xr.align(obs, mod, join="inner")
+        # Determine spatial dimensions
+        if lat_dim not in obs.dims or lon_dim not in obs.dims:
+            # Fallback to last two dimensions if lat/lon not found
+            spatial_dims = [obs.dims[-2], obs.dims[-1]]
+        else:
+            spatial_dims = [lat_dim, lon_dim]
+    else:
+        # For numpy, assume last two dimensions are spatial
+        spatial_dims = [-2, -1]
+
+    def _sal_wrapper(o: np.ndarray, m: np.ndarray, t: Optional[float]) -> Tuple[float, float, float]:
+        """
+        Wrapper for _sal_numpy to be used with xarray.apply_ufunc.
+
+        Parameters
+        ----------
+        o : numpy.ndarray
+            Observed field slice.
+        m : numpy.ndarray
+            Model field slice.
+        t : float, optional
+            Threshold.
+
+        Returns
+        -------
+        Tuple[float, float, float]
+            S, A, L components.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> o = np.random.rand(10, 10)
+        >>> m = np.random.rand(10, 10)
+        >>> _sal_wrapper(o, m, 0.5)
+        """
+        return _sal_numpy(o, m, t)
+
+    res_s, res_a, res_l = xr.apply_ufunc(
+        _sal_wrapper,
+        obs,
+        mod,
+        threshold,
+        input_core_dims=[spatial_dims, spatial_dims, []],
+        output_core_dims=[[], [], []],
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=[float, float, float],
+    )
+
+    if is_xr:
+        res_s = _update_history(res_s, "SAL: Structure component")
+        res_a = _update_history(res_a, "SAL: Amplitude component")
+        res_l = _update_history(res_l, "SAL: Location component")
+
+    return res_s, res_a, res_l
 
 
-def ensemble_std(ensemble: ArrayLike, axis: int = 0) -> Any:
+def ensemble_mean(
+    ensemble: Union[xr.DataArray, np.ndarray],
+    axis: Union[int, str] = 0,
+) -> Union[xr.DataArray, np.ndarray]:
     """
-    Calculate the ensemble standard deviation across ensemble members.
+    Calculate the ensemble mean.
 
     Parameters
     ----------
-    ensemble : array_like
-        Ensemble forecasts, shape (n_ensemble, ...).
-    axis : int, optional
-        Axis corresponding to ensemble members. Default is 0.
+    ensemble : xarray.DataArray or numpy.ndarray
+        Ensemble forecasts.
+    axis : int or str, optional
+        Axis or dimension corresponding to ensemble members. Default is 0.
 
     Returns
     -------
-    ndarray
-        Ensemble standard deviation, shape (...).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> ens = np.array([[1, 2], [2, 3], [3, 4]])
-    >>> ensemble_std(ens)
-    array([1., 1.])
+    xarray.DataArray or numpy.ndarray
+        Ensemble mean.
     """
-    ens = np.asarray(ensemble)
-    return np.std(ens, axis=axis)
+    if isinstance(ensemble, xr.DataArray):
+        dim = axis
+        if isinstance(axis, int):
+            dim = ensemble.dims[axis]
+        res = ensemble.mean(dim=dim)
+        return _update_history(res, "Ensemble Mean")
+    return np.mean(ensemble, axis=axis)
 
 
-def rank_histogram(ensemble: ArrayLike, obs: ArrayLike) -> Any:
+def ensemble_std(
+    ensemble: Union[xr.DataArray, np.ndarray],
+    axis: Union[int, str] = 0,
+) -> Union[xr.DataArray, np.ndarray]:
     """
-    Calculate the rank histogram (Talagrand diagram) for ensemble forecasts.
+    Calculate the ensemble standard deviation.
 
     Parameters
     ----------
-    ensemble : array_like
-        Ensemble forecasts, shape (n_ensemble, ...).
-    obs : array_like
-        Observed values, shape (...).
+    ensemble : xarray.DataArray or numpy.ndarray
+        Ensemble forecasts.
+    axis : int or str, optional
+        Axis or dimension corresponding to ensemble members. Default is 0.
 
     Returns
     -------
-    ndarray
+    xarray.DataArray or numpy.ndarray
+        Ensemble standard deviation.
+    """
+    if isinstance(ensemble, xr.DataArray):
+        dim = axis
+        if isinstance(axis, int):
+            dim = ensemble.dims[axis]
+        res = ensemble.std(dim=dim)
+        return _update_history(res, "Ensemble Standard Deviation")
+    return np.std(ensemble, axis=axis)
+
+
+def rank_histogram(
+    ensemble: Union[xr.DataArray, np.ndarray],
+    obs: Union[xr.DataArray, np.ndarray],
+    axis: Union[int, str] = 0,
+) -> Union[xr.DataArray, np.ndarray]:
+    """
+    Calculate the rank histogram counts.
+
+    Parameters
+    ----------
+    ensemble : xarray.DataArray or numpy.ndarray
+        Ensemble forecasts.
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    axis : int or str, optional
+        Axis or dimension corresponding to ensemble members. Default is 0.
+
+    Returns
+    -------
+    xarray.DataArray or numpy.ndarray
         Rank histogram counts.
 
     Examples
@@ -465,25 +585,161 @@ def rank_histogram(ensemble: ArrayLike, obs: ArrayLike) -> Any:
     >>> import numpy as np
     >>> ens = np.array([[1, 2], [2, 3], [3, 4]])
     >>> obs = np.array([2, 3])
-    >>> rank_histogram(ens, obs)
-    array([1, 1, 0, 0])
+    >>> rank_histogram(ens, obs, axis=0)
+    array([0., 0., 2., 0.])
     """
-    ens = np.asarray(ensemble)
-    obs = np.asarray(obs)
 
-    # Add observed values to ensemble for ranking
-    full_ensemble = np.concatenate([ens, obs[np.newaxis, ...]], axis=0)
+    def _rank_numpy(ens, observation, ens_axis=0):
+        o_exp = np.expand_dims(observation, ens_axis)
+        full_ensemble = np.concatenate([ens, o_exp], axis=ens_axis)
+        ranks = np.argsort(full_ensemble, axis=ens_axis)
+        obs_rank = np.argmax(ranks == ens.shape[ens_axis], axis=ens_axis)
+        n_ens = ens.shape[ens_axis]
+        hist, _ = np.histogram(obs_rank, bins=np.arange(n_ens + 2))
+        return hist.astype(float)
 
-    # Sort along ensemble axis
-    sorted_ens = np.argsort(full_ensemble, axis=0)
+    if isinstance(ensemble, xr.DataArray) and isinstance(obs, xr.DataArray):
+        if isinstance(axis, int):
+            ens_dim = ensemble.dims[axis]
+        else:
+            ens_dim = axis
 
-    # Find rank of observation (which was appended as the last element)
-    ranks = np.where(sorted_ens == len(ens), 1, 0)
+        def _rank_ufunc(ens, observation):
+            o_exp = np.expand_dims(observation, -1)
+            full_ensemble = np.concatenate([ens, o_exp], axis=-1)
+            ranks = np.argsort(full_ensemble, axis=-1)
+            return np.argmax(ranks == ens.shape[-1], axis=-1)
 
-    # Sum along spatial dimensions to get histogram
-    if ranks.ndim > 1:
-        rank_hist = np.sum(ranks, axis=tuple(range(1, ranks.ndim)))
-    else:
-        rank_hist = ranks
+        obs_rank = xr.apply_ufunc(
+            _rank_ufunc,
+            ensemble,
+            obs,
+            input_core_dims=[[ens_dim], []],
+            output_core_dims=[[]],
+            dask="parallelized",
+            output_dtypes=[int],
+        )
 
-    return rank_hist
+        n_ens = ensemble.sizes[ens_dim]
+        bins = np.arange(n_ens + 2)
+        if hasattr(obs_rank.data, "dask"):
+            import dask.array as da
+
+            hist, _ = da.histogram(obs_rank.data, bins=bins)
+            res = xr.DataArray(hist, dims="rank", coords={"rank": np.arange(n_ens + 1)})
+        else:
+            hist, _ = np.histogram(obs_rank.data, bins=bins)
+            res = xr.DataArray(hist, dims="rank", coords={"rank": np.arange(n_ens + 1)})
+        return _update_history(res, "Rank Histogram")
+
+    return _rank_numpy(np.asarray(ensemble), np.asarray(obs), ens_axis=axis)
+
+
+def reliability_diagram(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod_prob: Union[xr.DataArray, np.ndarray],
+    threshold: float = 0.5,
+    n_bins: int = 10,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[xr.Dataset, Dict[str, np.ndarray]]:
+    """
+    Compute reliability diagram components (Aero Protocol).
+
+    Typical Use Cases
+    -----------------
+    - Evaluating the calibration of probabilistic forecasts.
+    - Assessing whether the forecast probabilities match the observed frequencies.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed binary outcomes (0 or 1) or continuous values (will be binarized).
+    mod_prob : xarray.DataArray or numpy.ndarray
+        Forecast probabilities (0 to 1).
+    threshold : float, optional
+        Threshold for binarizing observations if they are continuous, by default 0.5.
+    n_bins : int, optional
+        Number of probability bins, by default 10.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to aggregate (xarray only).
+    axis : int, str, or iterable of int or str, optional
+        Axis or axes along which to aggregate (numpy only).
+
+    Returns
+    -------
+    xarray.Dataset or dict
+        Reliability diagram components:
+        - forecast_prob: Mean forecast probability in each bin.
+        - observed_freq: Observed frequency in each bin.
+        - bin_counts: Number of samples in each bin.
+    """
+
+    def _reliability_numpy(o: np.ndarray, m_p: np.ndarray, bins: int) -> np.ndarray:
+        o_bin = (o >= threshold).astype(float)
+        m_p = np.clip(m_p, 0, 1)
+
+        bin_edges = np.linspace(0, 1, bins + 1)
+        # Use digitize to assign each probability to a bin
+        bin_indices = np.digitize(m_p, bin_edges) - 1
+        # Handle 1.0 being assigned to bins index
+        bin_indices[bin_indices == bins] = bins - 1
+
+        forecast_prob = np.zeros(bins)
+        observed_freq = np.zeros(bins)
+        bin_counts = np.zeros(bins)
+
+        for i in range(bins):
+            mask = bin_indices == i
+            count = np.sum(mask)
+            if count > 0:
+                forecast_prob[i] = np.mean(m_p[mask])
+                observed_freq[i] = np.mean(o_bin[mask])
+                bin_counts[i] = count
+            else:
+                forecast_prob[i] = np.nan
+                observed_freq[i] = np.nan
+                bin_counts[i] = 0
+
+        return np.stack([forecast_prob, observed_freq, bin_counts])
+
+    if isinstance(obs, xr.DataArray) and isinstance(mod_prob, xr.DataArray):
+        obs, mod_prob = xr.align(obs, mod_prob, join="inner")
+        reduction_dim = _resolve_axis_to_dim(obs, dim if dim is not None else axis)
+
+        if isinstance(reduction_dim, str):
+            core_dims = [reduction_dim]
+        else:
+            core_dims = list(reduction_dim)
+
+        from .utils_stats import ensure_single_chunk
+
+        obs = ensure_single_chunk(obs, core_dims)
+        mod_prob = ensure_single_chunk(mod_prob, core_dims)
+
+        res = xr.apply_ufunc(
+            _reliability_numpy,
+            obs,
+            mod_prob,
+            input_core_dims=[core_dims, core_dims],
+            output_core_dims=[["component", "bin"]],
+            kwargs={"bins": n_bins},
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[float],
+            dask_gufunc_kwargs={"output_sizes": {"component": 3, "bin": n_bins}},
+        )
+
+        ds = xr.Dataset(
+            {
+                "forecast_prob": res.isel(component=0),
+                "observed_freq": res.isel(component=1),
+                "bin_counts": res.isel(component=2),
+            }
+        )
+        ds = ds.assign_coords(bin=np.arange(n_bins))
+        return _update_history(ds, "Reliability Diagram")
+
+    # NumPy path
+    res = _reliability_numpy(np.asarray(obs), np.asarray(mod_prob), n_bins)
+    return {"forecast_prob": res[0], "observed_freq": res[1], "bin_counts": res[2]}

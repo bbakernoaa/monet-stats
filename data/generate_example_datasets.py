@@ -14,11 +14,8 @@ import pandas as pd
 import xarray as xr
 
 
-def generate_temperature_data(
-    n_years: int = 10, n_stations: int = 10, n_ensemble_members: int = 10
-) -> Dict[str, Any]:
+def generate_temperature_data(n_years: int = 10, n_stations: int = 10, n_ensemble_members: int = 10) -> Dict[str, Any]:
     """Generate synthetic temperature data for model-observation comparison."""
-
     # Time dimension
     start_date = datetime(2010, 1, 1)
     end_date = datetime(2010 + n_years, 1, 1)
@@ -36,9 +33,7 @@ def generate_temperature_data(
 
     # Create seasonal cycle
     day_of_year = np.array([d.timetuple().tm_yday for d in dates])
-    seasonal_cycle = seasonal_amplitude * np.sin(
-        2 * np.pi * (day_of_year - 80) / 365.25
-    )
+    seasonal_cycle = seasonal_amplitude * np.sin(2 * np.pi * (day_of_year - 80) / 365.25)
 
     # Initialize arrays
     observed_temps = np.zeros((n_days, n_stations))
@@ -71,9 +66,7 @@ def generate_temperature_data(
     ensemble_forecasts = np.zeros((n_days, n_stations, n_ensemble_members))
     for i in range(n_ensemble_members):
         ensemble_bias = np.random.normal(-0.2, 0.3)  # Ensemble member bias
-        ensemble_noise = np.random.normal(
-            0, np.random.uniform(0.8, 1.8), (n_days, n_stations)
-        )
+        ensemble_noise = np.random.normal(0, np.random.uniform(0.8, 1.8), (n_days, n_stations))
 
         ensemble_forecasts[:, :, i] = modeled_temps + ensemble_bias + ensemble_noise
 
@@ -101,11 +94,8 @@ def generate_temperature_data(
     }
 
 
-def generate_precipitation_data(
-    n_years: int = 10, n_stations: int = 10
-) -> Dict[str, Any]:
+def generate_precipitation_data(n_years: int = 10, n_stations: int = 10) -> Dict[str, Any]:
     """Generate synthetic precipitation data for contingency analysis."""
-
     start_date = datetime(2010, 1, 1)
     end_date = datetime(2010 + n_years, 1, 1)
     dates = pd.date_range(start=start_date, end=end_date, freq="D")
@@ -128,14 +118,10 @@ def generate_precipitation_data(
         base_rate = np.random.uniform(0.5, 2.0)
 
         # Seasonal variation
-        seasonal_factor = 1 + 0.5 * np.sin(
-            2 * np.pi * np.array([d.timetuple().tm_yday for d in dates]) / 365.25
-        )
+        seasonal_factor = 1 + 0.5 * np.sin(2 * np.pi * np.array([d.timetuple().tm_yday for d in dates]) / 365.25)
 
         # Generate daily precipitation
-        daily_precip = (
-            np.random.gamma(shape, scale, n_days) * seasonal_factor * base_rate
-        )
+        daily_precip = np.random.gamma(shape, scale, n_days) * seasonal_factor * base_rate
         # Some days will have no precipitation
         no_precip_prob = 0.7  # 70% of days have no rain
         daily_precip[np.random.random(n_days) < no_precip_prob] = 0
@@ -183,7 +169,6 @@ def generate_precipitation_data(
 
 def generate_wind_data(n_years: int = 5, n_stations: int = 5) -> Dict[str, Any]:
     """Generate synthetic wind data with direction and speed."""
-
     start_date = datetime(2015, 1, 1)
     end_date = datetime(2015 + n_years, 1, 1)
     dates = pd.date_range(start=start_date, end=end_date, freq="H")  # Hourly data
@@ -209,29 +194,18 @@ def generate_wind_data(n_years: int = 5, n_stations: int = 5) -> Dict[str, Any]:
         diurnal_cycle = 2 * np.sin(2 * np.pi * hour_of_day / 24)  # Diurnal variation
 
         day_of_year = np.array([d.timetuple().tm_yday for d in dates])
-        seasonal_cycle = 3 * np.sin(
-            2 * np.pi * (day_of_year - 80) / 365.25
-        )  # Seasonal variation
+        seasonal_cycle = 3 * np.sin(2 * np.pi * (day_of_year - 80) / 365.25)  # Seasonal variation
 
         # Generate wind speed with realistic patterns
-        speed_noise = np.random.lognormal(
-            0, 0.3, n_hours
-        )  # Lognormal for positive values
+        speed_noise = np.random.lognormal(0, 0.3, n_hours)  # Lognormal for positive values
         observed_wind_speed[:, i] = (
-            base_speed
-            + diurnal_cycle
-            + seasonal_cycle
-            + speed_noise * np.random.uniform(0.5, 1.5)
+            base_speed + diurnal_cycle + seasonal_cycle + speed_noise * np.random.uniform(0.5, 1.5)
         )
-        observed_wind_speed[:, i] = np.maximum(
-            observed_wind_speed[:, i], 0
-        )  # Ensure positive
+        observed_wind_speed[:, i] = np.maximum(observed_wind_speed[:, i], 0)  # Ensure positive
 
         # Generate wind direction with circular statistics
         dir_noise = np.random.vonmises(0, 1, n_hours)  # Von Mises for circular data
-        observed_wind_dir[:, i] = (
-            base_dir + dir_noise * 30
-        ) % 360  # Apply noise in degrees
+        observed_wind_dir[:, i] = (base_dir + dir_noise * 30) % 360  # Apply noise in degrees
 
         # Modeled wind with systematic differences
         speed_bias = np.random.normal(0, 1)  # Speed bias
@@ -252,9 +226,7 @@ def generate_wind_data(n_years: int = 5, n_stations: int = 5) -> Dict[str, Any]:
         # Correlated direction
         dir_corr_noise = correlation * dir_noise * 30
         dir_uncorr_noise = (1 - correlation) * np.random.vonmises(0, 0.7, n_hours) * 20
-        modeled_wind_dir[:, i] = (
-            base_dir + dir_bias + dir_corr_noise + dir_uncorr_noise
-        ) % 360
+        modeled_wind_dir[:, i] = (base_dir + dir_bias + dir_corr_noise + dir_uncorr_noise) % 360
 
     wind_df = pd.DataFrame(
         {
@@ -284,7 +256,6 @@ def generate_wind_data(n_years: int = 5, n_stations: int = 5) -> Dict[str, Any]:
 
 def generate_spatial_data() -> Dict[str, Any]:
     """Generate synthetic spatial data for spatial verification metrics."""
-
     # Define spatial grid
     lat_range = (30, 50)
     lon_range = (-120, -70)
@@ -308,9 +279,7 @@ def generate_spatial_data() -> Dict[str, Any]:
         lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
 
         # Large-scale pattern (e.g., temperature gradient)
-        large_scale = (
-            15 + 0.5 * (lat_grid - lat_range[0]) - 0.1 * (lon_grid - lon_range[0])
-        )
+        large_scale = 15 + 0.5 * (lat_grid - lat_range[0]) - 0.1 * (lon_grid - lon_range[0])
 
         # Add spatially correlated noise
         # Use a simple approach with spatial correlation
@@ -324,17 +293,10 @@ def generate_spatial_data() -> Dict[str, Any]:
 
         # Modeled field with systematic differences
         model_bias = np.random.normal(-0.5, 1.0)  # Spatially uniform bias
-        model_noise = ndimage.gaussian_filter(
-            np.random.normal(0, 1.5, (n_lat, n_lon)), sigma=1.5
-        )
+        model_noise = ndimage.gaussian_filter(np.random.normal(0, 1.5, (n_lat, n_lon)), sigma=1.5)
         correlation = np.random.uniform(0.7, 0.9)
 
-        modeled_field[t] = (
-            large_scale
-            + model_bias
-            + correlation * correlated_noise
-            + (1 - correlation) * model_noise
-        )
+        modeled_field[t] = large_scale + model_bias + correlation * correlated_noise + (1 - correlation) * model_noise
 
     # Create xarray datasets
     obs_da = xr.DataArray(
@@ -370,7 +332,6 @@ def generate_spatial_data() -> Dict[str, Any]:
 
 def save_datasets() -> None:
     """Generate and save all example datasets."""
-
     print("Generating temperature dataset...")
     temp_data = generate_temperature_data()
     temp_data["temp_df"].to_csv("data/temperature_obs_mod.csv", index=False)

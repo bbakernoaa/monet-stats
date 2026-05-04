@@ -8,6 +8,7 @@ Monet Stats is organized into several functional modules:
 
 ### Core Modules
 
+- **[Xarray Accessor](accessor.md)**: Pangeo-style integration for Xarray DataArrays and Datasets
 - **[Contingency Metrics](contingency-metrics.md)**: Binary event verification and categorical forecast evaluation
 - **[Correlation Metrics](correlation-metrics.md)**: Statistical correlation and skill score calculations
 - **[Error Metrics](error-metrics.md)**: Error analysis and bias quantification
@@ -15,6 +16,9 @@ Monet Stats is organized into several functional modules:
 - **[Relative Metrics](relative-metrics.md)**: Normalized and relative error measures
 - **[Spatial & Ensemble Metrics](spatial-ensemble-metrics.md)**: Spatial verification and ensemble analysis
 - **[Utility Functions](utils-stats.md)**: Helper functions and data processing utilities
+- **[Distributional Metrics](distribution-metrics.md)**: PDF and distribution comparison (Aero Protocol)
+- **[Temporal Metrics](temporal-metrics.md)**: Time-series alignment and frequency analysis (Aero Protocol)
+- **[Uncertainty Metrics](uncertainty.md)**: Confidence intervals and bootstrapping (Aero Protocol)
 
 ## Import Conventions
 
@@ -29,6 +33,22 @@ from monet_stats import contingency_metrics, correlation_metrics
 
 # Import specific functions
 from monet_stats import R2, RMSE, POD, FAR
+```
+
+### Xarray Accessor (Pangeo Style)
+
+The most recommended way to use Monet Stats with Xarray is via the `.monet_stats` accessor, which is automatically registered when you import `monet_stats`.
+
+```python
+import monet_stats
+import xarray as xr
+
+# Load data
+da = xr.open_dataarray("data.nc")
+
+# Use accessor for analysis
+climo = da.monet_stats.climatology(freq="month")
+mda8 = da.monet_stats.mda8()
 ```
 
 ### Recommended Import Style
@@ -197,34 +217,27 @@ except TypeError as e:
 
 ### Vectorized Operations
 
-All metrics use NumPy vectorized operations for optimal performance:
+All metrics use NumPy and Xarray vectorized operations for optimal performance. Loop-free implementations ensure maximum speed on modern hardware.
+
+### Out-of-Core Processing with Dask
+
+For datasets larger than RAM, `monet-stats` is fully compatible with Dask. Most metrics are "lazy-aware" and will preserve the Dask computation graph.
 
 ```python
-# Fast processing of large arrays
-large_obs = np.random.normal(20, 2, 1_000_000)
-large_mod = large_obs + np.random.normal(0, 1, 1_000_000)
+# Open large dataset with chunks (Aero Protocol recommended)
+ds = xr.open_dataset("large_data.nc", chunks={"time": "auto", "lat": 100, "lon": 100})
+obs = xr.open_dataset("obs_data.nc", chunks={"time": "auto", "lat": 100, "lon": 100})
 
-# Vectorized computation
-rmse = ms.RMSE(large_obs, large_mod)  # Efficient processing
+# Metrics stay lazy and don't trigger loading
+skill = ms.RMSE(obs.var, ds.var, axis="time")
+
+# Execution only happens on compute()
+result = skill.compute()
 ```
 
-### Memory Efficiency
+### Scientific Provenance
 
-Metrics are designed to work efficiently with large datasets:
-
-```python
-# Process in chunks for memory efficiency
-def process_large_data(obs, mod, chunk_size=100_000):
-    results = []
-    for i in range(0, len(obs), chunk_size):
-        chunk_obs = obs[i:i+chunk_size]
-        chunk_mod = mod[i:i+chunk_size]
-
-        result = ms.R2(chunk_obs, chunk_mod)
-        results.append(result)
-
-    return np.mean(results)
-```
+When using Xarray DataArrays, `monet-stats` automatically updates the `attrs['history']` to track which statistical operations were applied to the data, ensuring scientific reproducibility.
 
 ## Example Usage Patterns
 
@@ -266,6 +279,7 @@ def evaluate_model(observed, modeled):
         'NSE': ms.NSE(observed, modeled),
         'KGE': ms.KGE(observed, modeled),
         'IOA': ms.IOA(observed, modeled),
+        'FAC2': ms.FAC2(observed, modeled),
 
         # Relative measures
         'MPE': ms.MPE(observed, modeled),
@@ -297,17 +311,42 @@ contingency_metrics = {
 }
 ```
 
-## API Reference Navigation
+## API Reference
 
-Use the following links to navigate to specific module documentation:
+The following sections provide auto-generated documentation for each core module based on docstrings.
 
-- **[Contingency Metrics](contingency-metrics.md)**: Binary event verification
-- **[Correlation Metrics](correlation-metrics.md)**: Statistical correlation and skill scores
-- **[Error Metrics](error-metrics.md)**: Error analysis and bias quantification
-- **[Efficiency Metrics](efficiency-metrics.md)**: Model efficiency measures
-- **[Relative Metrics](relative-metrics.md)**: Normalized error measures
-- **[Spatial & Ensemble Metrics](spatial-ensemble-metrics.md)**: Spatial verification and ensemble analysis
-- **[Utility Functions](utils-stats.md)**: Helper functions and utilities
+### Contingency Metrics
+::: monet_stats.contingency_metrics
+
+### Correlation Metrics
+::: monet_stats.correlation_metrics
+
+### Error Metrics
+::: monet_stats.error_metrics
+
+### Efficiency Metrics
+::: monet_stats.efficiency_metrics
+
+### Relative Metrics
+::: monet_stats.relative_metrics
+
+### Spatial & Ensemble Metrics
+::: monet_stats.spatial_ensemble_metrics
+
+### Xarray Accessor
+::: monet_stats.accessor
+
+### Utility Functions
+::: monet_stats.utils_stats
+
+### Distributional Metrics
+::: monet_stats.distribution_metrics
+
+### Temporal Metrics
+::: monet_stats.temporal_metrics
+
+### Uncertainty Metrics
+::: monet_stats.uncertainty
 
 ## Contributing to API Documentation
 
@@ -317,4 +356,4 @@ If you find issues with the API documentation or would like to suggest improveme
 2. Submit new issues with clear descriptions
 3. Consider contributing improvements via pull requests
 
-For development documentation, see the [Contributing Guide](../../contributing.md).
+For development documentation, see the [Contributing Guide](../contributing.md).

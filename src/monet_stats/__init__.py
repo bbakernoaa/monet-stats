@@ -2,23 +2,42 @@
 Statistics submodule for MONET utility functions.
 """
 
-# Expose all functions from all stats submodules
-# Dynamically build __all__ from all submodules
+from typing import Any, Dict, Iterable, List, Optional, Union
+
+import numpy as np
+import pandas as pd
+import xarray as xr
 
 # Explicit imports for all public API symbols (for lint compliance)
-from .contingency_metrics import CSI, ETS, FAR, FBI, HSS, POD, TSS, scores
+from .analysis import (
+    anomalies,
+    calculate_grid_area,
+    climatology,
+    detrend,
+    diurnal_cycle,
+    exceedance_count,
+    fft_analysis,
+    kz_filter,
+    mda1,
+    mda8,
+    peak_timing,
+    percentile,
+    power_spectrum,
+    resample_data,
+    rolling_mean_8h,
+    rolling_mean_24h,
+    weighted_spatial_mean,
+)
+from .contingency_metrics import BS, CSI, ETS, FAR, FBI, HSS, POD, TSS, BSS_binary, scores
 from .correlation_metrics import (
     AC,
     CCC,
     E1,
-    IOA,
     KGE,
     R2,
-    RMSE,
     WDAC,
     WDIOA,
     WDRMSE,
-    IOA_m,
     RMSEs,
     RMSEu,
     WDIOA_m,
@@ -29,20 +48,36 @@ from .correlation_metrics import (
     spearmanr,
     taylor_skill,
 )
-from .efficiency_metrics import MAPE, MASE, MSE, NSE, PC, NSElog, NSEm, mNSE, rNSE
+from .distribution_metrics import KLDivergence, MutualInformation, WassersteinDistance
+from .efficiency_metrics import MAPE, MASE, NSE, PC, NSElog, NSEm, mNSE, rNSE
 from .error_metrics import (
+    COE,
+    CORR_INDEX,
+    CRMSE,
+    FAC2,
+    IOA,
+    LOG_ERROR,
     MAE,
     MB,
     MNB,
     MNE,
     MO,
+    MSE,
+    NMSE,
     NOP,
     NP,
     NRMSE,
+    RMSE,
+    RMSLE,
     STDO,
     STDP,
+    VOLUMETRIC_ERROR,
     WDMB,
+    IOA_m,
     MAE_m,
+    MAE_norm,
+    MAPE_mod,
+    MASE_mod,
     MdnB,
     MdnNB,
     MdnNE,
@@ -55,22 +90,40 @@ from .error_metrics import (
     NSE_beta,
     RMdn,
     RMSE_m,
+    RMSE_norm,
     WDMB_m,
     WDMdnB,
+    bias_fraction,
 )
-from .relative_metrics import FB, FE, MPE, NMB, NMB_ABS, NMdnB
+from .performance import (
+    apply_lazy_threshold,
+    chunk_array,
+    fast_mae,
+    fast_rmse,
+    get_chunk_recommendation,
+    memory_efficient_correlation,
+    optimize_for_size,
+    parallel_compute,
+    vectorize_function,
+)
+from .relative_metrics import FB, FE, MG, MPE, NMB, NMB_ABS, VG, NMdnB
 from .spatial_ensemble_metrics import (
     BSS,
     CRPS,
     EDS,
-    FSS,
     SAL,
     ensemble_mean,
     ensemble_std,
     rank_histogram,
+    reliability_diagram,
     spread_error,
 )
+from .spatial_skill_metrics import FSS, VETS
+from .temporal_metrics import CrossWaveletTransform, DynamicTimeWarping, PhaseError
+from .uncertainty import block_bootstrap
 from .utils_stats import (
+    _resolve_axis_to_dim,
+    _update_history,
     angular_difference,
     circlebias,
     circlebias_m,
@@ -82,6 +135,24 @@ from .utils_stats import (
 )
 
 __all__ = [
+    # analysis
+    "resample_data",
+    "climatology",
+    "anomalies",
+    "detrend",
+    "kz_filter",
+    "diurnal_cycle",
+    "rolling_mean_8h",
+    "rolling_mean_24h",
+    "mda1",
+    "mda8",
+    "exceedance_count",
+    "percentile",
+    "peak_timing",
+    "calculate_grid_area",
+    "weighted_spatial_mean",
+    "fft_analysis",
+    "power_spectrum",
     # contingency_metrics
     "CSI",
     "ETS",
@@ -90,18 +161,17 @@ __all__ = [
     "HSS",
     "POD",
     "TSS",
+    "BSS_binary",
+    "BS",
     "scores",
     # correlation_metrics
     "R2",
-    "RMSE",
     "WDRMSE_m",
     "WDRMSE",
     "RMSEs",
     "RMSEu",
     "d1",
     "E1",
-    "IOA_m",
-    "IOA",
     "WDIOA_m",
     "WDIOA",
     "AC",
@@ -113,6 +183,11 @@ __all__ = [
     "spearmanr",
     "kendalltau",
     # error_metrics
+    "COE",
+    "CORR_INDEX",
+    "CRMSE",
+    "LOG_ERROR",
+    "NMSE",
     "STDO",
     "STDP",
     "MNB",
@@ -136,10 +211,20 @@ __all__ = [
     "MAE_m",
     "MedAE",
     "MedAE_m",
+    "RMSE",
     "RMSE_m",
+    "IOA",
     "IOA_m",
     "NSE_alpha",
     "NSE_beta",
+    "MAPE_mod",
+    "MASE_mod",
+    "RMSE_norm",
+    "MAE_norm",
+    "FAC2",
+    "RMSLE",
+    "bias_fraction",
+    "VOLUMETRIC_ERROR",
     # efficiency_metrics
     "NSE",
     "NSEm",
@@ -156,9 +241,20 @@ __all__ = [
     "NMdnB",
     "FB",
     "FE",
+    "MG",
+    "VG",
     "MPE",
+    # distribution_metrics
+    "WassersteinDistance",
+    "KLDivergence",
+    "MutualInformation",
+    # temporal_metrics
+    "DynamicTimeWarping",
+    "CrossWaveletTransform",
+    "PhaseError",
+    # uncertainty
+    "block_bootstrap",
     # spatial_ensemble_metrics
-    "FSS",
     "EDS",
     "CRPS",
     "spread_error",
@@ -167,6 +263,10 @@ __all__ = [
     "ensemble_mean",
     "ensemble_std",
     "rank_histogram",
+    "reliability_diagram",
+    # spatial_skill_metrics
+    "FSS",
+    "VETS",
     # utils_stats
     "matchedcompressed",
     "matchmasks",
@@ -176,48 +276,276 @@ __all__ = [
     "rmse",
     "mae",
     "correlation",
+    # performance
+    "get_chunk_recommendation",
+    "apply_lazy_threshold",
+    "chunk_array",
+    "vectorize_function",
+    "parallel_compute",
+    "optimize_for_size",
+    "memory_efficient_correlation",
+    "fast_rmse",
+    "fast_mae",
 ]
 
+# Register xarray accessors
+from . import accessor as accessor
+from .plugin_system import plugin_manager
 
-from typing import Any, Dict
 
-import pandas as pd
+def stats(
+    data: Union[pd.DataFrame, xr.Dataset],
+    obs_name: str = "Obs",
+    mod_name: str = "Mod",
+    threshold: float = 0.0,
+    minval: Optional[float] = None,
+    maxval: Optional[float] = None,
+    plugins: Optional[List[str]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
+) -> Dict[str, Any]:
+    """
+    Calculate summary statistics for observations and model results (Aero Protocol).
 
-
-def stats(df: pd.DataFrame, minval: Any, maxval: Any) -> Dict[str, float]:
-    """Short summary.
+    Supports both pandas DataFrames and xarray Datasets. For xarray, it optimizes
+    performance by bundling all computations into a single Dask graph evaluation.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        Description of parameter `df`.
-    minval : Any
-        Description of parameter `minval`.
-    maxval : Any
-        Description of parameter `maxval`.
+    data : pd.DataFrame or xr.Dataset
+        Input data containing observations and model results.
+    obs_name : str, optional
+        Name of the observation column/variable, by default "Obs".
+    mod_name : str, optional
+        Name of the model column/variable, by default "Mod".
+    threshold : float, optional
+        Threshold for contingency scores (POD, FAR), by default 0.0.
+    minval : float, optional
+        Minimum value for filtering observations, by default None.
+    maxval : float, optional
+        Maximum value for filtering observations, by default None.
+    plugins : List[str], optional
+        List of registered plugin names to include in the statistics, by default None.
+    axis : int, str, or iterable, optional
+        Axis or dimension along which to compute the statistics. If None,
+        reduces over all dimensions.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply for area-weighted statistics (e.g., grid cell area).
+        If provided, `Obs`, `Mod`, `MB`, `MAE`, `RMSE`, and `NMB` will be calculated
+        using weighted means. Supports both absolute areas and normalized weights.
+        For xarray inputs, this uses `xr.DataArray.weighted()`. For pandas/numpy,
+        it uses `np.ma.average()`.
 
     Returns
     -------
-    Dict[str, float]
-        Description of returned object.
+    Dict[str, Any]
+        Dictionary of calculated statistics:
+        - N: Number of valid points
+        - Obs: Mean of observations
+        - Mod: Mean of model
+        - MB: Mean Bias
+        - MAE: Mean Absolute Error
+        - RMSE: Root Mean Square Error
+        - R: Pearson Correlation
+        - IOA: Index of Agreement
+        - NMB: Normalized Mean Bias
+        - MNB: Mean Normalized Bias
+        - POD: Probability of Detection (at threshold)
+        - FAR: False Alarm Rate (at threshold)
+        - HSS: Heidke Skill Score (at threshold)
+        - NSE: Nash-Sutcliffe Efficiency
+        - CRMSE: Centered Root Mean Square Error
+        - MdnB: Median Bias
+        - KGE: Kling-Gupta Efficiency
+        - R2: Coefficient of Determination
+        - CCC: Concordance Correlation Coefficient
+        - MNE: Mean Normalized Gross Error
+        - NMSE: Normalized Mean Square Error
+        - FAC2: Fraction of predictions within a factor of two
+        - CSI: Critical Success Index (at threshold)
+        - TSS: True Skill Statistic (at threshold)
+        - ETS: Equitable Threat Score (at threshold)
+        - FBI: Frequency Bias Index (at threshold)
+        - BSS_binary: Binary Brier Skill Score (at threshold)
 
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from monet_stats import stats
+    >>> df = pd.DataFrame({'Obs': [1, 2, 3], 'Mod': [1.1, 1.9, 3.2]})
+    >>> results = stats(df)
+    >>> print(results['MB'])
+    0.06666666666666665
     """
-    from numpy import sqrt
+    # Restore legacy parameters filtering logic
+    if minval is not None:
+        if isinstance(data, pd.DataFrame):
+            data = data[data[obs_name] >= minval]
+        else:
+            data = data.where(data[obs_name] >= minval, drop=True)
+    if maxval is not None:
+        if isinstance(data, pd.DataFrame):
+            data = data[data[obs_name] <= maxval]
+        else:
+            data = data.where(data[obs_name] <= maxval, drop=True)
 
-    dd: Dict[str, float] = {}
-    dd["N"] = df.Obs.dropna().count()
-    dd["Obs"] = df.Obs.mean()
-    dd["Mod"] = df.CMAQ.mean()
-    dd["MB"] = MB(df.Obs.values, df.CMAQ.values)  # mean bias
-    dd["R"] = sqrt(R2(df.Obs.values, df.CMAQ.values))  # pearsonr ** 2
-    dd["IOA"] = IOA(df.Obs.values, df.CMAQ.values)  # Index of Agreement
-    dd["RMSE"] = RMSE(df.Obs.values, df.CMAQ.values)
-    dd["NMB"] = NMB(df.Obs.values, df.CMAQ.values)
-    try:
-        a, b, c, d = scores(df.Obs.values, df.CMAQ.values, 70, 1000)
-        dd["POD"] = a / (a + b)
-        dd["FAR"] = c / (a + c)
-    except Exception:
-        dd["POD"] = 1.0
-        dd["FAR"] = 0.0
-    return dd
+    if isinstance(data, pd.DataFrame):
+        obs_s = data[obs_name]
+        mod_s = data[mod_name]
+        obs = obs_s.values
+        mod = mod_s.values
+
+        if isinstance(axis, str):
+            raise TypeError(f"String axis '{axis}' is not supported for pandas DataFrames. Use integer axis.")
+
+        res: Dict[str, Any] = {}
+        # Pandas path: use provided axis if possible
+        res["N"] = obs_s.dropna().count()  # Pandas count doesn't easily map to axis for verification pairs
+        if weights is not None:
+            # Mask NaNs before applying weights to ensure consistent behavior
+            obs_m = np.ma.masked_invalid(obs)
+            mod_m = np.ma.masked_invalid(mod)
+            # Find common mask to ensure Obs/Mod means are comparable
+            common_mask = np.ma.getmaskarray(obs_m) | np.ma.getmaskarray(mod_m)
+            obs_m.mask = common_mask
+            mod_m.mask = common_mask
+            res["Obs"] = np.ma.average(obs_m, axis=axis, weights=weights)
+            res["Mod"] = np.ma.average(mod_m, axis=axis, weights=weights)
+        else:
+            res["Obs"] = np.nanmean(obs, axis=axis)
+            res["Mod"] = np.nanmean(mod, axis=axis)
+        res["MB"] = MB(obs, mod, axis=axis, weights=weights)
+        res["MAE"] = MAE(obs, mod, axis=axis, weights=weights)
+        res["RMSE"] = RMSE(obs, mod, axis=axis, weights=weights)
+        res["R"] = pearsonr(obs, mod, axis=axis)
+        res["IOA"] = IOA(obs, mod, axis=axis)
+        res["NMB"] = NMB(obs, mod, axis=axis, weights=weights)
+        res["MNB"] = MNB(obs, mod, axis=axis)
+        res["MNE"] = MNE(obs, mod, axis=axis)
+        res["NSE"] = NSE(obs, mod, axis=axis)
+        res["CRMSE"] = CRMSE(obs, mod, axis=axis)
+        res["MdnB"] = MdnB(obs, mod, axis=axis)
+        res["KGE"] = KGE(obs, mod, axis=axis)
+        res["R2"] = R2(obs, mod, axis=axis)
+        res["CCC"] = CCC(obs, mod, axis=axis)
+        res["NMSE"] = NMSE(obs, mod, axis=axis)
+        res["FAC2"] = FAC2(obs, mod, axis=axis)
+        res["MG"] = MG(obs, mod, axis=axis, weights=weights)
+        res["VG"] = VG(obs, mod, axis=axis, weights=weights)
+
+        # Include plugins
+        if plugins:
+            for p_name in plugins:
+                try:
+                    res[p_name] = plugin_manager.compute_metric(p_name, obs, mod, axis=axis)
+                except Exception:
+                    res[p_name] = np.nan
+
+        try:
+            res["POD"] = POD(obs, mod, threshold, axis=axis)
+            res["FAR"] = FAR(obs, mod, threshold, axis=axis)
+            res["HSS"] = HSS(obs, mod, threshold, axis=axis)
+            res["CSI"] = CSI(obs, mod, threshold, axis=axis)
+            res["TSS"] = TSS(obs, mod, threshold, axis=axis)
+            res["ETS"] = ETS(obs, mod, threshold, axis=axis)
+            res["FBI"] = FBI(obs, mod, threshold, axis=axis)
+            res["BSS_binary"] = BSS_binary(obs, mod, threshold, axis=axis)
+        except Exception:
+            res["POD"] = np.nan
+            res["FAR"] = np.nan
+            res["HSS"] = np.nan
+            res["CSI"] = np.nan
+            res["TSS"] = np.nan
+            res["ETS"] = np.nan
+            res["FBI"] = np.nan
+            res["BSS_binary"] = np.nan
+        return res
+
+    elif isinstance(data, xr.Dataset):
+        # Ensure data is lazy if large (Aero Protocol)
+        data = apply_lazy_threshold(data)
+        obs = data[obs_name]
+        mod = data[mod_name]
+
+        # Handle align for Xarray to ensure Obs/Mod means are comparable
+        obs, mod = xr.align(obs, mod, join="inner")
+
+        dim = _resolve_axis_to_dim(obs, axis)
+
+        # Gather all metrics that can be computed together to optimize dask graph
+        metrics_lazy = {
+            "N": obs.count(dim=dim),
+            "Obs": obs.weighted(weights).mean(dim=dim) if weights is not None else obs.mean(dim=dim),
+            "Mod": mod.weighted(weights).mean(dim=dim) if weights is not None else mod.mean(dim=dim),
+            "MB": MB(obs, mod, axis=axis, weights=weights),
+            "MAE": MAE(obs, mod, axis=axis, weights=weights),
+            "RMSE": RMSE(obs, mod, axis=axis, weights=weights),
+            "R": pearsonr(obs, mod, axis=axis),
+            "IOA": IOA(obs, mod, axis=axis),
+            "NMB": NMB(obs, mod, axis=axis, weights=weights),
+            "MNB": MNB(obs, mod, axis=axis),
+            "MNE": MNE(obs, mod, axis=axis),
+            "NSE": NSE(obs, mod, axis=axis),
+            "CRMSE": CRMSE(obs, mod, axis=axis),
+            "MdnB": MdnB(obs, mod, axis=axis),
+            "KGE": KGE(obs, mod, axis=axis),
+            "R2": R2(obs, mod, axis=axis),
+            "CCC": CCC(obs, mod, axis=axis),
+            "NMSE": NMSE(obs, mod, axis=axis),
+            "FAC2": FAC2(obs, mod, axis=axis),
+            "MG": MG(obs, mod, axis=axis, weights=weights),
+            "VG": VG(obs, mod, axis=axis, weights=weights),
+        }
+
+        # Include plugins (lazy evaluation)
+        if plugins:
+            for p_name in plugins:
+                try:
+                    metrics_lazy[p_name] = plugin_manager.compute_metric(p_name, obs, mod, axis=axis)
+                except Exception:
+                    metrics_lazy[p_name] = xr.DataArray(np.nan)
+
+        # Contingency scores (optional if threshold is valid)
+        try:
+            metrics_lazy["POD"] = POD(obs, mod, threshold, axis=axis)
+            metrics_lazy["FAR"] = FAR(obs, mod, threshold, axis=axis)
+            metrics_lazy["HSS"] = HSS(obs, mod, threshold, axis=axis)
+            metrics_lazy["CSI"] = CSI(obs, mod, threshold, axis=axis)
+            metrics_lazy["TSS"] = TSS(obs, mod, threshold, axis=axis)
+            metrics_lazy["ETS"] = ETS(obs, mod, threshold, axis=axis)
+            metrics_lazy["FBI"] = FBI(obs, mod, threshold, axis=axis)
+            metrics_lazy["BSS_binary"] = BSS_binary(obs, mod, threshold=threshold, axis=axis)
+        except (ValueError, TypeError):
+            # If thresholding fails during graph construction
+            metrics_lazy["POD"] = xr.DataArray(np.nan)
+            metrics_lazy["FAR"] = xr.DataArray(np.nan)
+            metrics_lazy["HSS"] = xr.DataArray(np.nan)
+            metrics_lazy["CSI"] = xr.DataArray(np.nan)
+            metrics_lazy["TSS"] = xr.DataArray(np.nan)
+            metrics_lazy["ETS"] = xr.DataArray(np.nan)
+            metrics_lazy["FBI"] = xr.DataArray(np.nan)
+            metrics_lazy["BSS_binary"] = xr.DataArray(np.nan)
+
+        # Single optimized compute call using a dummy Dataset to bundle dask graph
+        # This avoids a direct dependency on dask.base.compute
+        ds_lazy = xr.Dataset({k: v for k, v in metrics_lazy.items() if isinstance(v, (xr.DataArray, xr.Dataset))})
+        # Aero Protocol: Add lineage info to the bundled dataset
+        ds_lazy = _update_history(ds_lazy, f"Summary statistics (axis={axis})")
+        ds_computed = ds_lazy.compute()
+
+        results = {}
+        for k, v in metrics_lazy.items():
+            if k in ds_computed:
+                da = ds_computed[k]
+                # Aero Protocol: Return scalar if possible, else DataArray to preserve coords
+                # Never drop coordinates if it's multi-dimensional
+                results[k] = da.item() if da.size == 1 else da
+            else:
+                # For non-xarray types (already computed or scalar)
+                results[k] = v.item() if hasattr(v, "item") and v.size == 1 else v
+
+        return results
+
+    else:
+        raise TypeError("data must be a pandas DataFrame or xarray Dataset")
