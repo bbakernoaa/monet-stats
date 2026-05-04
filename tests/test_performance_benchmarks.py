@@ -7,7 +7,8 @@ import numpy as np
 import pytest
 import xarray as xr
 from pytest_benchmark.fixture import BenchmarkFixture
-from test_aliases import (
+
+from .test_aliases import (
     akaike_information_criterion,
     bayesian_information_criterion,
     coefficient_of_determination,
@@ -27,7 +28,7 @@ from test_aliases import (
     root_mean_squared_error,
     spearman_correlation,
 )
-from test_utils import TestDataGenerator
+from .test_utils import TestDataGenerator
 
 
 class TestPerformanceBenchmarks:

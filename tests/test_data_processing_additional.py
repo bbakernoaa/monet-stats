@@ -76,7 +76,7 @@ class TestAlignArrays:
         """Test align_arrays with shape mismatch raises error."""
         obs = np.array([1.0, 2.0, 3.0])
         mod = np.array([1.1, 2.1])  # Different shape
-        with pytest.raises(ValueError, match="Arrays must have the same shape"):
+        with pytest.raises(ValueError, match="Arrays must have compatible shapes"):
             align_arrays(obs, mod)
 
 
@@ -199,11 +199,14 @@ class TestComputeAnomalies:
         assert np.isclose(np.mean(obs_anom), 0.0, atol=1e-10)
         assert np.isclose(np.mean(mod_anom), 0.0, atol=1e-10)
 
-    def test_compute_anomalies_with_reference_period(self):
-        """Test compute_anomalies with reference period."""
+    def test_compute_anomalies_with_climatology(self):
+        """Test compute_anomalies with climatology parameter."""
         obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
-        obs_anom, mod_anom = compute_anomalies(obs, mod, reference_period=(1980, 2010))
-        # Check that anomalies have mean approximately 0
-        assert np.isclose(np.mean(obs_anom), 0.0, atol=1e-10)
-        assert np.isclose(np.mean(mod_anom), 0.0, atol=1e-10)
+        climatology = np.array([2.5, 2.5, 2.5, 2.5, 2.5])  # Fixed climatology
+        obs_anom, mod_anom = compute_anomalies(obs, mod, climatology=climatology)
+        # Check that anomalies are computed relative to the provided climatology
+        expected_obs_anom = obs - climatology
+        expected_mod_anom = mod - climatology
+        assert np.allclose(obs_anom, expected_obs_anom)
+        assert np.allclose(mod_anom, expected_mod_anom)

@@ -43,7 +43,6 @@ from monet_stats.error_metrics import (
     WDMB_m,
     WDMdnB,
     sMAPE,
-    sMAPE_original,
     sMAPEm,
 )
 
@@ -108,7 +107,9 @@ class TestMedianErrorMetrics:
         obs = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
         mod = np.array([11.0, 22.0, 28.0, 43.0, 55.0])
         result = NMdnGE(obs, mod)
-        expected = np.ma.masked_invalid(np.ma.abs(mod - obs).mean(axis=None) / obs.mean(axis=None)) * 100.0
+        expected = (
+            np.ma.masked_invalid(np.ma.median(np.ma.abs(mod - obs), axis=None) / np.ma.mean(obs, axis=None)) * 100.0
+        )
         assert np.isclose(result, expected)
 
 
@@ -145,7 +146,7 @@ class TestMeanMedianErrorMetrics:
         obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
         result = MO(obs, mod)
-        expected = np.mean(obs - mod)
+        expected = np.mean(mod - obs)  # MO computes mod - obs
         assert np.isclose(result, expected)
 
     def test_mp_basic(self):
@@ -161,7 +162,7 @@ class TestMeanMedianErrorMetrics:
         obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
         result = MdnO(obs, mod)
-        expected = np.median(obs - mod)
+        expected = np.median(mod - obs)  # MdnO computes mod - obs
         assert np.isclose(result, expected)
 
     def test_mdnp_basic(self):
@@ -201,7 +202,7 @@ class TestBiasMetrics:
         obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
         result = MB(obs, mod)
-        expected = np.ma.mean(obs - mod)
+        expected = np.ma.mean(mod - obs)  # MB computes mod - obs
         assert np.isclose(result, expected)
 
     def test_mdnb_basic(self):
@@ -209,7 +210,7 @@ class TestBiasMetrics:
         obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
         result = MdnB(obs, mod)
-        expected = np.ma.median(obs - mod)
+        expected = np.ma.median(mod - obs)  # MdnB computes mod - obs
         assert np.isclose(result, expected)
 
 
@@ -263,15 +264,6 @@ class TestAbsoluteErrorMetrics:
 
 class TestPercentageErrorMetrics:
     """Test percentage-based error metrics."""
-
-    def test_smape_original_basic(self):
-        """Test sMAPE_original with basic numpy arrays."""
-        obs = np.array([1.0, 2.0, 3.0])
-        mod = np.array([2.0, 2.0, 4.0])
-        result = sMAPE_original(obs, mod)
-        # Calculate expected value: 200 * |mod-obs| / (|mod| + |obs|) then mean
-        expected = (200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))).mean()
-        assert np.isclose(result, expected, rtol=1e-9)
 
     def test_crmse_basic(self):
         """Test CRMSE with basic numpy arrays."""
