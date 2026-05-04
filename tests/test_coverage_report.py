@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 
-def generate_coverage_report():
+def generate_coverage_report() -> None:
     """Generate comprehensive coverage report."""
     print("=== MONET STATS TEST COVERAGE ANALYSIS ===")
     print()
@@ -95,7 +95,7 @@ def generate_coverage_report():
     print("   - API consistency tests")
 
 
-def validate_test_structure():
+def validate_test_structure() -> None:
     """Validate the test structure and organization."""
     print("=== TEST STRUCTURE VALIDATION ===")
     print()
@@ -157,7 +157,7 @@ def validate_test_structure():
             print(f"✗ {command[0]} - EXCEPTION: {e}")
 
 
-def analyze_test_quality():
+def analyze_test_quality() -> None:
     """Analyze test quality and comprehensiveness."""
     print()
     print("=== TEST QUALITY ANALYSIS ===")
