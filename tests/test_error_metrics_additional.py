@@ -92,9 +92,7 @@ class TestMedianErrorMetrics:
         obs = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
         mod = np.array([11.0, 22.0, 28.0, 43.0, 55.0])
         result = MdnNB(obs, mod)
-        expected = (
-            np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=None) * 100.0
-        )
+        expected = np.ma.median(np.ma.masked_invalid((mod - obs) / obs), axis=None) * 100.0
         assert np.isclose(result, expected)
 
     def test_mdne_basic(self):
@@ -102,10 +100,7 @@ class TestMedianErrorMetrics:
         obs = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
         mod = np.array([11.0, 22.0, 28.0, 43.0, 55.0])
         result = MdnNE(obs, mod)
-        expected = (
-            np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=None)
-            * 100.0
-        )
+        expected = np.ma.median(np.ma.masked_invalid(np.ma.abs(mod - obs) / obs), axis=None) * 100.0
         assert np.isclose(result, expected)
 
     def test_nmdnge_basic(self):
@@ -113,12 +108,7 @@ class TestMedianErrorMetrics:
         obs = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
         mod = np.array([11.0, 22.0, 28.0, 43.0, 55.0])
         result = NMdnGE(obs, mod)
-        expected = (
-            np.ma.masked_invalid(
-                np.ma.abs(mod - obs).mean(axis=None) / obs.mean(axis=None)
-            )
-            * 100.0
-        )
+        expected = np.ma.masked_invalid(np.ma.abs(mod - obs).mean(axis=None) / obs.mean(axis=None)) * 100.0
         assert np.isclose(result, expected)
 
 
@@ -280,9 +270,7 @@ class TestPercentageErrorMetrics:
         mod = np.array([2.0, 2.0, 4.0])
         result = sMAPE_original(obs, mod)
         # Calculate expected value: 200 * |mod-obs| / (|mod| + |obs|) then mean
-        expected = (
-            200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))
-        ).mean()
+        expected = (200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))).mean()
         assert np.isclose(result, expected, rtol=1e-9)
 
     def test_crmse_basic(self):
@@ -308,9 +296,7 @@ class TestPercentageErrorMetrics:
         mod = np.array([2.0, 2.0, 4.0])
         result = sMAPE(obs, mod)
         # Calculate expected value: 200 * |mod-obs| / (|mod| + |obs|) then mean
-        expected = (
-            200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))
-        ).mean()
+        expected = (200 * np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))).mean()
         assert np.isclose(result, expected, rtol=1e-9)
 
 
@@ -372,9 +358,7 @@ class TestRobustErrorMetrics:
         mod = np.array([2.0, 2.0, 4.0])
         result = sMAPEm(obs, mod)
         # Calculate expected value: 200 * mean(|mod-obs| / (|mod| + |obs|))
-        expected = 200 * np.ma.mean(
-            np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs))
-        )
+        expected = 200 * np.ma.mean(np.ma.abs(mod - obs) / (np.ma.abs(mod) + np.ma.abs(obs)))
         assert np.isclose(result, expected, rtol=1e-9)
 
     def test_nsc_basic(self):

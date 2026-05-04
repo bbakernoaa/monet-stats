@@ -362,9 +362,5 @@ def test_matchmasks_dask_xarray_and_numpy():
     # 5. Check the masks themselves
     # The mask should be True where either array had a NaN.
     expected_mask = np.array([False, True, True, False])
-    np.testing.assert_array_equal(
-        a1_masked.mask, expected_mask, err_msg="Mask of dask xarray is incorrect."
-    )
-    np.testing.assert_array_equal(
-        a2_masked.mask, expected_mask, err_msg="Mask of numpy array is incorrect."
-    )
+    np.testing.assert_array_equal(a1_masked.mask, expected_mask, err_msg="Mask of dask xarray is incorrect.")
+    np.testing.assert_array_equal(a2_masked.mask, expected_mask, err_msg="Mask of numpy array is incorrect.")

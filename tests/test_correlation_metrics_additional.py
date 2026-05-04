@@ -248,16 +248,12 @@ class TestCorrelationMetricsAdditional:
 
         result = _compute_r2_xarray(obs, mod, axis=0)
         assert isinstance(result, xr.DataArray)
-        assert (
-            abs(float(result) - 1.0) < 1e-10
-        )  # Use tolerance for floating point comparison
+        assert abs(float(result) - 1.0) < 1e-10  # Use tolerance for floating point comparison
 
         # Test with string axis
         result = _compute_r2_xarray(obs, mod, axis="x")
         assert isinstance(result, xr.DataArray)
-        assert (
-            abs(float(result) - 1.0) < 1e-10
-        )  # Use tolerance for floating point comparison
+        assert abs(float(result) - 1.0) < 1e-10  # Use tolerance for floating point comparison
 
     def test_integration_between_helper_functions(self) -> None:
         """Test integration between different helper functions."""
