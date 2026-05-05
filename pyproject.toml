@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "monet-stats"
-version = "0.1.0"
+version = "1.0.0"
 description = "A comprehensive statistics and utility library for atmospheric sciences"
 readme = "README.md"
 license = {text = "MIT"}
