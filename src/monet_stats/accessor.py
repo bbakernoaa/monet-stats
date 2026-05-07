@@ -1262,6 +1262,77 @@ class MonetDataArrayAccessor:
         """
         return distribution_metrics.KLDivergence(obs, self._obj, bins=bins, dim=dim)
 
+    def jensenshannon_divergence(
+        self, obs: xr.DataArray, bins: int = 100, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Jensen-Shannon Divergence.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        bins : int, optional
+            Number of bins.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the divergence.
+
+        Returns
+        -------
+        xarray.DataArray
+            JS divergence.
+        """
+        res = distribution_metrics.JensenShannonDivergence(obs, self._obj, bins=bins, dim=dim)
+        return _update_history(res, "Jensen-Shannon Divergence")
+
+    def energy_distance(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Energy Distance.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the distance.
+
+        Returns
+        -------
+        xarray.DataArray
+            Energy distance.
+        """
+        res = distribution_metrics.EnergyDistance(obs, self._obj, dim=dim)
+        return _update_history(res, "Energy Distance")
+
+    def sinkhorn_distance(
+        self,
+        obs: xr.DataArray,
+        epsilon: float = 0.1,
+        max_iter: int = 100,
+        dim: Optional[Union[str, List[str]]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Sinkhorn Distance (Differentiable Earth Mover's Distance).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        epsilon : float, optional
+            Entropy regularization parameter.
+        max_iter : int, optional
+            Maximum iterations.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the distance.
+
+        Returns
+        -------
+        xarray.DataArray
+            Sinkhorn distance.
+        """
+        res = distribution_metrics.SinkhornDistance(obs, self._obj, epsilon=epsilon, max_iter=max_iter, dim=dim)
+        return _update_history(res, "Sinkhorn Distance")
+
     def mutual_information(
         self, obs: xr.DataArray, bins: int = 30, dim: Optional[Union[str, List[str]]] = None
     ) -> xr.DataArray:
