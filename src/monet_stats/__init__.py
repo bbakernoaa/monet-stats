@@ -127,6 +127,16 @@ from .spatial_ensemble_metrics import (
 )
 from .spatial_skill_metrics import FSS, VETS
 from .temporal_metrics import CrossWaveletTransform, DynamicTimeWarping, PhaseError
+from .track_metrics import (
+    along_track_error,
+    bearing,
+    cross_track_error,
+    find_storm_center,
+    find_storm_centers,
+    haversine_distance,
+    track_error,
+    translation_speed,
+)
 from .uncertainty import block_bootstrap
 from .utils_stats import (
     _resolve_axis_to_dim,
@@ -277,6 +287,15 @@ __all__ = [
     # spatial_skill_metrics
     "FSS",
     "VETS",
+    # track_metrics
+    "haversine_distance",
+    "track_error",
+    "bearing",
+    "along_track_error",
+    "cross_track_error",
+    "translation_speed",
+    "find_storm_center",
+    "find_storm_centers",
     # utils_stats
     "matchedcompressed",
     "matchmasks",
