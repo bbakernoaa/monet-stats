@@ -243,29 +243,30 @@ def find_storm_center(
     data = ensure_single_chunk(data, [lat_dim, lon_dim])
 
     if method == "min":
-        # First reduce to the coordinates of the minimum
-        # We need to find the flat index or handle multi-dimensional idxmin
-        # Xarray's idxmin works on one dimension at a time.
-        # To find (lat, lon) pair, we can stack them.
+        # To find (lat, lon) pair, stack the spatial dimensions
         stacked = data.stack(pixel=[lat_dim, lon_dim])
         idx = stacked.idxmin(dim="pixel")
         if hasattr(idx.data, "chunks"):
-            # For dask, compute only the underlying array data
             import dask.array as da_dask
 
             idx_val = da_dask.compute(idx.data)[0]
-        else:
-            idx_val = idx.values
+            # When multiple centers are found (e.g. over time), we must preserve dimensions
+            if idx.ndim > 0:
+                # Re-create a DataArray with the same dimensions as idx
+                idx = xr.DataArray(idx_val, coords=idx.coords, dims=idx.dims, name="pixel")
+            else:
+                # For scalar idx (ndim=0), dask returns an array containing the multi-index value.
+                # If it's a 1D array of size 2 (for lat/lon), we want the whole thing as a tuple.
+                if isinstance(idx_val, np.ndarray) and idx_val.size > 1:
+                    idx = tuple(idx_val)
+                elif isinstance(idx_val, np.ndarray) and idx_val.size == 1:
+                    idx = idx_val.item()
+                else:
+                    idx = idx_val
 
-        # idx contains the multi-index value (lat, lon)
-        if isinstance(idx_val, np.ndarray) and idx_val.ndim == 0:
-            idx_val = idx_val.item()
-        elif isinstance(idx_val, np.ndarray) and idx_val.size > 1:
-            # Multi-index values can be returned as tuples inside an object array
-            idx_val = tuple(idx_val)
+        res_lat = stacked.coords[lat_dim].sel(pixel=idx).drop_vars("pixel")
+        res_lon = stacked.coords[lon_dim].sel(pixel=idx).drop_vars("pixel")
 
-        res_lat = stacked.coords[lat_dim].sel(pixel=idx_val)
-        res_lon = stacked.coords[lon_dim].sel(pixel=idx_val)
     elif method == "max":
         stacked = data.stack(pixel=[lat_dim, lon_dim])
         idx = stacked.idxmax(dim="pixel")
@@ -273,16 +274,18 @@ def find_storm_center(
             import dask.array as da_dask
 
             idx_val = da_dask.compute(idx.data)[0]
-        else:
-            idx_val = idx.values
+            if idx.ndim > 0:
+                idx = xr.DataArray(idx_val, coords=idx.coords, dims=idx.dims, name="pixel")
+            else:
+                if isinstance(idx_val, np.ndarray) and idx_val.size > 1:
+                    idx = tuple(idx_val)
+                elif isinstance(idx_val, np.ndarray) and idx_val.size == 1:
+                    idx = idx_val.item()
+                else:
+                    idx = idx_val
 
-        if isinstance(idx_val, np.ndarray) and idx_val.ndim == 0:
-            idx_val = idx_val.item()
-        elif isinstance(idx_val, np.ndarray) and idx_val.size > 1:
-            idx_val = tuple(idx_val)
-
-        res_lat = stacked.coords[lat_dim].sel(pixel=idx_val)
-        res_lon = stacked.coords[lon_dim].sel(pixel=idx_val)
+        res_lat = stacked.coords[lat_dim].sel(pixel=idx).drop_vars("pixel")
+        res_lon = stacked.coords[lon_dim].sel(pixel=idx).drop_vars("pixel")
     else:
         raise ValueError("method must be 'min' or 'max'")
 
