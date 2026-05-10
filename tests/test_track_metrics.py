@@ -8,6 +8,7 @@ from monet_stats.track_metrics import (
     bearing,
     cross_track_error,
     find_storm_center,
+    find_storm_centers,
     haversine_distance,
     track_error,
     translation_speed,
@@ -153,3 +154,43 @@ def test_find_storm_center_lazy():
     res = center.compute()
     assert res.lat == 15
     assert res.lon == 105
+
+
+def test_find_storm_centers():
+    lats = np.arange(10, 20)
+    lons = np.arange(100, 110)
+    # High value background
+    data = np.ones((10, 10)) * 50
+    # Two clear minima
+    data[2, 2] = 5
+    data[7, 7] = 5
+
+    da = xr.DataArray(data, coords={"lat": lats, "lon": lons}, dims=["lat", "lon"])
+    # Use threshold to filter out the constant background
+    mask = find_storm_centers(da, window_size=3, threshold=40)
+
+    assert mask.sum() == 2
+    assert mask.sel(lat=12, lon=102)
+    assert mask.sel(lat=17, lon=107)
+
+
+def test_find_storm_centers_lazy():
+    try:
+        import dask.array as da_dask
+    except ImportError:
+        pytest.skip("Dask not installed")
+
+    lats = np.arange(10, 20)
+    lons = np.arange(100, 110)
+    data = np.ones((10, 10)) * 50
+    data[2, 2] = 5
+    data[7, 7] = 5
+
+    da = xr.DataArray(da_dask.from_array(data, chunks=5), coords={"lat": lats, "lon": lons}, dims=["lat", "lon"])
+    mask = find_storm_centers(da, window_size=3, threshold=40)
+    assert hasattr(mask.data, "chunks")
+
+    res = mask.compute()
+    assert res.sum() == 2
+    assert res.sel(lat=12, lon=102)
+    assert res.sel(lat=17, lon=107)

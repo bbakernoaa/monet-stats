@@ -2052,6 +2052,37 @@ class MonetDataArrayAccessor:
         """
         return track_metrics.find_storm_center(self._obj, lat_dim=lat_dim, lon_dim=lon_dim, method=method, dim=dim)
 
+    def find_storm_centers(
+        self,
+        lat_dim: str = "lat",
+        lon_dim: str = "lon",
+        method: str = "min",
+        window_size: int = 5,
+        threshold: Optional[float] = None,
+    ) -> xr.DataArray:
+        """
+        Find multiple storm centers.
+
+        Parameters
+        ----------
+        lat_dim, lon_dim : str
+            Spatial dimensions.
+        method : str, optional
+            'min' or 'max'.
+        window_size : int, optional
+            Neighborhood size.
+        threshold : float, optional
+            Value threshold.
+
+        Returns
+        -------
+        xarray.DataArray
+            Boolean mask of centers.
+        """
+        return track_metrics.find_storm_centers(
+            self._obj, lat_dim=lat_dim, lon_dim=lon_dim, method=method, window_size=window_size, threshold=threshold
+        )
+
     def verify(
         self,
         obs: xr.DataArray,

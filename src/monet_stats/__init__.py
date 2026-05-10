@@ -132,6 +132,7 @@ from .track_metrics import (
     bearing,
     cross_track_error,
     find_storm_center,
+    find_storm_centers,
     haversine_distance,
     track_error,
     translation_speed,
@@ -294,6 +295,7 @@ __all__ = [
     "cross_track_error",
     "translation_speed",
     "find_storm_center",
+    "find_storm_centers",
     # utils_stats
     "matchedcompressed",
     "matchmasks",

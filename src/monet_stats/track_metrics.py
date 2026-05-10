@@ -209,6 +209,67 @@ def cross_track_error(
     return res
 
 
+def find_storm_centers(
+    data: xr.DataArray,
+    lat_dim: str = "lat",
+    lon_dim: str = "lon",
+    method: str = "min",
+    window_size: int = 5,
+    threshold: Optional[float] = None,
+) -> xr.DataArray:
+    """
+    Find multiple storm centers (local extrema) in a field.
+
+    Returns a boolean mask where True indicates a detected center.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        Input field (e.g., MSLP or wind speed).
+    lat_dim, lon_dim : str
+        Names of spatial dimensions.
+    method : str, optional
+        'min' for local minima, 'max' for local maxima. Default is 'min'.
+    window_size : int, optional
+        Size of the neighborhood for local extremum detection. Default is 5.
+    threshold : float, optional
+        Value threshold to filter centers (e.g., min pressure < threshold).
+
+    Returns
+    -------
+    xarray.DataArray
+        Boolean mask of detected centers.
+    """
+    from scipy.ndimage import maximum_filter, minimum_filter
+
+    def _find_centers_np(arr, method, size, thresh):
+        if method == "min":
+            extrema = minimum_filter(arr, size=size) == arr
+            if thresh is not None:
+                extrema &= arr <= thresh
+        else:
+            extrema = maximum_filter(arr, size=size) == arr
+            if thresh is not None:
+                extrema &= arr >= thresh
+        return extrema
+
+    # Ensure spatial dimensions are together for the filter
+    data = ensure_single_chunk(data, [lat_dim, lon_dim])
+
+    res = xr.apply_ufunc(
+        _find_centers_np,
+        data,
+        input_core_dims=[[lat_dim, lon_dim]],
+        output_core_dims=[[lat_dim, lon_dim]],
+        kwargs={"method": method, "size": window_size, "thresh": threshold},
+        dask="parallelized",
+        output_dtypes=[bool],
+        keep_attrs=True,
+    )
+
+    return _update_history(res, f"find_storm_centers ({method})")
+
+
 def find_storm_center(
     data: xr.DataArray,
     lat_dim: str = "lat",
@@ -370,4 +431,5 @@ __all__ = [
     "cross_track_error",
     "translation_speed",
     "find_storm_center",
+    "find_storm_centers",
 ]
