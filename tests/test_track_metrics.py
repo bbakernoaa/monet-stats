@@ -1,13 +1,14 @@
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
-import pandas as pd
+
 from monet_stats.track_metrics import (
+    along_track_error,
+    bearing,
+    cross_track_error,
     haversine_distance,
     track_error,
-    bearing,
-    along_track_error,
-    cross_track_error,
     translation_speed,
 )
 

@@ -1920,9 +1920,7 @@ class MonetDataArrayAccessor:
         res = relative_metrics.NMPE(obs, self._obj, paxis=paxis, axis=dim)
         return _update_history(res, "NMPE")
 
-    def track_error(
-        self, obs_lat: xr.DataArray, obs_lon: xr.DataArray, mod_lon: xr.DataArray
-    ) -> xr.DataArray:
+    def track_error(self, obs_lat: xr.DataArray, obs_lon: xr.DataArray, mod_lon: xr.DataArray) -> xr.DataArray:
         """
         Compute Track Error (Great-circle distance).
 
@@ -1971,9 +1969,7 @@ class MonetDataArrayAccessor:
         xarray.DataArray
             Along-track error in km.
         """
-        return track_metrics.along_track_error(
-            obs_lat, obs_lon, self._obj, mod_lon, prev_obs_lat, prev_obs_lon
-        )
+        return track_metrics.along_track_error(obs_lat, obs_lon, self._obj, mod_lon, prev_obs_lat, prev_obs_lon)
 
     def cross_track_error(
         self,
@@ -2004,9 +2000,7 @@ class MonetDataArrayAccessor:
         xarray.DataArray
             Cross-track error in km.
         """
-        return track_metrics.cross_track_error(
-            obs_lat, obs_lon, self._obj, mod_lon, prev_obs_lat, prev_obs_lon
-        )
+        return track_metrics.cross_track_error(obs_lat, obs_lon, self._obj, mod_lon, prev_obs_lat, prev_obs_lon)
 
     def translation_speed(
         self, lon: xr.DataArray, time: Optional[xr.DataArray] = None, dim: str = "time"

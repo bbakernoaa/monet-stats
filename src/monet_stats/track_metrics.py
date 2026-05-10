@@ -2,7 +2,7 @@
 Hurricane and Tropical Cyclone Track Statistics (Aero Protocol Compliant).
 """
 
-from typing import Optional, Union, Tuple
+from typing import Optional, Union
 
 import numpy as np
 import xarray as xr
@@ -118,9 +118,7 @@ def bearing(
         return (theta + 360) % 360
 
     if any(isinstance(x, xr.DataArray) for x in [lat1, lon1, lat2, lon2]):
-        return xr.apply_ufunc(
-            _bearing_numpy, lat1, lon1, lat2, lon2, dask="parallelized", output_dtypes=[float]
-        )
+        return xr.apply_ufunc(_bearing_numpy, lat1, lon1, lat2, lon2, dask="parallelized", output_dtypes=[float])
 
     return _bearing_numpy(lat1, lon1, lat2, lon2)
 
@@ -154,10 +152,10 @@ def along_track_error(
     d_om = haversine_distance(obs_lat, obs_lon, mod_lat, mod_lon)
 
     # Bearing from obs to mod
-    theta_om = np.radians(bearing(obs_lat, obs_lon, mod_lat, mod_lon))
+    theta_om = np.deg2rad(bearing(obs_lat, obs_lon, mod_lat, mod_lon))
 
     # Bearing of motion (from prev_obs to obs)
-    theta_motion = np.radians(bearing(prev_obs_lat, prev_obs_lon, obs_lat, obs_lon))
+    theta_motion = np.deg2rad(bearing(prev_obs_lat, prev_obs_lon, obs_lat, obs_lon))
 
     # Relative angle
     delta_theta = theta_om - theta_motion
@@ -197,10 +195,10 @@ def cross_track_error(
     d_om = haversine_distance(obs_lat, obs_lon, mod_lat, mod_lon)
 
     # Bearing from obs to mod
-    theta_om = np.radians(bearing(obs_lat, obs_lon, mod_lat, mod_lon))
+    theta_om = np.deg2rad(bearing(obs_lat, obs_lon, mod_lat, mod_lon))
 
     # Bearing of motion (from prev_obs to obs)
-    theta_motion = np.radians(bearing(prev_obs_lat, prev_obs_lon, obs_lat, obs_lon))
+    theta_motion = np.deg2rad(bearing(prev_obs_lat, prev_obs_lon, obs_lat, obs_lon))
 
     # Relative angle
     delta_theta = theta_om - theta_motion
