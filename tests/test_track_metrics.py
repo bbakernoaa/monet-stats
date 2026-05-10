@@ -7,6 +7,7 @@ from monet_stats.track_metrics import (
     along_track_error,
     bearing,
     cross_track_error,
+    find_storm_center,
     haversine_distance,
     track_error,
     translation_speed,
@@ -112,3 +113,43 @@ def test_accessor_integration():
     assert speed.sizes["time"] == 3
     assert np.isnan(speed[0])  # First point has no speed
     assert np.all(speed[1:] > 0)
+
+
+def test_find_storm_center():
+    lats = np.arange(10, 20)
+    lons = np.arange(100, 110)
+    data = np.random.rand(10, 10) + 10
+    # Inject a minimum at (15, 105)
+    data[5, 5] = 5
+
+    da = xr.DataArray(data, coords={"lat": lats, "lon": lons}, dims=["lat", "lon"])
+    center = find_storm_center(da)
+
+    assert center.lat == 15
+    assert center.lon == 105
+
+    # Test max
+    data[2, 2] = 20
+    da_max = xr.DataArray(data, coords={"lat": lats, "lon": lons}, dims=["lat", "lon"])
+    center_max = find_storm_center(da_max, method="max")
+    assert center_max.lat == 12
+    assert center_max.lon == 102
+
+
+def test_find_storm_center_lazy():
+    try:
+        import dask.array as da_dask
+    except ImportError:
+        pytest.skip("Dask not installed")
+
+    lats = np.arange(10, 20)
+    lons = np.arange(100, 110)
+    data = np.random.rand(10, 10) + 10
+    data[5, 5] = 5
+
+    da = xr.DataArray(da_dask.from_array(data, chunks=5), coords={"lat": lats, "lon": lons}, dims=["lat", "lon"])
+    center = find_storm_center(da)
+    # result of stack/idxmin on dask might be lazy
+    res = center.compute()
+    assert res.lat == 15
+    assert res.lon == 105

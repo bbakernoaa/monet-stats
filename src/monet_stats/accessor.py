@@ -2024,6 +2024,34 @@ class MonetDataArrayAccessor:
         """
         return track_metrics.translation_speed(self._obj, lon, time=time, dim=dim)
 
+    def find_storm_center(
+        self,
+        lat_dim: str = "lat",
+        lon_dim: str = "lon",
+        method: str = "min",
+        dim: Optional[Union[str, list]] = None,
+    ) -> xr.Dataset:
+        """
+        Find storm center coordinates.
+
+        Parameters
+        ----------
+        lat_dim : str, optional
+            Latitude dimension name.
+        lon_dim : str, optional
+            Longitude dimension name.
+        method : str, optional
+            'min' or 'max'.
+        dim : str or list, optional
+            Reduction dimension.
+
+        Returns
+        -------
+        xarray.Dataset
+            Center coordinates.
+        """
+        return track_metrics.find_storm_center(self._obj, lat_dim=lat_dim, lon_dim=lon_dim, method=method, dim=dim)
+
     def verify(
         self,
         obs: xr.DataArray,

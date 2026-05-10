@@ -7,7 +7,7 @@ from typing import Optional, Union
 import numpy as np
 import xarray as xr
 
-from .utils_stats import _update_history
+from .utils_stats import _update_history, ensure_single_chunk
 
 
 def haversine_distance(
@@ -209,6 +209,87 @@ def cross_track_error(
     return res
 
 
+def find_storm_center(
+    data: xr.DataArray,
+    lat_dim: str = "lat",
+    lon_dim: str = "lon",
+    method: str = "min",
+    dim: Optional[Union[str, list]] = None,
+) -> xr.Dataset:
+    """
+    Find the storm center coordinates (lat, lon) from a field (e.g., MSLP or wind speed).
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        2D or multi-dimensional field.
+    lat_dim : str, optional
+        Name of the latitude dimension. Default is 'lat'.
+    lon_dim : str, optional
+        Name of the longitude dimension. Default is 'lon'.
+    method : str, optional
+        'min' to find the minimum (e.g., pressure) or 'max' to find the maximum (e.g., wind).
+        Default is 'min'.
+    dim : str or list, optional
+        Dimension(s) along which to find the center (e.g., 'time').
+        If None, finds the global center.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset containing 'lat' and 'lon' coordinates of the storm center.
+    """
+    # Ensure spatial dimensions are in a single chunk for idxmin/idxmax
+    data = ensure_single_chunk(data, [lat_dim, lon_dim])
+
+    if method == "min":
+        # First reduce to the coordinates of the minimum
+        # We need to find the flat index or handle multi-dimensional idxmin
+        # Xarray's idxmin works on one dimension at a time.
+        # To find (lat, lon) pair, we can stack them.
+        stacked = data.stack(pixel=[lat_dim, lon_dim])
+        idx = stacked.idxmin(dim="pixel")
+        if hasattr(idx.data, "chunks"):
+            # For dask, compute only the underlying array data
+            import dask.array as da_dask
+
+            idx_val = da_dask.compute(idx.data)[0]
+        else:
+            idx_val = idx.values
+
+        # idx contains the multi-index value (lat, lon)
+        if isinstance(idx_val, np.ndarray) and idx_val.ndim == 0:
+            idx_val = idx_val.item()
+        elif isinstance(idx_val, np.ndarray) and idx_val.size > 1:
+            # Multi-index values can be returned as tuples inside an object array
+            idx_val = tuple(idx_val)
+
+        res_lat = stacked.coords[lat_dim].sel(pixel=idx_val)
+        res_lon = stacked.coords[lon_dim].sel(pixel=idx_val)
+    elif method == "max":
+        stacked = data.stack(pixel=[lat_dim, lon_dim])
+        idx = stacked.idxmax(dim="pixel")
+        if hasattr(idx.data, "chunks"):
+            import dask.array as da_dask
+
+            idx_val = da_dask.compute(idx.data)[0]
+        else:
+            idx_val = idx.values
+
+        if isinstance(idx_val, np.ndarray) and idx_val.ndim == 0:
+            idx_val = idx_val.item()
+        elif isinstance(idx_val, np.ndarray) and idx_val.size > 1:
+            idx_val = tuple(idx_val)
+
+        res_lat = stacked.coords[lat_dim].sel(pixel=idx_val)
+        res_lon = stacked.coords[lon_dim].sel(pixel=idx_val)
+    else:
+        raise ValueError("method must be 'min' or 'max'")
+
+    res = xr.Dataset({"lat": res_lat, "lon": res_lon})
+    return _update_history(res, f"find_storm_center ({method})")
+
+
 def translation_speed(
     lat: Union[xr.DataArray, np.ndarray],
     lon: Union[xr.DataArray, np.ndarray],
@@ -285,4 +366,5 @@ __all__ = [
     "along_track_error",
     "cross_track_error",
     "translation_speed",
+    "find_storm_center",
 ]
