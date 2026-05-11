@@ -453,7 +453,7 @@ def test_correlation_edge_cases():
     """Boost coverage: Edge cases for correlation."""
     obs = np.ones(5)
     mod = np.ones(5) * 2.0
-    assert np.isclose(R2(obs, mod), 0.0)
+    assert np.isnan(R2(obs, mod))
     assert np.isclose(pearsonr(obs, mod), 0.0)
 
     obs_m = np.ma.masked_array([1, 2, 3], mask=[1, 0, 0])

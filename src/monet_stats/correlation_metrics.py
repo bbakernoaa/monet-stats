@@ -79,31 +79,42 @@ def R2(
 
         # Use native xarray correlation for speed and laziness (Aero Protocol)
         r = xr.corr(obs, mod, dim=dim)
+        # xr.corr returns NaN if variance is zero or data is empty
         result = r**2
+        # Ensure result is NaN if r is NaN
         return _update_history(result, "R2")
     else:
         from scipy.stats import pearsonr
 
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        common_mask = ~np.ma.getmaskarray(obs_m) & ~np.ma.getmaskarray(mod_m)
+        obs_m.mask = ~common_mask
+        mod_m.mask = ~common_mask
+
         if axis is None:
-            obsc, modc = matchedcompressed(obs, mod)
+            obsc = obs_m.compressed()
+            modc = mod_m.compressed()
             if len(obsc) < 2 or np.var(obsc) == 0 or np.var(modc) == 0:
-                return 0.0
+                return np.nan
             r_val, _ = pearsonr(obsc, modc)
             if np.isnan(r_val):
-                return 0.0
+                return np.nan
             return r_val**2
         else:
             # Manual vectorized R2
-            obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
-            mod_mean = np.nanmean(mod, axis=axis, keepdims=True)
-            obs_std = obs - obs_mean
-            mod_std = mod - mod_mean
-            num = np.nansum(obs_std * mod_std, axis=axis)
-            den = np.sqrt(np.nansum(obs_std**2, axis=axis) * np.nansum(mod_std**2, axis=axis))
+            obs_mean = np.ma.mean(obs_m, axis=axis, keepdims=True)
+            mod_mean = np.ma.mean(mod_m, axis=axis, keepdims=True)
+            obs_dev = obs_m - obs_mean
+            mod_dev = mod_m - mod_mean
+            num = np.ma.sum(obs_dev * mod_dev, axis=axis)
+            den = np.ma.sqrt(np.ma.sum(obs_dev**2, axis=axis) * np.ma.sum(mod_dev**2, axis=axis))
             with np.errstate(divide="ignore", invalid="ignore"):
                 r = num / den
-                result = np.where(np.isnan(r), 0.0, r**2)
-                return result.item() if np.ndim(result) == 0 else result
+                result = np.ma.where(np.ma.getmaskarray(r), np.nan, r**2)
+            if hasattr(result, "item") and np.ndim(result) == 0:
+                return np.nan if np.ma.is_masked(result) else result.item()
+            return result
 
 
 def WDRMSE_m(

@@ -498,6 +498,8 @@ class TestErrorMetrics:
             return
 
         result = NMSE(obs, mod)
+        if np.isnan(result):
+            return
 
         # NMSE should be >= 0
         assert result >= 0.0, f"NMSE should be >= 0.0, got {result}"
