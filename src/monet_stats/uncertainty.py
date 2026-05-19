@@ -81,21 +81,11 @@ def block_bootstrap(
 
         return np.array(boot_metrics)
 
-<<<<<<< HEAD
-    # Ensure NaN handling and out-of-core compatibility
-=======
->>>>>>> upstream/main
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
         obs = ensure_single_chunk(obs, dim)
         mod = ensure_single_chunk(mod, dim)
 
-<<<<<<< HEAD
-=======
-        # We want to run the bootstrap iterations in parallel if using Dask
-        # apply_ufunc can handle this by treating the bootstrap as a new dimension
-
->>>>>>> upstream/main
         res = xr.apply_ufunc(
             _bootstrap_numpy,
             obs,
@@ -108,12 +98,9 @@ def block_bootstrap(
             dask_gufunc_kwargs={"output_sizes": {"bootstrap": n_boot}},
         )
 
-<<<<<<< HEAD
         # Handle NaN values explicitly
         res = res.where(~xr.ufuncs.isnan(res), drop=True)
 
-=======
->>>>>>> upstream/main
         # Calculate percentiles for confidence intervals
         alpha = (1 - confidence_level) / 2
         res_mean = res.mean(dim="bootstrap")
