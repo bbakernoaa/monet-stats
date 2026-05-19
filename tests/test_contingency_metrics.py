@@ -298,3 +298,17 @@ class TestContingencyMetricsXarray:
         """Test FBI with xarray inputs."""
         result = FBI(self.obs_xr, self.mod_xr, minval=0.5)
         assert np.isclose(result, 1.0)
+
+    def test_nan_handling(self):
+        """Test NaN handling in contingency metrics."""
+        obs = np.array([1, np.nan, 3, 4])
+        mod = np.array([1, 2, np.nan, 4])
+
+        result = POD(obs, mod, minval=0.5)
+        assert not np.isnan(result), "POD should handle NaN values gracefully"
+
+        result = FAR(obs, mod, minval=0.5)
+        assert not np.isnan(result), "FAR should handle NaN values gracefully"
+
+        result = CSI(obs, mod, minval=0.5)
+        assert not np.isnan(result), "CSI should handle NaN values gracefully"

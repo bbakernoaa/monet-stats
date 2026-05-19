@@ -93,6 +93,7 @@ def EDS(
         res = np.where(
             (hits > 0) & (n_obs > 0) & (n_mod > 0), np.log(hits / n) / np.log((n_obs / n) * (n_mod / n)), np.nan
         )
+        res = np.where(np.isnan(res), 0.0, res)  # Replace NaN with 0.0 for undefined cases
         return res.item() if np.ndim(res) == 0 else res
 
 
