@@ -98,14 +98,12 @@ def block_bootstrap(
             dask_gufunc_kwargs={"output_sizes": {"bootstrap": n_boot}},
         )
 
-        # Handle NaN values explicitly
-        res = res.where(~xr.ufuncs.isnan(res), drop=True)
-
-        # Calculate percentiles for confidence intervals
+        # Calculate percentiles for confidence intervals; skipna=True (default)
+        # ensures any NaN bootstrap samples (e.g., from degenerate blocks) are ignored
         alpha = (1 - confidence_level) / 2
-        res_mean = res.mean(dim="bootstrap")
-        res_low = res.quantile(alpha, dim="bootstrap").drop_vars("quantile", errors="ignore")
-        res_high = res.quantile(1 - alpha, dim="bootstrap").drop_vars("quantile", errors="ignore")
+        res_mean = res.mean(dim="bootstrap", skipna=True)
+        res_low = res.quantile(alpha, dim="bootstrap", skipna=True).drop_vars("quantile", errors="ignore")
+        res_high = res.quantile(1 - alpha, dim="bootstrap", skipna=True).drop_vars("quantile", errors="ignore")
 
         ds = xr.Dataset({"mean": res_mean, "lower": res_low, "upper": res_high})
         return _update_history(ds, f"Block-Bootstrap ({metric_func.__name__}, n={n_boot})")
