@@ -174,15 +174,17 @@ def VETS(
         return _update_history(res, "Volumetric Equitable Threat Score (VETS)")
 
     # NumPy path
-    obs_arr = np.asarray(obs)
-    mod_arr = np.asarray(mod)
+    from .utils_stats import _nanmask_inputs
+    o_, m_ = _nanmask_inputs(obs, mod)
+    obs_arr = o_.filled(np.nan)
+    mod_arr = m_.filled(np.nan)
 
-    hits = np.sum(np.minimum(obs_arr, mod_arr), axis=axis)
-    sum_obs = np.sum(obs_arr, axis=axis)
-    sum_mod = np.sum(mod_arr, axis=axis)
+    hits = np.nansum(np.minimum(obs_arr, mod_arr), axis=axis)
+    sum_obs = np.nansum(obs_arr, axis=axis)
+    sum_mod = np.nansum(mod_arr, axis=axis)
     misses = sum_obs - hits
     false_alarms = sum_mod - hits
-    total_union = np.sum(np.maximum(obs_arr, mod_arr), axis=axis)
+    total_union = np.nansum(np.maximum(obs_arr, mod_arr), axis=axis)
 
     hits_random = (sum_obs * sum_mod) / total_union
     denominator = hits + misses + false_alarms - hits_random
