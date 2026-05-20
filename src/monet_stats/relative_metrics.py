@@ -8,7 +8,14 @@ import numpy as np
 import xarray as xr
 
 from .error_metrics import MAE, MedAE
-from .utils_stats import _nanmask_inputs, _resolve_axis_to_dim, _update_history, circlebias, circlebias_m, ensure_single_chunk
+from .utils_stats import (
+    _nanmask_inputs,
+    _resolve_axis_to_dim,
+    _update_history,
+    circlebias,
+    circlebias_m,
+    ensure_single_chunk,
+)
 
 __all__ = [
     "NMB",

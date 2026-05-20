@@ -361,7 +361,8 @@ class TestNaNHandling:
     def test_xarray_nan_consistency(self):
         """Xarray path and NumPy path should agree when NaNs are present."""
         import xarray as xr
-        from monet_stats.error_metrics import MAE, RMSE, MB
+
+        from monet_stats.error_metrics import MAE, MB, RMSE
 
         obs_np = np.array([1.0, np.nan, 3.0, 4.0, 5.0])
         mod_np = np.array([1.1, 2.1, np.nan, 4.1, 5.1])
@@ -371,9 +372,7 @@ class TestNaNHandling:
         for fn in (MAE, RMSE, MB):
             np_result = fn(obs_np, mod_np)
             xr_result = float(fn(obs_xr, mod_xr))
-            assert abs(np_result - xr_result) < 1e-10, (
-                f"{fn.__name__}: numpy={np_result} vs xarray={xr_result}"
-            )
+            assert abs(np_result - xr_result) < 1e-10, f"{fn.__name__}: numpy={np_result} vs xarray={xr_result}"
 
 
 class TestDaskLaziness:
@@ -413,7 +412,6 @@ class TestDaskLaziness:
 
     def test_dask_nan_result_matches_numpy(self, dask_pair):
         """Dask computation with NaN should match the pure NumPy result."""
-        import xarray as xr
         from monet_stats.error_metrics import MAE
 
         obs_xr, mod_xr = dask_pair
@@ -422,9 +420,7 @@ class TestDaskLaziness:
 
         dask_result = float(MAE(obs_xr, mod_xr).compute())
         numpy_result = MAE(obs_np, mod_np)
-        assert abs(dask_result - numpy_result) < 1e-10, (
-            f"Dask result {dask_result} != NumPy result {numpy_result}"
-        )
+        assert abs(dask_result - numpy_result) < 1e-10, f"Dask result {dask_result} != NumPy result {numpy_result}"
 
 
 if __name__ == "__main__":

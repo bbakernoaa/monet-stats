@@ -175,6 +175,7 @@ def VETS(
 
     # NumPy path
     from .utils_stats import _nanmask_inputs
+
     o_, m_ = _nanmask_inputs(obs, mod)
     obs_arr = o_.filled(np.nan)
     mod_arr = m_.filled(np.nan)
