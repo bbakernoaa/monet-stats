@@ -233,8 +233,8 @@ def spread_error(
         return _update_history(m_spread, "Mean Ensemble Spread"), _update_history(m_error, "Mean Ensemble Error")
 
     # NumPy path
-    ens = np.asarray(ensemble, dtype=float)
-    observation = np.asarray(obs, dtype=float)
+    ens = np.asarray(ensemble, dtype=np.result_type(ensemble, "f4"))
+    observation = np.asarray(obs, dtype=np.result_type(obs, "f4"))
 
     # Mask NaNs in observation across ensemble axis (broadcast mask)
     obs_nan_mask = np.isnan(observation)
