@@ -395,6 +395,7 @@ class TestDaskLaziness:
         obs, mod = dask_pair
         result = MAE(obs, mod)
         assert hasattr(result.data, "dask"), "MAE should remain lazy for Dask inputs"
+        assert len(result.data.dask.layers) > 1
 
     def test_rmse_stays_lazy(self, dask_pair):
         from monet_stats.error_metrics import RMSE
