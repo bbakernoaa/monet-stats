@@ -185,7 +185,7 @@ def VETS(
     sum_mod = np.nansum(mod_arr, axis=axis)
     misses = sum_obs - hits
     false_alarms = sum_mod - hits
-    total_union = np.nansum(np.maximum(obs_arr, mod_arr), axis=axis)
+    total_union = obs_sum + mod_sum - hits
 
     hits_random = (sum_obs * sum_mod) / total_union
     denominator = hits + misses + false_alarms - hits_random
