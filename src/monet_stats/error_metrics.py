@@ -1940,8 +1940,9 @@ def MAE_norm(
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
         mae = np.ma.mean(np.ma.abs(m_ - o_), axis=axis)
-        obs_min = np.nanmin(o_.filled(np.nan), axis=axis)
-        obs_max = np.nanmax(o_.filled(np.nan), axis=axis)
+        o_filled = o_.filled(np.nan)
+        obs_min = np.nanmin(o_filled, axis=axis)
+        obs_max = np.nanmax(o_filled, axis=axis)
         obs_range = obs_max - obs_min
         with np.errstate(invalid="ignore", divide="ignore"):
             result = np.where(obs_range == 0, mae, mae / obs_range)
