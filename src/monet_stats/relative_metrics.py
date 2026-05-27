@@ -121,7 +121,8 @@ def NMB(
         if np.ndim(res) == 0:
             v = float(res) if not np.ma.is_masked(res) else np.nan
             return v if np.isfinite(v) else np.nan
-        return np.where(np.isfinite(np.ma.filled(res, np.nan)), np.ma.filled(res, np.nan), np.nan)
+        res_filled = np.ma.filled(res, np.nan)
+        return np.where(np.isfinite(res_filled), res_filled, np.nan)
 
 
 def WDNMB_m(
