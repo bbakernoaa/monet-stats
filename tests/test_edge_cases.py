@@ -389,27 +389,34 @@ class TestDaskLaziness:
         mod = xr.DataArray(da.from_array(np.array([1.1, 2.1, np.nan, 4.1, 5.1]), chunks=3), dims="x")
         return obs, mod
 
+    def _assert_has_lazy_layer(self, result_data):
+        from dask.highlevelgraph import MaterializedLayer
+
+        assert hasattr(result_data, "dask"), "Result should remain a Dask-backed array"
+        assert any(not isinstance(layer, MaterializedLayer) for layer in result_data.dask.layers.values()), (
+            "Expected at least one non-materialized (lazy) Dask layer"
+        )
+
     def test_mae_stays_lazy(self, dask_pair):
         from monet_stats.error_metrics import MAE
 
         obs, mod = dask_pair
         result = MAE(obs, mod)
-        assert hasattr(result.data, "dask"), "MAE should remain lazy for Dask inputs"
-        assert len(result.data.dask.layers) > 1
+        self._assert_has_lazy_layer(result.data)
 
     def test_rmse_stays_lazy(self, dask_pair):
         from monet_stats.error_metrics import RMSE
 
         obs, mod = dask_pair
         result = RMSE(obs, mod)
-        assert hasattr(result.data, "dask"), "RMSE should remain lazy for Dask inputs"
+        self._assert_has_lazy_layer(result.data)
 
     def test_mb_stays_lazy(self, dask_pair):
         from monet_stats.error_metrics import MB
 
         obs, mod = dask_pair
         result = MB(obs, mod)
-        assert hasattr(result.data, "dask"), "MB should remain lazy for Dask inputs"
+        self._assert_has_lazy_layer(result.data)
 
     def test_dask_nan_result_matches_numpy(self, dask_pair):
         """Dask computation with NaN should match the pure NumPy result."""

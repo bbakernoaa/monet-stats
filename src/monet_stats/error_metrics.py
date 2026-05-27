@@ -1147,8 +1147,8 @@ def CRMSE(
         return _update_history(result, "CRMSE")
     else:
         o_m, m_m = _nanmask_inputs(obs, mod)
-        o_ = o_m - np.nanmean(o_m.filled(np.nan), axis=axis, keepdims=True)
-        m_ = m_m - np.nanmean(m_m.filled(np.nan), axis=axis, keepdims=True)
+        o_ = o_m - np.ma.mean(o_m, axis=axis, keepdims=True)
+        m_ = m_m - np.ma.mean(m_m, axis=axis, keepdims=True)
         result = np.ma.mean(np.ma.abs(m_ - o_) ** 2, axis=axis) ** 0.5
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
@@ -1524,9 +1524,9 @@ def NSC(
         return _update_history(result, "NSC")
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
-        obs_mean = np.nanmean(o_.filled(np.nan), axis=axis, keepdims=True)
-        numerator = np.nansum((o_ - m_) ** 2, axis=axis)
-        denominator = np.nansum((o_ - obs_mean) ** 2, axis=axis)
+        obs_mean = np.ma.mean(o_, axis=axis, keepdims=True)
+        numerator = np.ma.sum((o_ - m_) ** 2, axis=axis)
+        denominator = np.ma.sum((o_ - obs_mean) ** 2, axis=axis)
         with np.errstate(invalid="ignore", divide="ignore"):
             result = 1.0 - (numerator / denominator)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
@@ -2269,10 +2269,14 @@ def VOLUMETRIC_ERROR(
         result = abs(mod_sum - obs_sum) / abs(obs_sum)
         return _update_history(result, "VOLUMETRIC_ERROR")
     else:
-        obs_sum = np.sum(obs, axis=axis)
-        mod_sum = np.sum(mod, axis=axis)
-        result = np.abs(mod_sum - obs_sum) / np.abs(obs_sum)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        o_, m_ = _nanmask_inputs(obs, mod)
+        obs_sum = np.ma.sum(o_, axis=axis)
+        mod_sum = np.ma.sum(m_, axis=axis)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            result = np.ma.abs(mod_sum - obs_sum) / np.ma.abs(obs_sum)
+        if np.ndim(result) == 0:
+            return result.item() if not np.ma.is_masked(result) else np.nan
+        return np.ma.filled(result, np.nan)
 
 
 def CORR_INDEX(
