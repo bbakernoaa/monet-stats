@@ -175,7 +175,7 @@ def WDNMB_m(
         o_, m_ = _nanmask_inputs(obs, mod)
         diff = m_ - o_
         with np.errstate(divide="ignore", invalid="ignore"):
-            res = np.ma.sum(circlebias_m(diff.filled(np.nan)), axis=axis) / np.ma.sum(o_, axis=axis) * 100.0
+            res = np.ma.sum(circlebias_m(diff), axis=axis) / np.ma.sum(o_, axis=axis) * 100.0
         return res.item() if np.ndim(res) == 0 else res
 
 
