@@ -397,25 +397,13 @@ class TestDaskLaziness:
             "Expected at least one non-materialized (lazy) Dask layer"
         )
 
-    def test_mae_stays_lazy(self, dask_pair):
-        from monet_stats.error_metrics import MAE
+    @pytest.mark.parametrize("metric_name", ["MAE", "RMSE", "MB"])
+    def test_metric_stays_lazy(self, metric_name, dask_pair):
+        from monet_stats import error_metrics
+        metric_func = getattr(error_metrics, metric_name)
 
         obs, mod = dask_pair
-        result = MAE(obs, mod)
-        self._assert_has_lazy_layer(result.data)
-
-    def test_rmse_stays_lazy(self, dask_pair):
-        from monet_stats.error_metrics import RMSE
-
-        obs, mod = dask_pair
-        result = RMSE(obs, mod)
-        self._assert_has_lazy_layer(result.data)
-
-    def test_mb_stays_lazy(self, dask_pair):
-        from monet_stats.error_metrics import MB
-
-        obs, mod = dask_pair
-        result = MB(obs, mod)
+        result = metric_func(obs, mod)
         self._assert_has_lazy_layer(result.data)
 
     def test_dask_nan_result_matches_numpy(self, dask_pair):
