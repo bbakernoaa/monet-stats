@@ -372,7 +372,9 @@ class TestNaNHandling:
         for fn in (MAE, RMSE, MB):
             np_result = fn(obs_np, mod_np)
             xr_result = float(fn(obs_xr, mod_xr))
-            assert np_result == pytest.approx(xr_result, abs=1e-10), f"{fn.__name__}: numpy={np_result} vs xarray={xr_result}"
+            assert np_result == pytest.approx(xr_result, abs=1e-10), (
+                f"{fn.__name__}: numpy={np_result} vs xarray={xr_result}"
+            )
 
 
 class TestDaskLaziness:
@@ -400,6 +402,7 @@ class TestDaskLaziness:
     @pytest.mark.parametrize("metric_name", ["MAE", "RMSE", "MB"])
     def test_metric_stays_lazy(self, metric_name, dask_pair):
         from monet_stats import error_metrics
+
         metric_func = getattr(error_metrics, metric_name)
 
         obs, mod = dask_pair
