@@ -372,7 +372,7 @@ class TestNaNHandling:
         for fn in (MAE, RMSE, MB):
             np_result = fn(obs_np, mod_np)
             xr_result = float(fn(obs_xr, mod_xr))
-            assert abs(np_result - xr_result) < 1e-10, f"{fn.__name__}: numpy={np_result} vs xarray={xr_result}"
+            assert np_result == pytest.approx(xr_result, abs=1e-10), f"{fn.__name__}: numpy={np_result} vs xarray={xr_result}"
 
 
 class TestDaskLaziness:
