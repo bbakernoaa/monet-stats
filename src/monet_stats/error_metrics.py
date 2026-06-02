@@ -2102,7 +2102,7 @@ def LOG_ERROR(
         obs_log = np.log(obs_safe)
         mod_log = np.log(mod_safe)
 
-        result = np.sqrt(np.ma.mean(np.ma.masked_invalid((mod_log - obs_log) ** 2), axis=axis))
+        result = np.sqrt(np.ma.mean(np.ma.masked_invalid(mod_log - obs_log) ** 2, axis=axis))
         # Return 0 for perfect agreement
         if np.array_equal(obs, mod):
             return 0.0
