@@ -1894,9 +1894,8 @@ def RMSE_norm(
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
         rmse = np.sqrt(np.ma.mean((m_ - o_) ** 2, axis=axis))
-        o_filled = o_.filled(np.nan)
-        obs_min = np.nanmin(o_filled, axis=axis)
-        obs_max = np.nanmax(o_filled, axis=axis)
+        obs_min = np.ma.min(o_, axis=axis)
+        obs_max = np.ma.max(o_, axis=axis)
         obs_range = obs_max - obs_min
         with np.errstate(invalid="ignore", divide="ignore"):
             result = np.where(obs_range == 0, rmse, rmse / obs_range)
@@ -1940,9 +1939,8 @@ def MAE_norm(
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
         mae = np.ma.mean(np.ma.abs(m_ - o_), axis=axis)
-        o_filled = o_.filled(np.nan)
-        obs_min = np.nanmin(o_filled, axis=axis)
-        obs_max = np.nanmax(o_filled, axis=axis)
+        obs_min = np.ma.min(o_, axis=axis)
+        obs_max = np.ma.max(o_, axis=axis)
         obs_range = obs_max - obs_min
         with np.errstate(invalid="ignore", divide="ignore"):
             result = np.where(obs_range == 0, mae, mae / obs_range)
@@ -2104,7 +2102,7 @@ def LOG_ERROR(
         obs_log = np.log(obs_safe)
         mod_log = np.log(mod_safe)
 
-        result = np.sqrt(np.nanmean(np.ma.masked_invalid((mod_log - obs_log) ** 2), axis=axis))
+        result = np.sqrt(np.ma.mean(np.ma.masked_invalid((mod_log - obs_log) ** 2), axis=axis))
         # Return 0 for perfect agreement
         if np.array_equal(obs, mod):
             return 0.0
@@ -2333,12 +2331,13 @@ def CORR_INDEX(
             return result.item() if hasattr(result, "item") else float(result)
         else:
             # Manual vectorized correlation over axis for robustness across scipy versions
-            obs_mean = np.nanmean(np.ma.masked_invalid(obs), axis=axis, keepdims=True)
-            mod_mean = np.nanmean(np.ma.masked_invalid(mod), axis=axis, keepdims=True)
-            obs_std = obs - obs_mean
-            mod_std = mod - mod_mean
-            num = np.nansum(obs_std * mod_std, axis=axis)
-            den = np.sqrt(np.nansum(obs_std**2, axis=axis) * np.nansum(mod_std**2, axis=axis))
+            o_, m_ = _nanmask_inputs(obs, mod)
+            obs_mean = np.ma.mean(o_, axis=axis, keepdims=True)
+            mod_mean = np.ma.mean(m_, axis=axis, keepdims=True)
+            obs_std = o_ - obs_mean
+            mod_std = m_ - mod_mean
+            num = np.ma.sum(obs_std * mod_std, axis=axis)
+            den = np.sqrt(np.ma.sum(obs_std**2, axis=axis) * np.ma.sum(mod_std**2, axis=axis))
             with np.errstate(invalid="ignore", divide="ignore"):
                 result = num / den
             return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result

@@ -344,7 +344,7 @@ def _nanmask_inputs(
     o = np.ma.masked_invalid(np.asarray(obs, dtype=float))
     m = np.ma.masked_invalid(np.asarray(mod, dtype=float))
     combined = np.ma.getmaskarray(o) | np.ma.getmaskarray(m)
-    return np.ma.masked_where(combined, o), np.ma.masked_where(combined, m)
+    return np.ma.masked_where(combined, o, copy=False), np.ma.masked_where(combined, m, copy=False)
 
 
 def circlebias_m(b: ArrayLike) -> Any:

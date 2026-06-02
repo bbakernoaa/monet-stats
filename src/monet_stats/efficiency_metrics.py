@@ -89,8 +89,8 @@ def NSE(
         if weights is not None:
             w = np.asarray(weights)
             obs_mean = np.ma.average(o_, axis=axis, weights=w, keepdims=True)
-            numerator = np.nansum(((o_ - m_) ** 2) * w, axis=axis)
-            denominator = np.nansum(((o_ - obs_mean) ** 2) * w, axis=axis)
+            numerator = np.ma.sum(((o_ - m_) ** 2) * w, axis=axis)
+            denominator = np.ma.sum(((o_ - obs_mean) ** 2) * w, axis=axis)
         else:
             obs_mean = np.ma.mean(o_, axis=axis, keepdims=True)
             numerator = np.ma.sum((o_ - m_) ** 2, axis=axis)
