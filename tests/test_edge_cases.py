@@ -325,7 +325,7 @@ class TestNaNHandling:
         """Result with NaN inputs should equal result computed on the clean (pairwise-valid) subset."""
         result_nan = fn(self._obs_with_nan(), self._mod_with_nan())
         result_clean = fn(self._clean_obs(), self._clean_mod())
-        assert abs(result_nan - result_clean) < 1e-10, (
+        assert result_nan == pytest.approx(result_clean, 1e-10), (
             f"{name}: NaN-aware result {result_nan} != clean result {result_clean}"
         )
 
@@ -356,7 +356,9 @@ class TestNaNHandling:
         result_inf = MAE(obs, mod)
         result_clean = MAE(np.array([1.0, 3.0, 4.0]), np.array([1.0, 3.0, 4.0]))
         assert np.isfinite(result_inf), f"Inf in obs should give finite result, got {result_inf}"
-        assert abs(result_inf - result_clean) < 1e-10, "Inf should be masked, not propagate"
+        assert result_inf == pytest.approx(result_clean, abs=1e-10), (
+            "Inf should be masked, not propagate"
+        )
 
     def test_xarray_nan_consistency(self):
         """Xarray path and NumPy path should agree when NaNs are present."""
