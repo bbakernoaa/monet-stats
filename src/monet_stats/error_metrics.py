@@ -7,7 +7,14 @@ from typing import Iterable, List, Optional, Tuple, Union
 import numpy as np
 import xarray as xr
 
-from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, ensure_single_chunk, matchmasks
+from .utils_stats import (
+    _nanmask_inputs,
+    _resolve_axis_to_dim,
+    _update_history,
+    circlebias,
+    ensure_single_chunk,
+    matchmasks,
+)
 
 __all__ = [
     "STDO",
@@ -637,7 +644,8 @@ def MdnO(
         result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnO")
     else:
-        result = np.median(np.subtract(mod, obs), axis=axis)
+        o_, m_ = _nanmask_inputs(obs, mod)
+        result = np.ma.median(m_ - o_, axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -675,7 +683,8 @@ def MdnP(
         result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnP")
     else:
-        result = np.median(np.subtract(mod, obs), axis=axis)
+        o_, m_ = _nanmask_inputs(obs, mod)
+        result = np.ma.median(m_ - o_, axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -708,7 +717,8 @@ def RM(
         result = np.sqrt(((obs - mod) ** 2).mean(dim=dim, keep_attrs=True))
         return _update_history(result, "RM")
     else:
-        result = np.sqrt(np.mean((np.subtract(obs, mod)) ** 2, axis=axis))
+        o_, m_ = _nanmask_inputs(obs, mod)
+        result = np.sqrt(np.ma.mean((o_ - m_) ** 2, axis=axis))
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -746,8 +756,9 @@ def RMdn(
         result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "RMdn")
     else:
-        squared_errors = (np.subtract(obs, mod)) ** 2
-        result = np.sqrt(np.median(squared_errors, axis=axis))
+        o_, m_ = _nanmask_inputs(obs, mod)
+        squared_errors = (o_ - m_) ** 2
+        result = np.sqrt(np.ma.median(squared_errors, axis=axis))
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -847,7 +858,8 @@ def MdnB(
         result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "MdnB")
     else:
-        result = np.ma.median(np.subtract(mod, obs), axis=axis)
+        o_, m_ = _nanmask_inputs(obs, mod)
+        result = np.ma.median(m_ - o_, axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -1134,9 +1146,10 @@ def CRMSE(
         result = ((m_ - o_) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "CRMSE")
     else:
-        o_ = np.subtract(obs, np.mean(obs, axis=axis, keepdims=True))
-        m_ = np.subtract(mod, np.mean(mod, axis=axis, keepdims=True))
-        result = (np.ma.abs(m_ - o_) ** 2).mean(axis=axis) ** 0.5
+        o_m, m_m = _nanmask_inputs(obs, mod)
+        o_ = o_m - np.ma.mean(o_m, axis=axis, keepdims=True)
+        m_ = m_m - np.ma.mean(m_m, axis=axis, keepdims=True)
+        result = np.ma.mean(np.ma.abs(m_ - o_) ** 2, axis=axis) ** 0.5
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -1344,14 +1357,17 @@ def MASE(
         return _update_history(result, "MASE")
     else:
         # Calculate naive forecast error (using previous observation)
+        obs_arr = np.ma.masked_invalid(np.asarray(obs, dtype=float))
         if axis is not None:
-            naive_diff = np.diff(obs, axis=axis)
-            naive_error = np.mean(np.abs(naive_diff), axis=axis)
+            naive_diff = np.ma.diff(obs_arr, axis=axis)
+            naive_error = np.ma.mean(np.ma.abs(naive_diff), axis=axis)
         else:
-            naive_diff = np.diff(obs)
-            naive_error = np.mean(np.abs(naive_diff))
-        model_error = np.mean(np.abs(np.subtract(mod, obs)), axis=axis)
-        result = model_error / naive_error
+            naive_diff = np.ma.diff(obs_arr.ravel())
+            naive_error = np.ma.mean(np.ma.abs(naive_diff))
+        o_, m_ = _nanmask_inputs(obs, mod)
+        model_error = np.ma.mean(np.ma.abs(m_ - o_), axis=axis)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            result = model_error / naive_error
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -1507,10 +1523,12 @@ def NSC(
         result = 1.0 - (numerator / denominator)
         return _update_history(result, "NSC")
     else:
-        obs_mean = np.mean(obs, axis=axis, keepdims=True)
-        numerator = np.sum((obs - mod) ** 2, axis=axis)
-        denominator = np.sum((obs - obs_mean) ** 2, axis=axis)
-        result = 1.0 - (numerator / denominator)
+        o_, m_ = _nanmask_inputs(obs, mod)
+        obs_mean = np.ma.mean(o_, axis=axis, keepdims=True)
+        numerator = np.ma.sum((o_ - m_) ** 2, axis=axis)
+        denominator = np.ma.sum((o_ - obs_mean) ** 2, axis=axis)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            result = 1.0 - (numerator / denominator)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -1604,7 +1622,9 @@ def NSE_beta(
         result = mod.mean(dim=dim) / obs.mean(dim=dim)
         return _update_history(result, "NSE_beta")
     else:
-        result = np.mean(mod, axis=axis) / np.mean(obs, axis=axis)
+        o_, m_ = _nanmask_inputs(obs, mod)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            result = np.ma.mean(m_, axis=axis) / np.ma.mean(o_, axis=axis)
         return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
@@ -1823,15 +1843,17 @@ def MASE_mod(
         return _update_history(result, "MASE_mod")
     else:
         # Calculate naive forecast error (using previous observation)
+        obs_arr = np.ma.masked_invalid(np.asarray(obs, dtype=float))
         if axis is not None:
-            naive_diff = np.diff(obs, axis=axis)
-            naive_error = np.mean(np.abs(naive_diff), axis=axis)
+            naive_diff = np.ma.diff(obs_arr, axis=axis)
+            naive_error = np.ma.mean(np.ma.abs(naive_diff), axis=axis)
         else:
-            naive_diff = np.diff(obs)
-            naive_error = np.mean(np.abs(naive_diff))
-        model_error = np.mean(np.abs(np.subtract(mod, obs)), axis=axis)
-        # Avoid division by zero
-        result = np.where(naive_error == 0, model_error, model_error / naive_error)
+            naive_diff = np.ma.diff(obs_arr.ravel())
+            naive_error = np.ma.mean(np.ma.abs(naive_diff))
+        o_, m_ = _nanmask_inputs(obs, mod)
+        model_error = np.ma.mean(np.ma.abs(m_ - o_), axis=axis)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            result = np.where(naive_error == 0, model_error, model_error / naive_error)
         return result.item() if np.ndim(result) == 0 else result
 
 
@@ -1870,12 +1892,13 @@ def RMSE_norm(
         result = xr.where(obs_range == 0, rmse, rmse / obs_range)
         return _update_history(result, "RMSE_norm")
     else:
-        rmse = np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
-        obs_min = np.min(obs, axis=axis)
-        obs_max = np.max(obs, axis=axis)
+        o_, m_ = _nanmask_inputs(obs, mod)
+        rmse = np.sqrt(np.ma.mean((m_ - o_) ** 2, axis=axis))
+        obs_min = np.ma.min(o_, axis=axis)
+        obs_max = np.ma.max(o_, axis=axis)
         obs_range = obs_max - obs_min
-        # Avoid division by zero
-        result = np.where(obs_range == 0, rmse, rmse / obs_range)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            result = np.where(obs_range == 0, rmse, rmse / obs_range)
         return result.item() if np.ndim(result) == 0 else result
 
 
@@ -1914,12 +1937,13 @@ def MAE_norm(
         result = xr.where(obs_range == 0, mae, mae / obs_range)
         return _update_history(result, "MAE_norm")
     else:
-        mae = np.mean(np.abs(np.subtract(mod, obs)), axis=axis)
-        obs_min = np.min(obs, axis=axis)
-        obs_max = np.max(obs, axis=axis)
+        o_, m_ = _nanmask_inputs(obs, mod)
+        mae = np.ma.mean(np.ma.abs(m_ - o_), axis=axis)
+        obs_min = np.ma.min(o_, axis=axis)
+        obs_max = np.ma.max(o_, axis=axis)
         obs_range = obs_max - obs_min
-        # Avoid division by zero
-        result = np.where(obs_range == 0, mae, mae / obs_range)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            result = np.where(obs_range == 0, mae, mae / obs_range)
         return result.item() if np.ndim(result) == 0 else result
 
 
@@ -1956,10 +1980,11 @@ def bias_fraction(
         result = xr.where(total_error == 0, 0, (bias**2) / (total_error**2))
         return _update_history(result, "bias_fraction")
     else:
-        bias = np.mean(np.subtract(mod, obs), axis=axis)
-        total_error = np.sqrt(np.mean((np.subtract(mod, obs)) ** 2, axis=axis))
-        # Avoid division by zero
-        result = np.where(total_error == 0, 0, (bias**2) / (total_error**2))
+        o_, m_ = _nanmask_inputs(obs, mod)
+        bias = np.ma.mean(m_ - o_, axis=axis)
+        total_error = np.sqrt(np.ma.mean((m_ - o_) ** 2, axis=axis))
+        with np.errstate(invalid="ignore", divide="ignore"):
+            result = np.where(total_error == 0, 0, (bias**2) / (total_error**2))
         return result.item() if np.ndim(result) == 0 else result
 
 
@@ -2077,7 +2102,7 @@ def LOG_ERROR(
         obs_log = np.log(obs_safe)
         mod_log = np.log(mod_safe)
 
-        result = np.sqrt(np.mean((mod_log - obs_log) ** 2, axis=axis))
+        result = np.sqrt(np.ma.mean(np.ma.masked_invalid(mod_log - obs_log) ** 2, axis=axis))
         # Return 0 for perfect agreement
         if np.array_equal(obs, mod):
             return 0.0
@@ -2242,10 +2267,14 @@ def VOLUMETRIC_ERROR(
         result = abs(mod_sum - obs_sum) / abs(obs_sum)
         return _update_history(result, "VOLUMETRIC_ERROR")
     else:
-        obs_sum = np.sum(obs, axis=axis)
-        mod_sum = np.sum(mod, axis=axis)
-        result = np.abs(mod_sum - obs_sum) / np.abs(obs_sum)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        o_, m_ = _nanmask_inputs(obs, mod)
+        obs_sum = np.ma.sum(o_, axis=axis)
+        mod_sum = np.ma.sum(m_, axis=axis)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            result = np.ma.abs(mod_sum - obs_sum) / np.ma.abs(obs_sum)
+        if np.ndim(result) == 0:
+            return result.item() if not np.ma.is_masked(result) else np.nan
+        return np.ma.filled(result, np.nan)
 
 
 def CORR_INDEX(
@@ -2302,13 +2331,15 @@ def CORR_INDEX(
             return result.item() if hasattr(result, "item") else float(result)
         else:
             # Manual vectorized correlation over axis for robustness across scipy versions
-            obs_mean = np.mean(obs, axis=axis, keepdims=True)
-            mod_mean = np.mean(mod, axis=axis, keepdims=True)
-            obs_std = obs - obs_mean
-            mod_std = mod - mod_mean
-            num = np.sum(obs_std * mod_std, axis=axis)
-            den = np.sqrt(np.sum(obs_std**2, axis=axis) * np.sum(mod_std**2, axis=axis))
-            result = num / den
+            o_, m_ = _nanmask_inputs(obs, mod)
+            obs_mean = np.ma.mean(o_, axis=axis, keepdims=True)
+            mod_mean = np.ma.mean(m_, axis=axis, keepdims=True)
+            obs_std = o_ - obs_mean
+            mod_std = m_ - mod_mean
+            num = np.ma.sum(obs_std * mod_std, axis=axis)
+            den = np.sqrt(np.ma.sum(obs_std**2, axis=axis) * np.ma.sum(mod_std**2, axis=axis))
+            with np.errstate(invalid="ignore", divide="ignore"):
+                result = num / den
             return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
