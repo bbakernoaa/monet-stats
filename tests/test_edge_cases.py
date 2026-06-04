@@ -356,9 +356,7 @@ class TestNaNHandling:
         result_inf = MAE(obs, mod)
         result_clean = MAE(np.array([1.0, 3.0, 4.0]), np.array([1.0, 3.0, 4.0]))
         assert np.isfinite(result_inf), f"Inf in obs should give finite result, got {result_inf}"
-        assert result_inf == pytest.approx(result_clean, abs=1e-10), (
-            "Inf should be masked, not propagate"
-        )
+        assert result_inf == pytest.approx(result_clean, abs=1e-10), "Inf should be masked, not propagate"
 
     def test_xarray_nan_consistency(self):
         """Xarray path and NumPy path should agree when NaNs are present."""
