@@ -419,7 +419,7 @@ class TestDaskLaziness:
 
         dask_result = float(MAE(obs_xr, mod_xr).compute())
         numpy_result = MAE(obs_np, mod_np)
-        assert dask_result - pytest.approx(numpy_result, abs=1e-10), (
+        assert dask_result == pytest.approx(numpy_result, abs=1e-10), (
             f"Dask result {dask_result} != NumPy result {numpy_result}"
         )
 
