@@ -85,6 +85,8 @@ def NSE(
     else:
         obs = np.asanyarray(obs)
         mod = np.asanyarray(mod)
+        if obs.size == 0:
+            return np.nan
         o_, m_ = _nanmask_inputs(obs, mod)
         if weights is not None:
             w = np.asarray(weights)
@@ -265,6 +267,8 @@ def rNSE(
     else:
         obs = np.asanyarray(obs)
         mod = np.asanyarray(mod)
+        if obs.size == 0:
+            return np.nan
         if weights is not None:
             obs_mean = np.ma.average(np.ma.masked_invalid(obs), axis=axis, weights=weights, keepdims=True)
             obs_safe = np.where(np.abs(obs) < epsilon, epsilon, obs)
@@ -347,6 +351,8 @@ def mNSE(
     else:
         obs = np.asanyarray(obs)
         mod = np.asanyarray(mod)
+        if obs.size == 0:
+            return np.nan
         if weights is not None:
             obs_mean = np.ma.average(np.ma.masked_invalid(obs), axis=axis, weights=weights, keepdims=True)
             numerator = np.nansum(np.abs(obs - mod) * weights, axis=axis)

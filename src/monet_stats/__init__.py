@@ -48,7 +48,14 @@ from .correlation_metrics import (
     spearmanr,
     taylor_skill,
 )
-from .distribution_metrics import KLDivergence, MutualInformation, WassersteinDistance
+from .distribution_metrics import (
+    EnergyDistance,
+    JensenShannonDivergence,
+    KLDivergence,
+    MutualInformation,
+    SinkhornDistance,
+    WassersteinDistance,
+)
 from .efficiency_metrics import MAPE, MASE, NSE, PC, NSElog, NSEm, mNSE, rNSE
 from .error_metrics import (
     COE,
@@ -120,6 +127,16 @@ from .spatial_ensemble_metrics import (
 )
 from .spatial_skill_metrics import FSS, VETS
 from .temporal_metrics import CrossWaveletTransform, DynamicTimeWarping, PhaseError
+from .track_metrics import (
+    along_track_error,
+    bearing,
+    cross_track_error,
+    find_storm_center,
+    find_storm_centers,
+    haversine_distance,
+    track_error,
+    translation_speed,
+)
 from .uncertainty import block_bootstrap
 from .utils_stats import (
     _resolve_axis_to_dim,
@@ -248,6 +265,9 @@ __all__ = [
     "WassersteinDistance",
     "KLDivergence",
     "MutualInformation",
+    "JensenShannonDivergence",
+    "EnergyDistance",
+    "SinkhornDistance",
     # temporal_metrics
     "DynamicTimeWarping",
     "CrossWaveletTransform",
@@ -267,6 +287,15 @@ __all__ = [
     # spatial_skill_metrics
     "FSS",
     "VETS",
+    # track_metrics
+    "haversine_distance",
+    "track_error",
+    "bearing",
+    "along_track_error",
+    "cross_track_error",
+    "translation_speed",
+    "find_storm_center",
+    "find_storm_centers",
     # utils_stats
     "matchedcompressed",
     "matchmasks",

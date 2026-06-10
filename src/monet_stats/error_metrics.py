@@ -121,7 +121,9 @@ def STDO(
     # Fallback to numpy-compatible logic
     errors = np.subtract(obs, mod)
     result = np.ma.std(np.ma.masked_invalid(errors), axis=axis)
-    return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+    if hasattr(result, "item") and np.ndim(result) == 0:
+        return np.nan if np.ma.is_masked(result) else result.item()
+    return result
 
 
 def STDP(
@@ -167,7 +169,9 @@ def STDP(
     # Fallback to numpy-compatible logic
     errors = np.subtract(mod, obs)
     result = np.ma.std(np.ma.masked_invalid(errors), axis=axis)
-    return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+    if hasattr(result, "item") and np.ndim(result) == 0:
+        return np.nan if np.ma.is_masked(result) else result.item()
+    return result
 
 
 def MNB(
@@ -554,7 +558,9 @@ def MO(
         return _update_history(result, "MO")
     else:
         result = np.ma.mean(np.ma.masked_invalid(np.subtract(mod, obs)), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MP(
@@ -592,7 +598,9 @@ def MP(
         return _update_history(result, "MP")
     else:
         result = np.ma.mean(np.ma.masked_invalid(mod), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MdnO(
@@ -646,7 +654,9 @@ def MdnO(
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
         result = np.ma.median(m_ - o_, axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MdnP(
@@ -718,8 +728,10 @@ def RM(
         return _update_history(result, "RM")
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
-        result = np.sqrt(np.ma.mean((o_ - m_) ** 2, axis=axis))
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        result = np.ma.sqrt(np.ma.mean((o_ - m_) ** 2, axis=axis))
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def RMdn(
@@ -758,8 +770,10 @@ def RMdn(
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
         squared_errors = (o_ - m_) ** 2
-        result = np.sqrt(np.ma.median(squared_errors, axis=axis))
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        result = np.ma.sqrt(np.ma.median(squared_errors, axis=axis))
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MB(
@@ -891,8 +905,10 @@ def WDMB(
         result = circlebias(mod - obs).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "WDMB")
     else:
-        result = np.ma.mean(circlebias(np.subtract(mod, obs)), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        result = np.ma.mean(np.ma.masked_invalid(circlebias(np.subtract(mod, obs))), axis=axis)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 WDMB_m = WDMB
@@ -931,8 +947,10 @@ def WDMdnB(
         result.attrs.update({k: v for k, v in obs.attrs.items() if k not in result.attrs})
         return _update_history(result, "WDMdnB")
     else:
-        result = np.ma.median(circlebias(np.subtract(mod, obs)), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        result = np.ma.median(np.ma.masked_invalid(circlebias(np.subtract(mod, obs))), axis=axis)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MSE(
@@ -979,14 +997,18 @@ def MSE(
         result = diff_sq.mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MSE")
     else:
-        diff_sq = (np.subtract(mod, obs)) ** 2
-        if diff_sq.size == 0:
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        diff_sq = (mod_m - obs_m) ** 2
+        if diff_sq.count() == 0:
             return np.nan
         if weights is not None:
-            result = np.ma.average(np.ma.masked_invalid(diff_sq), axis=axis, weights=weights)
+            result = np.ma.average(diff_sq, axis=axis, weights=weights)
         else:
-            result = np.ma.mean(np.ma.masked_invalid(diff_sq), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+            result = np.ma.mean(diff_sq, axis=axis)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MAE(
@@ -1039,14 +1061,18 @@ def MAE(
         result = diff_abs.mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MAE")
     else:
-        diff_abs = np.ma.abs(np.subtract(mod, obs))
-        if diff_abs.size == 0:
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        diff_abs = np.ma.abs(mod_m - obs_m)
+        if diff_abs.count() == 0:
             return np.nan
         if weights is not None:
-            result = np.ma.average(np.ma.masked_invalid(diff_abs), axis=axis, weights=weights)
+            result = np.ma.average(diff_abs, axis=axis, weights=weights)
         else:
-            result = np.ma.mean(np.ma.masked_invalid(diff_abs), axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+            result = np.ma.mean(diff_abs, axis=axis)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MedAE(
@@ -1149,8 +1175,10 @@ def CRMSE(
         o_m, m_m = _nanmask_inputs(obs, mod)
         o_ = o_m - np.ma.mean(o_m, axis=axis, keepdims=True)
         m_ = m_m - np.ma.mean(m_m, axis=axis, keepdims=True)
-        result = np.ma.mean(np.ma.abs(m_ - o_) ** 2, axis=axis) ** 0.5
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        result = np.ma.sqrt(np.ma.mean(np.ma.abs(m_ - o_) ** 2, axis=axis))
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MAPE(
@@ -1197,8 +1225,13 @@ def MAPE(
         result = (100 * abs(mod - obs) / abs(obs)).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MAPE")
     else:
-        result = (100 * np.ma.abs(np.subtract(mod, obs)) / np.ma.abs(obs)).mean(axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = (100 * np.ma.abs(mod_m - obs_m) / np.ma.abs(obs_m)).mean(axis=axis)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def sMAPE(
@@ -1245,8 +1278,14 @@ def sMAPE(
         result = (200 * abs(mod - obs) / (abs(mod) + abs(obs))).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "sMAPE")
     else:
-        result = (200 * np.ma.abs(np.subtract(mod, obs)) / (np.ma.abs(mod) + np.ma.abs(obs))).mean(axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            denom = np.ma.abs(mod_m) + np.ma.abs(obs_m)
+            result = (200 * np.ma.abs(mod_m - obs_m) / denom).mean(axis=axis)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def NRMSE(
@@ -1296,11 +1335,17 @@ def NRMSE(
         result = xr.where(obs_range == 0, 0, rmse / obs_range)
         return _update_history(result, "NRMSE")
     else:
-        rmse = np.ma.sqrt(np.ma.mean((np.subtract(mod, obs)) ** 2, axis=axis))
-        obs_range = np.ma.max(obs, axis=axis) - np.ma.min(obs, axis=axis)
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        if obs_m.count() == 0:
+            return np.nan
+        rmse = np.ma.sqrt(np.ma.mean((mod_m - obs_m) ** 2, axis=axis))
+        obs_range = np.ma.max(obs_m, axis=axis) - np.ma.min(obs_m, axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
-            result = np.where(obs_range == 0, 0, rmse / obs_range)
-            return result.item() if np.ndim(result) == 0 else result
+            result = np.where(obs_range == 0, 0.0, rmse / obs_range)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MASE(
@@ -1358,6 +1403,8 @@ def MASE(
     else:
         # Calculate naive forecast error (using previous observation)
         obs_arr = np.ma.masked_invalid(np.asarray(obs, dtype=float))
+        if obs_arr.count() == 0:
+            return np.nan
         if axis is not None:
             naive_diff = np.ma.diff(obs_arr, axis=axis)
             naive_error = np.ma.mean(np.ma.abs(naive_diff), axis=axis)
@@ -1367,8 +1414,10 @@ def MASE(
         o_, m_ = _nanmask_inputs(obs, mod)
         model_error = np.ma.mean(np.ma.abs(m_ - o_), axis=axis)
         with np.errstate(invalid="ignore", divide="ignore"):
-            result = model_error / naive_error
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+            result = np.where(naive_error == 0, np.nan, model_error / naive_error)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MASEm(
@@ -1469,8 +1518,13 @@ def RMSPE(
         result = (100 * ((mod - obs) / obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "RMSPE")
     else:
-        result = 100 * np.ma.sqrt(np.ma.mean(((mod - obs) / obs) ** 2, axis=axis))
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = 100 * np.ma.sqrt(np.ma.mean(((mod_m - obs_m) / obs_m) ** 2, axis=axis))
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 MAPEm = MAPE  # noqa: N816
@@ -1524,12 +1578,25 @@ def NSC(
         return _update_history(result, "NSC")
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
+        if o_.count() == 0:
+            return np.nan
         obs_mean = np.ma.mean(o_, axis=axis, keepdims=True)
         numerator = np.ma.sum((o_ - m_) ** 2, axis=axis)
         denominator = np.ma.sum((o_ - obs_mean) ** 2, axis=axis)
         with np.errstate(invalid="ignore", divide="ignore"):
             result = 1.0 - (numerator / denominator)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+            if np.ndim(result) == 0:
+                if numerator == 0 and denominator == 0:
+                    result = np.array(1.0)
+                elif denominator == 0:
+                    result = np.array(-np.inf)
+            else:
+                result = np.where((numerator == 0) & (denominator == 0), 1.0, result)
+                result = np.where((numerator != 0) & (denominator == 0), -np.inf, result)
+
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def NSE_alpha(
@@ -1575,8 +1642,15 @@ def NSE_alpha(
         result = mod.std(dim=dim) / obs.std(dim=dim)
         return _update_history(result, "NSE_alpha")
     else:
-        result = np.std(mod, axis=axis) / np.std(obs, axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        std_obs = np.ma.std(obs_m, axis=axis)
+        std_mod = np.ma.std(mod_m, axis=axis)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = std_mod / std_obs
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def NSE_beta(
@@ -1625,7 +1699,9 @@ def NSE_beta(
         o_, m_ = _nanmask_inputs(obs, mod)
         with np.errstate(invalid="ignore", divide="ignore"):
             result = np.ma.mean(m_, axis=axis) / np.ma.mean(o_, axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 # Aliases for masked versions (already handled by base functions)
@@ -1685,15 +1761,19 @@ def RMSE(
         result = diff_sq.mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "RMSE")
     else:
-        diff_sq = (np.subtract(mod, obs)) ** 2
-        if diff_sq.size == 0:
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        diff_sq = (mod_m - obs_m) ** 2
+        if diff_sq.count() == 0:
             return np.nan
         if weights is not None:
-            mse = np.ma.average(np.ma.masked_invalid(diff_sq), axis=axis, weights=weights)
+            mse = np.ma.average(diff_sq, axis=axis, weights=weights)
         else:
-            mse = np.ma.mean(np.ma.masked_invalid(diff_sq), axis=axis)
+            mse = np.ma.mean(diff_sq, axis=axis)
         result = np.ma.sqrt(mse)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 RMSE_m = RMSE
@@ -1747,12 +1827,29 @@ def IOA(
     else:
         obs_m = np.ma.masked_invalid(obs)
         mod_m = np.ma.masked_invalid(mod)
+        if obs_m.count() == 0:
+            return np.nan
         obs_mean = np.ma.mean(obs_m, axis=axis, keepdims=True)
         num = np.ma.sum((obs_m - mod_m) ** 2, axis=axis)
         denom = np.ma.sum((np.ma.abs(mod_m - obs_mean) + np.ma.abs(obs_m - obs_mean)) ** 2, axis=axis)
         with np.errstate(divide="ignore", invalid="ignore"):
-            result = 1.0 - (num / denom)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+            if np.ndim(num) == 0:
+                if num == 0 and (denom == 0 or np.ma.is_masked(denom)):
+                    result = np.array(1.0)
+                elif denom == 0 or np.ma.is_masked(denom):
+                    result = np.array(np.nan)
+                elif denom < num:  # Extra safety for IOA/NSC if needed, but not standard
+                    result = 1.0 - (num / denom)
+                else:
+                    result = 1.0 - (num / denom)
+            else:
+                result = 1.0 - (num / denom)
+                mask_zero = (denom == 0) | np.ma.getmaskarray(denom)
+                result = np.where(mask_zero, np.nan, result)
+                result = np.where(mask_zero & (num == 0), 1.0, result)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 IOA_m = IOA
@@ -1797,10 +1894,14 @@ def MAPE_mod(
         result = (100 * abs(mod - obs) / abs(obs_safe)).mean(dim=dim, keep_attrs=True)
         return _update_history(result, "MAPE_mod")
     else:
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
         # Add epsilon to avoid division by zero
-        obs_safe = np.where(np.abs(obs) < epsilon, epsilon, obs)
-        result = (100 * np.abs(np.subtract(mod, obs)) / np.abs(obs_safe)).mean(axis=axis)
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        obs_safe = np.ma.where(np.ma.abs(obs_m) < epsilon, epsilon, obs_m)
+        result = (100 * np.ma.abs(mod_m - obs_m) / np.ma.abs(obs_safe)).mean(axis=axis)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MASE_mod(
@@ -1844,6 +1945,8 @@ def MASE_mod(
     else:
         # Calculate naive forecast error (using previous observation)
         obs_arr = np.ma.masked_invalid(np.asarray(obs, dtype=float))
+        if obs_arr.count() == 0:
+            return np.nan
         if axis is not None:
             naive_diff = np.ma.diff(obs_arr, axis=axis)
             naive_error = np.ma.mean(np.ma.abs(naive_diff), axis=axis)
@@ -1852,9 +1955,12 @@ def MASE_mod(
             naive_error = np.ma.mean(np.ma.abs(naive_diff))
         o_, m_ = _nanmask_inputs(obs, mod)
         model_error = np.ma.mean(np.ma.abs(m_ - o_), axis=axis)
+        # Avoid division by zero
         with np.errstate(invalid="ignore", divide="ignore"):
             result = np.where(naive_error == 0, model_error, model_error / naive_error)
-        return result.item() if np.ndim(result) == 0 else result
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def RMSE_norm(
@@ -1893,13 +1999,18 @@ def RMSE_norm(
         return _update_history(result, "RMSE_norm")
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
-        rmse = np.sqrt(np.ma.mean((m_ - o_) ** 2, axis=axis))
+        if o_.count() == 0:
+            return np.nan
+        rmse = np.ma.sqrt(np.ma.mean((m_ - o_) ** 2, axis=axis))
         obs_min = np.ma.min(o_, axis=axis)
         obs_max = np.ma.max(o_, axis=axis)
         obs_range = obs_max - obs_min
+        # Avoid division by zero
         with np.errstate(invalid="ignore", divide="ignore"):
             result = np.where(obs_range == 0, rmse, rmse / obs_range)
-        return result.item() if np.ndim(result) == 0 else result
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def MAE_norm(
@@ -1938,13 +2049,18 @@ def MAE_norm(
         return _update_history(result, "MAE_norm")
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
+        if o_.count() == 0:
+            return np.nan
         mae = np.ma.mean(np.ma.abs(m_ - o_), axis=axis)
         obs_min = np.ma.min(o_, axis=axis)
         obs_max = np.ma.max(o_, axis=axis)
         obs_range = obs_max - obs_min
+        # Avoid division by zero
         with np.errstate(invalid="ignore", divide="ignore"):
             result = np.where(obs_range == 0, mae, mae / obs_range)
-        return result.item() if np.ndim(result) == 0 else result
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def bias_fraction(
@@ -1982,10 +2098,13 @@ def bias_fraction(
     else:
         o_, m_ = _nanmask_inputs(obs, mod)
         bias = np.ma.mean(m_ - o_, axis=axis)
-        total_error = np.sqrt(np.ma.mean((m_ - o_) ** 2, axis=axis))
+        total_error = np.ma.sqrt(np.ma.mean((m_ - o_) ** 2, axis=axis))
+        # Avoid division by zero
         with np.errstate(invalid="ignore", divide="ignore"):
-            result = np.where(total_error == 0, 0, (bias**2) / (total_error**2))
-        return result.item() if np.ndim(result) == 0 else result
+            result = np.where(total_error == 0, 0.0, (bias**2) / (total_error**2))
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 # Add missing functions from the specification
@@ -2038,11 +2157,22 @@ def NMSE(
         result = xr.where(obs_var == 0, 0, mse / obs_var)
         return _update_history(result, "NMSE")
     else:
-        mse = np.ma.mean(np.ma.masked_invalid(np.subtract(mod, obs)) ** 2, axis=axis)
-        obs_var = np.ma.var(np.ma.masked_invalid(obs), axis=axis)
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        if obs_m.count() == 0:
+            return np.nan
+        mse = np.ma.mean((mod_m - obs_m) ** 2, axis=axis)
+        obs_var = np.ma.var(obs_m, axis=axis)
         # Handle case where variance is 0 (perfect agreement)
-        result = np.where(obs_var == 0, 0, mse / obs_var)
-        return result.item() if np.ndim(result) == 0 else result
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(obs_var == 0, np.nan, mse / obs_var)
+            if np.ndim(result) == 0 and mse == 0 and obs_var == 0:
+                result = np.array(0.0)
+            elif np.ndim(result) > 0:
+                result = np.where((mse == 0) & (obs_var == 0), 0.0, result)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def LOG_ERROR(
@@ -2096,17 +2226,23 @@ def LOG_ERROR(
         result = ((mod_log - obs_log) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
         return _update_history(result, "LOG_ERROR")
     else:
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        if obs_m.count() == 0:
+            return np.nan
         # Use abs to handle potential negative values, then add epsilon
-        obs_safe = np.abs(obs) + epsilon
-        mod_safe = np.abs(mod) + epsilon
-        obs_log = np.log(obs_safe)
-        mod_log = np.log(mod_safe)
+        obs_safe = np.ma.abs(obs_m) + epsilon
+        mod_safe = np.ma.abs(mod_m) + epsilon
+        obs_log = np.ma.log(obs_safe)
+        mod_log = np.ma.log(mod_safe)
 
-        result = np.sqrt(np.ma.mean(np.ma.masked_invalid(mod_log - obs_log) ** 2, axis=axis))
+        result = np.ma.sqrt(np.ma.mean(np.ma.masked_invalid(mod_log - obs_log) ** 2, axis=axis))
         # Return 0 for perfect agreement
-        if np.array_equal(obs, mod):
+        if np.array_equal(obs_m, mod_m):
             return 0.0
-        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def COE(
@@ -2187,8 +2323,11 @@ def COE(
         return _update_history(result, "Center of Mass Error (COE)")
 
     # Fallback to numpy
-    obs_arr = np.asanyarray(obs)
-    mod_arr = np.asanyarray(mod)
+    obs_arr = np.ma.masked_invalid(obs)
+    mod_arr = np.ma.masked_invalid(mod)
+
+    if obs_arr.count() == 0:
+        return np.nan
 
     if axis is None:
         axes = tuple(range(obs_arr.ndim))
@@ -2219,7 +2358,9 @@ def COE(
 
     dist_sq_np = sum((cm - co) ** 2 for cm, co in zip(c_mod_np, c_obs_np))
     result = dist_sq_np**0.5
-    return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+    if hasattr(result, "item") and np.ndim(result) == 0:
+        return np.nan if np.ma.is_masked(result) else result.item()
+    return result
 
 
 def VOLUMETRIC_ERROR(
@@ -2322,12 +2463,14 @@ def CORR_INDEX(
         return _update_history(result, "CORR_INDEX")
     else:
         # Fallback to numpy-compatible logic
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        if obs_m.count() < 2:
+            return np.nan
         if axis is None:
             from scipy.stats import pearsonr
 
-            result = pearsonr(obs.flatten(), mod.flatten())[0]
+            result = pearsonr(obs_m.compressed(), mod_m.compressed())[0]
             return result.item() if hasattr(result, "item") else float(result)
         else:
             # Manual vectorized correlation over axis for robustness across scipy versions
@@ -2337,10 +2480,12 @@ def CORR_INDEX(
             obs_std = o_ - obs_mean
             mod_std = m_ - mod_mean
             num = np.ma.sum(obs_std * mod_std, axis=axis)
-            den = np.sqrt(np.ma.sum(obs_std**2, axis=axis) * np.ma.sum(mod_std**2, axis=axis))
+            den = np.ma.sqrt(np.ma.sum(obs_std**2, axis=axis) * np.ma.sum(mod_std**2, axis=axis))
             with np.errstate(invalid="ignore", divide="ignore"):
                 result = num / den
-            return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+            if hasattr(result, "item") and np.ndim(result) == 0:
+                return np.nan if np.ma.is_masked(result) else result.item()
+            return result
 
 
 def FAC2(
@@ -2391,16 +2536,19 @@ def FAC2(
         result = in_range.where(mask).mean(dim=dim)
         return _update_history(result, "FAC2")
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
-        mask = ~np.isnan(obs) & ~np.isnan(mod)
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        mask = ~np.ma.getmaskarray(obs_m) & ~np.ma.getmaskarray(mod_m)
+        if not np.any(mask):
+            return np.nan
         with np.errstate(divide="ignore", invalid="ignore"):
-            ratio = mod / obs
+            ratio = mod_m / obs_m
             in_range = (ratio >= 0.5) & (ratio <= 2.0)
-            # Use float conversion to allow np.nan insertion for correct nanmean behavior
-            res_data = np.where(mask, in_range.astype(float), np.nan)
-            result = np.nanmean(res_data, axis=axis)
-        return result.item() if np.ndim(result) == 0 else result
+            # Only count where both are valid
+            result = np.ma.mean(np.ma.masked_where(~mask, in_range), axis=axis)
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
 
 
 def RMSLE(
@@ -2449,9 +2597,11 @@ def RMSLE(
         result = ((log_mod - log_obs) ** 2).mean(dim=dim) ** 0.5
         return _update_history(result, "RMSLE")
     else:
-        obs = np.asarray(obs)
-        mod = np.asarray(mod)
-        log_obs = np.log1p(np.where(obs < 0, 0, obs) + epsilon)
-        log_mod = np.log1p(np.where(mod < 0, 0, mod) + epsilon)
-        result = np.sqrt(np.nanmean((log_mod - log_obs) ** 2, axis=axis))
-        return result.item() if np.ndim(result) == 0 else result
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        log_obs = np.ma.log(np.ma.where(obs_m < 0, 0, obs_m) + 1.0 + epsilon)
+        log_mod = np.ma.log(np.ma.where(mod_m < 0, 0, mod_m) + 1.0 + epsilon)
+        result = np.ma.sqrt(np.ma.mean((log_mod - log_obs) ** 2, axis=axis))
+        if hasattr(result, "item") and np.ndim(result) == 0:
+            return np.nan if np.ma.is_masked(result) else result.item()
+        return result
