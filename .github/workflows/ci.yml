@@ -55,6 +55,9 @@ jobs:
       #     name: codecov-umbrella
       #     fail_ci_if_error: true
 
+      - name: Check example data generation script still works
+        run: python data/generate_example_datasets.py
+
   build:
     name: build
     runs-on: ubuntu-latest

@@ -58,8 +58,7 @@ This directory contains comprehensive Jupyter notebooks demonstrating the usage 
 2. **Example Datasets**: The notebooks use example datasets generated in the `data/` directory. Run:
 
    ```bash
-   cd data
-   python generate_example_datasets.py
+   python data/generate_example_datasets.py
    ```
 
 3. **Running Notebooks**: Start Jupyter and open any notebook:

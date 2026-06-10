@@ -150,3 +150,8 @@ data/local/
 data/private/
 data/secrets/
 outputs/
+
+# Generated example datasets (data/generate_example_datasets.py)
+data/*.csv
+data/*.nc
+data/*.txt
