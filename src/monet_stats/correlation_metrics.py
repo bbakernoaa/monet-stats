@@ -5,11 +5,10 @@ Correlation and Agreement Metrics for Model Evaluation
 from typing import Iterable, Optional, Union
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 from .error_metrics import IOA, RMSE, IOA_m
-from .utils_stats import circlebias, circlebias_m, matchedcompressed
+from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, circlebias_m, matchedcompressed
 
 __all__ = [
     "IOA",
@@ -74,62 +73,48 @@ def R2(
     >>> R2(obs, mod)
     0.9846153846153847
     """
-    from scipy.stats import pearsonr
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            # Default to all dimensions if None
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
-        def _pearsonr2(a, b):
-            if np.var(a) == 0 or np.var(b) == 0:
-                return 0.0
-            r_val, _ = pearsonr(a, b)
-            if np.isnan(r_val):
-                return 0.0
-            return r_val**2
-
-        result = xr.apply_ufunc(
-            _pearsonr2,
-            obs,
-            mod,
-            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
-            output_core_dims=[[]],
-            vectorize=True,
-            dask="parallelized",
-            dask_gufunc_kwargs={"allow_rechunk": True},
-            output_dtypes=[float],
-        )
-        # Update history
-        history = f"R2 computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        # Use native xarray correlation for speed and laziness (Aero Protocol)
+        r = xr.corr(obs, mod, dim=dim)
+        # xr.corr returns NaN if variance is zero or data is empty
+        result = r**2
+        # Ensure result is NaN if r is NaN
+        return _update_history(result, "R2")
     else:
+        from scipy.stats import pearsonr
+
+        obs_m = np.ma.masked_invalid(obs)
+        mod_m = np.ma.masked_invalid(mod)
+        common_mask = ~np.ma.getmaskarray(obs_m) & ~np.ma.getmaskarray(mod_m)
+        obs_m.mask = ~common_mask
+        mod_m.mask = ~common_mask
+
         if axis is None:
-            obsc, modc = matchedcompressed(obs, mod)
-            if np.var(obsc) == 0 or np.var(modc) == 0:
-                return 0.0
+            obsc = obs_m.compressed()
+            modc = mod_m.compressed()
+            if len(obsc) < 2 or np.var(obsc) == 0 or np.var(modc) == 0:
+                return np.nan
             r_val, _ = pearsonr(obsc, modc)
             if np.isnan(r_val):
-                return 0.0
+                return np.nan
             return r_val**2
         else:
             # Manual vectorized R2
-            obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
-            mod_mean = np.nanmean(mod, axis=axis, keepdims=True)
-            obs_std = obs - obs_mean
-            mod_std = mod - mod_mean
-            num = np.nansum(obs_std * mod_std, axis=axis)
-            den = np.sqrt(np.nansum(obs_std**2, axis=axis) * np.nansum(mod_std**2, axis=axis))
+            obs_mean = np.ma.mean(obs_m, axis=axis, keepdims=True)
+            mod_mean = np.ma.mean(mod_m, axis=axis, keepdims=True)
+            obs_dev = obs_m - obs_mean
+            mod_dev = mod_m - mod_mean
+            num = np.ma.sum(obs_dev * mod_dev, axis=axis)
+            den = np.ma.sqrt(np.ma.sum(obs_dev**2, axis=axis) * np.ma.sum(mod_dev**2, axis=axis))
             with np.errstate(divide="ignore", invalid="ignore"):
                 r = num / den
-                result = np.where(np.isnan(r), 0.0, r**2)
-                return result.item() if np.ndim(result) == 0 else result
+                result = np.ma.where(np.ma.getmaskarray(r), np.nan, r**2)
+            if hasattr(result, "item") and np.ndim(result) == 0:
+                return np.nan if np.ma.is_masked(result) else result.item()
+            return result
 
 
 def WDRMSE_m(
@@ -174,19 +159,13 @@ def WDRMSE_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         result = (circlebias_m(mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"WDRMSE_m computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "WDRMSE_m")
     else:
-        return np.ma.sqrt(np.ma.mean((circlebias_m(np.subtract(mod, obs))) ** 2, axis=axis))
+        result = np.ma.sqrt(np.ma.mean((circlebias_m(np.subtract(mod, obs))) ** 2, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def WDRMSE(
@@ -231,19 +210,126 @@ def WDRMSE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         result = (circlebias(mod - obs) ** 2).mean(dim=dim, keep_attrs=True) ** 0.5
-        # Update history
-        history = f"WDRMSE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "WDRMSE")
     else:
-        return np.ma.sqrt(np.ma.mean((circlebias(np.subtract(mod, obs))) ** 2, axis=axis))
+        result = np.ma.sqrt(np.ma.mean((circlebias(np.subtract(mod, obs))) ** 2, axis=axis))
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
+
+
+def _vectorized_regression_stats(
+    obs: Union[np.ndarray, xr.DataArray],
+    mod: Union[np.ndarray, xr.DataArray],
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    mode: str = "RMSEs",
+) -> Union[np.number, np.ndarray, xr.DataArray]:
+    """
+    Internal helper for vectorized regression metrics (Aero Protocol).
+
+    Typical Use Cases
+    -----------------
+    - Internal calculation of systematic (RMSEs) and unsystematic (RMSEu)
+      linear regression errors.
+
+    Parameters
+    ----------
+    obs : numpy.ndarray or xarray.DataArray
+        Observed values.
+    mod : numpy.ndarray or xarray.DataArray
+        Model predicted values.
+    axis : int, str, or iterable of such, optional
+        Axis or dimension along which to compute the statistic.
+    mode : str, optional
+        Regression metric to compute ('RMSEs' or 'RMSEu'). Default is 'RMSEs'.
+
+    Returns
+    -------
+    numpy.number, numpy.ndarray, or xarray.DataArray
+        Computed regression statistic.
+    """
+    # Xarray path (handles DataArray, including mixed types with ndarray)
+    if isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray):
+        # Convert mixed types to DataArray to preserve metadata and laziness
+        if isinstance(obs, xr.DataArray) and not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, coords=obs.coords, dims=obs.dims)
+        elif isinstance(mod, xr.DataArray) and not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, coords=mod.coords, dims=mod.dims)
+
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+
+        # Use native Xarray for lazy-friendliness (Aero Protocol)
+        mask = obs.notnull() & mod.notnull()
+        xv = obs.where(mask, 0.0)
+        yv = mod.where(mask, 0.0)
+
+        n = mask.sum(dim=dim)
+        s_x = xv.sum(dim=dim)
+        s_y = yv.sum(dim=dim)
+        s_xx = (xv * xv).sum(dim=dim)
+        s_yy = (yv * yv).sum(dim=dim)
+        s_xy = (xv * yv).sum(dim=dim)
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ss_xx = s_xx - (s_x**2) / n
+            ss_xy = s_xy - (s_x * s_y) / n
+            m = xr.where(ss_xx != 0, ss_xy / ss_xx, 0.0)
+            b = xr.where(n != 0, (s_y - m * s_x) / n, 0.0)
+
+            if mode == "RMSEs":
+                # sum((m*x + b - x)^2) = sum(((m-1)*x + b)^2)
+                sse = (m - 1) ** 2 * s_xx + 2 * b * (m - 1) * s_x + n * b**2
+                res = xr.where(n > 0, np.sqrt(xr.where(sse > 0, sse, 0.0) / n), np.nan)
+            else:  # RMSEu
+                # Residual sum of squares: SSyy - (SSxy^2 / SSxx)
+                ss_yy = s_yy - (s_y**2) / n
+                rss = xr.where(ss_xx != 0, ss_yy - (ss_xy**2) / ss_xx, ss_yy)
+                res = xr.where(n > 0, np.sqrt(xr.where(rss > 0, rss, 0.0) / n), np.nan)
+
+        res.attrs = obs.attrs.copy()
+        return _update_history(res, mode)
+
+    # NumPy path
+    if axis is None:
+        axis = None  # numpy handles None as all axes
+    elif isinstance(axis, (int, str)):
+        axis = (int(axis),)
+    else:
+        axis = tuple(int(a) for a in axis)
+
+    # Core logic using NumPy broadcasting
+    x = np.asarray(obs)
+    y = np.asarray(mod)
+    mask = ~np.isnan(x) & ~np.isnan(y)
+    xv = np.where(mask, x, 0.0)
+    yv = np.where(mask, y, 0.0)
+
+    n = np.sum(mask, axis=axis)
+    s_x = np.sum(xv, axis=axis)
+    s_y = np.sum(yv, axis=axis)
+    s_xx = np.sum(xv * xv, axis=axis)
+    s_yy = np.sum(yv * yv, axis=axis)
+    s_xy = np.sum(xv * yv, axis=axis)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ss_xx = s_xx - (s_x**2) / n
+        ss_xy = s_xy - (s_x * s_y) / n
+        m = np.where(ss_xx != 0, ss_xy / ss_xx, 0.0)
+        b = np.where(n != 0, (s_y - m * s_x) / n, 0.0)
+
+        if mode == "RMSEs":
+            # sum((m*x + b - x)^2) = sum(((m-1)*x + b)^2)
+            sse = (m - 1) ** 2 * s_xx + 2 * b * (m - 1) * s_x + n * b**2
+            res = np.where(n > 0, np.sqrt(np.maximum(sse, 0) / n), np.nan)
+        else:  # RMSEu
+            # Residual sum of squares: SSyy - (SSxy^2 / SSxx)
+            ss_yy = s_yy - (s_y**2) / n
+            rss = np.where(ss_xx != 0, ss_yy - (ss_xy**2) / ss_xx, ss_yy)
+            res = np.where(n > 0, np.sqrt(np.maximum(rss, 0) / n), np.nan)
+
+    return res.item() if np.ndim(res) == 0 else res
 
 
 def _vectorized_regression_stats(
@@ -317,6 +403,11 @@ def RMSEs(
     - Used in model evaluation to assess how well a regression fit to the model
       matches the observations.
 
+    Typical Values and Range
+    ------------------------
+    - Range: 0 to ∞
+    - 0: Perfect agreement between observations and regression fit
+
     Parameters
     ----------
     obs : numpy.ndarray or xarray.DataArray
@@ -341,10 +432,7 @@ def RMSEs(
     0.7071067811865476
     """
     res = _vectorized_regression_stats(obs, mod, axis=axis, mode="RMSEs")
-    if hasattr(res, "attrs"):
-        history = f"RMSEs computed at {pd.Timestamp.now().isoformat()}"
-        res.attrs["history"] = f"{res.attrs.get('history', '')}\n{history}".strip()
-    return res
+    return _update_history(res, "RMSEs")
 
 
 def RMSEu(
@@ -363,6 +451,11 @@ def RMSEu(
       the model predictions.
     - Used in model evaluation to assess how well a regression fit to obs
       matches the model output.
+
+    Typical Values and Range
+    ------------------------
+    - Range: 0 to ∞
+    - 0: Perfect agreement between model predictions and regression fit
 
     Parameters
     ----------
@@ -388,10 +481,7 @@ def RMSEu(
     0.7071067811865476
     """
     res = _vectorized_regression_stats(obs, mod, axis=axis, mode="RMSEu")
-    if hasattr(res, "attrs"):
-        history = f"RMSEu computed at {pd.Timestamp.now().isoformat()}"
-        res.attrs["history"] = f"{res.attrs.get('history', '')}\n{history}".strip()
-    return res
+    return _update_history(res, "RMSEu")
 
 
 def d1(
@@ -433,11 +523,7 @@ def d1(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         num = abs(obs - mod).sum(dim=dim)
         mean_obs = obs.mean(dim=dim)
@@ -446,10 +532,7 @@ def d1(
         result = xr.where((num == 0) & (denom == 0), 1.0, result)
         result = xr.where((num != 0) & (denom == 0), -np.inf, result)
 
-        # Update history
-        history = f"d1 computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "d1")
     else:
         num = np.ma.abs(np.subtract(obs, mod)).sum(axis=axis)
         mean_obs = np.ma.mean(obs, axis=axis, keepdims=True)
@@ -500,11 +583,7 @@ def E1(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         num = abs(obs - mod).sum(dim=dim)
         denom = abs(obs - obs.mean(dim=dim)).sum(dim=dim)
@@ -512,10 +591,7 @@ def E1(
         result = xr.where((num == 0) & (denom == 0), 1.0, result)
         result = xr.where((num != 0) & (denom == 0), -np.inf, result)
 
-        # Update history
-        history = f"E1 computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "E1")
     else:
         num = np.ma.abs(np.subtract(obs, mod)).sum(axis=axis)
         mean_obs = np.ma.mean(obs, axis=axis, keepdims=True)
@@ -575,11 +651,7 @@ def WDIOA_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obsmean = obs.mean(dim=dim)
         num = (abs(circlebias_m(obs - mod))).sum(dim=dim)
@@ -588,10 +660,7 @@ def WDIOA_m(
         result = 1.0 - (num / denom)
         result = xr.where(denom == 0, 1.0, result)
 
-        # Update history
-        history = f"WDIOA_m computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "WDIOA_m")
     else:
         obsmean = np.ma.mean(obs, axis=axis, keepdims=True)
         num = np.ma.sum(np.ma.abs(circlebias_m(np.subtract(obs, mod))), axis=axis)
@@ -651,11 +720,7 @@ def WDIOA(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         num = abs(circlebias(obs - mod)).sum(dim=dim)
         mean_obs = obs.mean(dim=dim)
@@ -664,10 +729,7 @@ def WDIOA(
         result = 1.0 - (num / denom)
         result = xr.where(denom == 0, 1.0, result)
 
-        # Update history
-        history = f"WDIOA computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "WDIOA")
     else:
         num = np.ma.sum(np.ma.abs(circlebias(np.subtract(obs, mod))), axis=axis)
         mean_obs = np.ma.mean(obs, axis=axis, keepdims=True)
@@ -712,11 +774,7 @@ def AC(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obs_bar = obs.mean(dim=dim)
         mod_bar = mod.mean(dim=dim)
@@ -725,10 +783,7 @@ def AC(
         p1 = (mod_anom * obs_anom).sum(dim=dim)
         p2 = ((mod_anom**2).sum(dim=dim) * (obs_anom**2).sum(dim=dim)) ** 0.5
         result = p1 / p2
-        # Update history
-        history = f"AC computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "AC")
     else:
         obs_bar = np.ma.mean(obs, axis=axis)
         mod_bar = np.ma.mean(mod, axis=axis)
@@ -743,7 +798,8 @@ def AC(
         mod_anom = np.subtract(mod, mod_bar_kd)
         p1 = np.ma.sum(np.ma.multiply(mod_anom, obs_anom), axis=axis)
         p2 = np.ma.sqrt(np.ma.multiply(np.ma.sum(obs_anom**2, axis=axis), np.ma.sum(mod_anom**2, axis=axis)))
-        return p1 / p2
+        result = p1 / p2
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def WDAC(
@@ -779,11 +835,7 @@ def WDAC(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obs_rad = obs * np.pi / 180.0
         mod_rad = mod * np.pi / 180.0
@@ -792,10 +844,7 @@ def WDAC(
         numerator = (np.sin(obs_anom) * np.sin(mod_anom)).sum(dim=dim)
         denominator = np.sqrt((np.sin(obs_anom) ** 2).sum(dim=dim) * (np.sin(mod_anom) ** 2).sum(dim=dim))
         result = numerator / denominator
-        # Update history
-        history = f"WDAC computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "WDAC")
     else:
         obs_rad = np.deg2rad(obs)
         mod_rad = np.deg2rad(mod)
@@ -812,7 +861,8 @@ def WDAC(
         denominator = np.ma.sqrt(
             np.ma.sum(np.sin(obs_anom) ** 2, axis=axis) * np.ma.sum(np.sin(mod_anom) ** 2, axis=axis)
         )
-        return numerator / denominator
+        result = numerator / denominator
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def taylor_skill(
@@ -860,11 +910,7 @@ def taylor_skill(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         std_obs = obs.std(dim=dim)
         std_mod = mod.std(dim=dim)
@@ -875,10 +921,7 @@ def taylor_skill(
         # Assuming R_max = 1.0
         norm_std = std_mod / std_obs
         result = (4.0 * (corr + 1.0)) / ((norm_std + 1.0 / norm_std) ** 2 * 2.0)
-        # Update history
-        history = f"taylor_skill computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "taylor_skill")
     else:
         std_obs = np.ma.std(obs, axis=axis)
         std_mod = np.ma.std(mod, axis=axis)
@@ -953,20 +996,13 @@ def KGE(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         r = xr.corr(obs, mod, dim=dim)
         alpha = mod.std(dim=dim) / obs.std(dim=dim)
         beta = mod.mean(dim=dim) / obs.mean(dim=dim)
         result = 1.0 - ((r - 1.0) ** 2 + (alpha - 1.0) ** 2 + (beta - 1.0) ** 2) ** 0.5
-        # Update history
-        history = f"KGE computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "KGE")
     else:
         if axis is None:
             from scipy.stats import pearsonr
@@ -1025,39 +1061,16 @@ def pearsonr(
     >>> pearsonr(obs, mod)
     1.0
     """
-    from scipy.stats import pearsonr as _pearsonr
-
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
-        def _pearsonr_onlyr(a, b):
-            mask = ~np.isnan(a) & ~np.isnan(b)
-            if np.sum(mask) < 2 or np.var(a[mask]) == 0 or np.var(b[mask]) == 0:
-                return np.nan
-            return _pearsonr(a[mask], b[mask])[0]
-
-        result = xr.apply_ufunc(
-            _pearsonr_onlyr,
-            obs,
-            mod,
-            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
-            output_core_dims=[[]],
-            vectorize=True,
-            dask="parallelized",
-            dask_gufunc_kwargs={"allow_rechunk": True},
-            output_dtypes=[float],
-        )
-        # Update history
-        history = f"pearsonr computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        # Use native xarray correlation for speed and laziness (Aero Protocol)
+        result = xr.corr(obs, mod, dim=dim)
+        return _update_history(result, "pearsonr")
     else:
+        from scipy.stats import pearsonr as _pearsonr
+
         if axis is None:
             obsc, modc = matchedcompressed(obs, mod)
             if len(obsc) < 2 or np.var(obsc) == 0 or np.var(modc) == 0:
@@ -1065,7 +1078,13 @@ def pearsonr(
             r_val, _ = _pearsonr(obsc, modc)
             return r_val if not np.isnan(r_val) else 0.0
         else:
-            # For numpy with axis, use manual vectorized correlation
+            # For numpy with axis, use manual vectorized correlation with pairwise deletion
+            obs = np.asanyarray(obs)
+            mod = np.asanyarray(mod)
+            mask = np.isnan(obs) | np.isnan(mod)
+            obs = np.where(mask, np.nan, obs)
+            mod = np.where(mask, np.nan, mod)
+
             obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
             mod_mean = np.nanmean(mod, axis=axis, keepdims=True)
             obs_std = obs - obs_mean
@@ -1083,7 +1102,13 @@ def spearmanr(
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Spearman rank correlation coefficient.
+    Spearman rank correlation coefficient (Aero Protocol: Vectorized).
+
+    Typical Use Cases
+    -----------------
+    - Quantifying monotonic relationships between model and observations.
+    - Used when data is not normally distributed or when rank-order is more
+      important than exact values.
 
     Parameters
     ----------
@@ -1092,7 +1117,7 @@ def spearmanr(
     mod : numpy.ndarray or xarray.DataArray
         Model or predicted values.
     axis : int, str, or iterable of such, optional
-        Axis along which to compute the coefficient.
+        Axis or dimension along which to compute the coefficient.
 
     Returns
     -------
@@ -1108,69 +1133,115 @@ def spearmanr(
     >>> spearmanr(obs, mod)
     0.8660254037844387
     """
-    from scipy.stats import spearmanr as _spearmanr
+    # Handle Xarray/NumPy alignment and dimension resolution
+    is_xr = isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray)
 
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    if is_xr:
+        # Standardize to DataArray for alignment and metadata handling
+        if not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, dims=mod.dims, coords=mod.coords)
+        if not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, dims=obs.dims, coords=obs.coords)
+
         obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
+    else:
+        dim = axis
 
-        def _spearmanr_onlyrho(a, b):
-            mask = ~np.isnan(a) & ~np.isnan(b)
-            if np.sum(mask) < 2:
-                return np.nan
-            return _spearmanr(a[mask], b[mask])[0]
+    # For NumPy, maintain matchedcompressed behavior for axis=None
+    if dim is None and not is_xr:
+        obsc, modc = matchedcompressed(obs, mod)
+        if len(obsc) < 2:
+            return np.nan
+        from scipy.stats import spearmanr as _spearmanr
 
-        result = xr.apply_ufunc(
-            _spearmanr_onlyrho,
-            obs,
-            mod,
-            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
-            output_core_dims=[[]],
-            vectorize=True,
+        return _spearmanr(obsc, modc)[0]
+
+    # Spearman is Pearson on ranks. Use rankdata along the axis.
+    from scipy.stats import rankdata
+
+    # Apply pairwise masking to ensure ranks are computed on the same set of points
+    mask = np.isnan(obs) | np.isnan(mod)
+    if is_xr:
+        obs_masked = xr.where(mask, np.nan, obs)
+        mod_masked = xr.where(mask, np.nan, mod)
+    else:
+        obs_masked = np.where(mask, np.nan, obs)
+        mod_masked = np.where(mask, np.nan, mod)
+
+    def _rank_wrapper(data, axis):
+        # Handle all-NaN slices to avoid Scipy warnings or errors
+        if np.all(np.isnan(data)):
+            return np.full(data.shape, np.nan)
+        return rankdata(data, axis=axis, nan_policy="omit")
+
+    # Use apply_ufunc for rankdata to support both NumPy and Xarray/Dask
+    if is_xr:
+        # If dim is None (global reduction), use all dimensions as core dimensions
+        icd = list(obs.dims) if dim is None else ([dim] if isinstance(dim, (str, int)) else list(dim))
+        obs_ranked = xr.apply_ufunc(
+            _rank_wrapper,
+            obs_masked,
+            input_core_dims=[icd],
+            output_core_dims=[icd],
+            kwargs={"axis": -1},
             dask="parallelized",
             dask_gufunc_kwargs={"allow_rechunk": True},
             output_dtypes=[float],
+            keep_attrs=True,
         )
-        # Update history
-        history = f"spearmanr computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        mod_ranked = xr.apply_ufunc(
+            _rank_wrapper,
+            mod_masked,
+            input_core_dims=[icd],
+            output_core_dims=[icd],
+            kwargs={"axis": -1},
+            dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
+            output_dtypes=[float],
+            keep_attrs=True,
+        )
+        result = pearsonr(obs_ranked, mod_ranked, axis=dim)
+        return _update_history(result, "spearmanr")
     else:
+        # For NumPy path, we ensure multi-dimensional axis handling by using rankdata's axis parameter
+        # but rankdata expects a single axis for reduction. If axis is a tuple/None, we must flatten appropriately.
         if axis is None:
-            obsc, modc = matchedcompressed(obs, mod)
-            if len(obsc) < 2:
-                return np.nan
-            return _spearmanr(obsc, modc)[0]
+            obs_ranked = _rank_wrapper(obs_masked.ravel(), axis=0).reshape(obs_masked.shape)
+            mod_ranked = _rank_wrapper(mod_masked.ravel(), axis=0).reshape(mod_masked.shape)
+        elif isinstance(axis, (list, tuple)) and len(axis) > 1:
+            # Multi-axis reduction in NumPy requires careful handling.
+            # We wrap in DataArray temporarily to leverage standardized logic.
+            obs_da = xr.DataArray(obs_masked)
+            mod_da = xr.DataArray(mod_masked)
+            icd = [obs_da.dims[a] if isinstance(a, int) else a for a in axis]
+
+            def _multi_rank_wrapper(x):
+                orig_shape = x.shape
+                ranks = _rank_wrapper(x.ravel(), axis=0).reshape(orig_shape)
+                return ranks
+
+            obs_ranked = xr.apply_ufunc(
+                _multi_rank_wrapper,
+                obs_da,
+                input_core_dims=[icd],
+                output_core_dims=[icd],
+                vectorize=True,
+                output_dtypes=[float],
+            ).values
+            mod_ranked = xr.apply_ufunc(
+                _multi_rank_wrapper,
+                mod_da,
+                input_core_dims=[icd],
+                output_core_dims=[icd],
+                vectorize=True,
+                output_dtypes=[float],
+            ).values
         else:
-            # Fallback for numpy with axis: manual loop over other axes
-            obs = np.asarray(obs)
-            mod = np.asarray(mod)
-            if axis < 0:
-                axis = obs.ndim + axis
+            obs_ranked = _rank_wrapper(obs_masked, axis=axis)
+            mod_ranked = _rank_wrapper(mod_masked, axis=axis)
 
-            # Move axis to last position
-            obs_moved = np.moveaxis(obs, axis, -1)
-            mod_moved = np.moveaxis(mod, axis, -1)
-
-            # Reshape all other axes into one
-            other_shape = obs_moved.shape[:-1]
-            obs_flat = obs_moved.reshape(-1, obs_moved.shape[-1])
-            mod_flat = mod_moved.reshape(-1, mod_moved.shape[-1])
-
-            results = []
-            for i in range(len(obs_flat)):
-                mask = ~np.isnan(obs_flat[i]) & ~np.isnan(mod_flat[i])
-                if np.sum(mask) < 2:
-                    results.append(np.nan)
-                else:
-                    results.append(_spearmanr(obs_flat[i][mask], mod_flat[i][mask])[0])
-
-            return np.array(results).reshape(other_shape)
+        return pearsonr(obs_ranked, mod_ranked, axis=axis)
 
 
 def kendalltau(
@@ -1179,7 +1250,13 @@ def kendalltau(
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
-    Kendall rank correlation coefficient.
+    Kendall tau correlation coefficient (Aero Protocol: Standardized).
+
+    Typical Use Cases
+    -----------------
+    - Measuring the correspondence between the ranking of two variables.
+    - Useful for assessing model skill in predicting relative rankings
+      when values span several orders of magnitude.
 
     Parameters
     ----------
@@ -1206,65 +1283,80 @@ def kendalltau(
     """
     from scipy.stats import kendalltau as _kendalltau
 
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            dim = obs.dims
-        elif isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+    # Handle Xarray/NumPy alignment and dimension resolution
+    is_xr = isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray)
 
-        def _kendalltau_onlytau(a, b):
-            mask = ~np.isnan(a) & ~np.isnan(b)
-            if np.sum(mask) < 2:
-                return np.nan
-            return _kendalltau(a[mask], b[mask])[0]
+    if is_xr:
+        # Standardize to DataArray for alignment and metadata handling
+        if not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, dims=mod.dims, coords=mod.coords)
+        if not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, dims=obs.dims, coords=obs.coords)
+
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+    else:
+        dim = axis
+
+    # For NumPy, maintain matchedcompressed behavior for axis=None
+    if dim is None and not is_xr:
+        obsc, modc = matchedcompressed(obs, mod)
+        if len(obsc) < 2:
+            return np.nan
+        return _kendalltau(obsc, modc)[0]
+
+    def _kendalltau_onlytau(a, b):
+        a_flat = a.ravel()
+        b_flat = b.ravel()
+        mask = ~np.isnan(a_flat) & ~np.isnan(b_flat)
+        if np.sum(mask) < 2:
+            return np.nan
+        return _kendalltau(a_flat[mask], b_flat[mask])[0]
+
+    # Use apply_ufunc to eliminate manual loops and support Dask
+    # For both Xarray and NumPy paths, we use apply_ufunc to handle vectorization over axes
+    if is_xr:
+        # If dim is None (global reduction), use all dimensions as core dimensions
+        icd = list(obs.dims) if dim is None else ([dim] if isinstance(dim, (str, int)) else list(dim))
 
         result = xr.apply_ufunc(
             _kendalltau_onlytau,
             obs,
             mod,
-            input_core_dims=[[dim] if isinstance(dim, str) else list(dim)] * 2,
+            input_core_dims=[icd] * 2,
             output_core_dims=[[]],
             vectorize=True,
             dask="parallelized",
             dask_gufunc_kwargs={"allow_rechunk": True},
             output_dtypes=[float],
         )
-        # Update history
-        history = f"kendalltau computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "kendalltau")
     else:
+        # For NumPy path, we wrap in DataArray temporarily to leverage apply_ufunc's
+        # multi-dimensional axis/dimension handling logic consistently.
+        obs_da = xr.DataArray(obs)
+        mod_da = xr.DataArray(mod)
+
+        # Resolve axis to pseudo-dimensions for the dummy DataArrays
         if axis is None:
-            obsc, modc = matchedcompressed(obs, mod)
-            if len(obsc) < 2:
-                return np.nan
-            return _kendalltau(obsc, modc)[0]
+            icd = list(obs_da.dims)
+        elif isinstance(axis, int):
+            icd = [obs_da.dims[axis]]
         else:
-            # Fallback for numpy with axis: manual loop over other axes
-            obs = np.asarray(obs)
-            mod = np.asarray(mod)
-            if axis < 0:
-                axis = obs.ndim + axis
+            icd = [
+                obs_da.dims[a] if isinstance(a, int) else a for a in (axis if isinstance(axis, Iterable) else [axis])
+            ]
 
-            obs_moved = np.moveaxis(obs, axis, -1)
-            mod_moved = np.moveaxis(mod, axis, -1)
-
-            other_shape = obs_moved.shape[:-1]
-            obs_flat = obs_moved.reshape(-1, obs_moved.shape[-1])
-            mod_flat = mod_moved.reshape(-1, mod_moved.shape[-1])
-
-            results = []
-            for i in range(len(obs_flat)):
-                mask = ~np.isnan(obs_flat[i]) & ~np.isnan(mod_flat[i])
-                if np.sum(mask) < 2:
-                    results.append(np.nan)
-                else:
-                    results.append(_kendalltau(obs_flat[i][mask], mod_flat[i][mask])[0])
-
-            return np.array(results).reshape(other_shape)
+        result = xr.apply_ufunc(
+            _kendalltau_onlytau,
+            obs_da,
+            mod_da,
+            input_core_dims=[icd] * 2,
+            output_core_dims=[[]],
+            vectorize=True,
+            output_dtypes=[float],
+        )
+        return result.values
 
 
 def CCC(
@@ -1316,11 +1408,7 @@ def CCC(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         # Calculate means
         obs_mean = obs.mean(dim=dim)
@@ -1335,10 +1423,7 @@ def CCC(
         numerator = 2 * covar
         denominator = obs_var + mod_var + (obs_mean - mod_mean) ** 2
         result = numerator / denominator
-        # Update history
-        history = f"CCC computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "CCC")
     else:
         # Calculate means
         obs_mean = np.nanmean(obs, axis=axis)
@@ -1358,7 +1443,8 @@ def CCC(
         # Calculate CCC
         numerator = 2 * covar
         denominator = obs_var + mod_var + (obs_mean - mod_mean) ** 2
-        return numerator / denominator
+        result = numerator / denominator
+        return result.item() if hasattr(result, "item") and np.ndim(result) == 0 else result
 
 
 def E1_prime(
@@ -1401,11 +1487,7 @@ def E1_prime(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obs_mean = obs.mean(dim=dim)
         num = abs(obs - mod).sum(dim=dim)
@@ -1415,10 +1497,7 @@ def E1_prime(
         result = xr.where((num == 0) & (denom == 0), 1.0, result)
         result = xr.where((num != 0) & (denom == 0), -np.inf, result)
 
-        # Update history
-        history = f"E1_prime computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "E1_prime")
     else:
         if axis is None:
             obs_c, mod_c = matchedcompressed(obs, mod)
@@ -1481,11 +1560,7 @@ def IOA_prime(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+        dim = _resolve_axis_to_dim(obs, axis)
 
         obsmean = obs.mean(dim=dim)
         num = ((obs - mod) ** 2).sum(dim=dim)
@@ -1495,10 +1570,7 @@ def IOA_prime(
         result = xr.where((num == 0) & (denom == 0), 1.0, result)
         result = xr.where((num != 0) & (denom == 0), -np.inf, result)
 
-        # Update history
-        history = f"IOA_prime computed at {pd.Timestamp.now().isoformat()}"
-        result.attrs["history"] = f"{result.attrs.get('history', '')}\n{history}".strip()
-        return result
+        return _update_history(result, "IOA_prime")
     else:
         if axis is None:
             obs_c, mod_c = matchedcompressed(obs, mod)

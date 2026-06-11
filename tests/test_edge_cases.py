@@ -4,7 +4,8 @@ Edge case testing for robust error handling and boundary conditions.
 
 import numpy as np
 import pytest
-from test_aliases import (
+
+from .test_aliases import (
     coefficient_of_determination,
     critical_success_index,
     equitable_threat_score,
@@ -286,6 +287,141 @@ class TestContingencyEdgeCases:
         assert abs(hr - 0.0) < 1e-10, "All misses should have HR = 0.0"
         assert np.isnan(far) or far == 0.0, "All misses should have undefined or 0 FAR"
         assert abs(csi - 0.0) < 1e-10, "All misses should have CSI = 0.0"
+
+
+class TestNaNHandling:
+    """Strict tests for pairwise NaN handling across all core metrics."""
+
+    METRICS = [
+        ("MAE", mean_absolute_error),
+        ("RMSE", root_mean_squared_error),
+        ("bias", mean_bias_error),
+        ("pearson_r", pearson_correlation),
+    ]
+
+    def _obs_with_nan(self):
+        return np.array([1.0, np.nan, 3.0, 4.0, 5.0])
+
+    def _mod_with_nan(self):
+        return np.array([1.1, 2.1, np.nan, 4.1, 5.1])
+
+    def _clean_obs(self):
+        # Manually exclude positions 1 and 2 (where either array has NaN)
+        return np.array([1.0, 4.0, 5.0])
+
+    def _clean_mod(self):
+        return np.array([1.1, 4.1, 5.1])
+
+    @pytest.mark.parametrize("name,fn", METRICS)
+    def test_nan_produces_finite_result(self, name, fn):
+        """Metrics should return a finite value when NaNs are present."""
+        obs = self._obs_with_nan()
+        mod = self._mod_with_nan()
+        result = fn(obs, mod)
+        assert np.isfinite(result), f"{name}: expected finite result with NaN inputs, got {result}"
+
+    @pytest.mark.parametrize("name,fn", METRICS)
+    def test_nan_matches_clean_result(self, name, fn):
+        """Result with NaN inputs should equal result computed on the clean (pairwise-valid) subset."""
+        result_nan = fn(self._obs_with_nan(), self._mod_with_nan())
+        result_clean = fn(self._clean_obs(), self._clean_mod())
+        assert result_nan == pytest.approx(result_clean, 1e-10), (
+            f"{name}: NaN-aware result {result_nan} != clean result {result_clean}"
+        )
+
+    def test_all_nan_obs_returns_nan(self):
+        """If all obs are NaN, result should be NaN (not a spurious value)."""
+        from monet_stats.error_metrics import MAE
+
+        obs = np.full(5, np.nan)
+        mod = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        result = MAE(obs, mod)
+        assert np.isnan(result) or result == 0.0, f"All-NaN obs should give NaN, got {result}"
+
+    def test_all_nan_mod_returns_nan(self):
+        """If all mod are NaN, result should be NaN."""
+        from monet_stats.error_metrics import MAE
+
+        obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        mod = np.full(5, np.nan)
+        result = MAE(obs, mod)
+        assert np.isnan(result) or result == 0.0, f"All-NaN mod should give NaN, got {result}"
+
+    def test_inf_treated_as_nan(self):
+        """Inf values should be excluded just like NaN (masked_invalid behaviour)."""
+        from monet_stats.error_metrics import MAE
+
+        obs = np.array([1.0, np.inf, 3.0, 4.0])
+        mod = np.array([1.0, 2.0, 3.0, 4.0])
+        result_inf = MAE(obs, mod)
+        result_clean = MAE(np.array([1.0, 3.0, 4.0]), np.array([1.0, 3.0, 4.0]))
+        assert np.isfinite(result_inf), f"Inf in obs should give finite result, got {result_inf}"
+        assert result_inf == pytest.approx(result_clean, abs=1e-10), "Inf should be masked, not propagate"
+
+    def test_xarray_nan_consistency(self):
+        """Xarray path and NumPy path should agree when NaNs are present."""
+        import xarray as xr
+
+        from monet_stats.error_metrics import MAE, MB, RMSE
+
+        obs_np = np.array([1.0, np.nan, 3.0, 4.0, 5.0])
+        mod_np = np.array([1.1, 2.1, np.nan, 4.1, 5.1])
+        obs_xr = xr.DataArray(obs_np, dims="x")
+        mod_xr = xr.DataArray(mod_np, dims="x")
+
+        for fn in (MAE, RMSE, MB):
+            np_result = fn(obs_np, mod_np)
+            xr_result = float(fn(obs_xr, mod_xr))
+            assert np_result == pytest.approx(xr_result, abs=1e-10), (
+                f"{fn.__name__}: numpy={np_result} vs xarray={xr_result}"
+            )
+
+
+class TestDaskLaziness:
+    """Verify that core metrics preserve laziness with Dask-backed arrays."""
+
+    dask = pytest.importorskip("dask")
+
+    @pytest.fixture()
+    def dask_pair(self):
+        import dask.array as da
+        import xarray as xr
+
+        obs = xr.DataArray(da.from_array(np.array([1.0, np.nan, 3.0, 4.0, 5.0]), chunks=3), dims="x")
+        mod = xr.DataArray(da.from_array(np.array([1.1, 2.1, np.nan, 4.1, 5.1]), chunks=3), dims="x")
+        return obs, mod
+
+    def _assert_has_lazy_layer(self, result_data):
+        from dask.highlevelgraph import MaterializedLayer
+
+        assert hasattr(result_data, "dask"), "Result should remain a Dask-backed array"
+        assert any(not isinstance(layer, MaterializedLayer) for layer in result_data.dask.layers.values()), (
+            "Expected at least one non-materialized (lazy) Dask layer"
+        )
+
+    @pytest.mark.parametrize("metric_name", ["MAE", "RMSE", "MB"])
+    def test_metric_stays_lazy(self, metric_name, dask_pair):
+        from monet_stats import error_metrics
+
+        metric_func = getattr(error_metrics, metric_name)
+
+        obs, mod = dask_pair
+        result = metric_func(obs, mod)
+        self._assert_has_lazy_layer(result.data)
+
+    def test_dask_nan_result_matches_numpy(self, dask_pair):
+        """Dask computation with NaN should match the pure NumPy result."""
+        from monet_stats.error_metrics import MAE
+
+        obs_xr, mod_xr = dask_pair
+        obs_np = obs_xr.values
+        mod_np = mod_xr.values
+
+        dask_result = float(MAE(obs_xr, mod_xr).compute())
+        numpy_result = MAE(obs_np, mod_np)
+        assert dask_result == pytest.approx(numpy_result, abs=1e-10), (
+            f"Dask result {dask_result} != NumPy result {numpy_result}"
+        )
 
 
 if __name__ == "__main__":

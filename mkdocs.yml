@@ -12,6 +12,7 @@ nav:
   - System Integration: system-integration.md
   - API:
     - Overview: api/overview.md
+    - Xarray Accessor: api/accessor.md
     - Analysis: api/analysis.md
     - Benchmarks: api/benchmarks.md
     - Contingency Metrics: api/contingency-metrics.md
@@ -25,6 +26,9 @@ nav:
     - Relative Metrics: api/relative-metrics.md
     - Spatial & Ensemble Metrics: api/spatial-ensemble-metrics.md
     - Utility Functions: api/utils-stats.md
+    - Distributional Metrics: api/distribution-metrics.md
+    - Temporal Metrics: api/temporal-metrics.md
+    - Uncertainty Metrics: api/uncertainty.md
   - Math:
     - Overview: math/overview.md
   - Workflows:

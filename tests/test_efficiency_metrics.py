@@ -276,6 +276,26 @@ class TestEfficiencyMetrics:
         result = NSE(obs_misaligned, mod_misaligned)
         assert isinstance(result, (float, np.floating, xr.DataArray))
 
+    @pytest.mark.xarray
+    def test_dask_laziness(self):
+        """Test that efficiency metrics preserve Dask laziness."""
+        try:
+            import dask.array as da
+        except ImportError:
+            pytest.skip("Dask not installed")
+
+        # Wait, if we reduce over 'time', it becomes a scalar.
+        # To test laziness, we need a dimension NOT reduced.
+        obs_2d = xr.DataArray(da.from_array(np.random.rand(10, 10), chunks=(5, 5)), dims=["x", "y"])
+        mod_2d = xr.DataArray(da.from_array(np.random.rand(10, 10), chunks=(5, 5)), dims=["x", "y"])
+
+        result = NSE(obs_2d, mod_2d, axis="x")
+        assert hasattr(result.data, "chunks"), "NSE result should be lazy"
+        assert result.compute() is not None
+
+        result_r = rNSE(obs_2d, mod_2d, axis="x")
+        assert hasattr(result_r.data, "chunks"), "rNSE result should be lazy"
+
     @pytest.mark.slow
     def test_performance_large_arrays(self):
         """Test performance with large arrays."""

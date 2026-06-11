@@ -1,5 +1,5 @@
 """
-Efficiency Metrics for Model Evaluation
+Efficiency Metrics for Model Evaluation (Aero Protocol Compliant).
 """
 
 from typing import Iterable, Optional, Union
@@ -7,14 +7,18 @@ from typing import Iterable, Optional, Union
 import numpy as np
 import xarray as xr
 
+from .correlation_metrics import KGE  # noqa: F401
 from .error_metrics import MAE, MAPE, MASE, MSE  # noqa: F401
-from .utils_stats import _update_history
+from .utils_stats import _nanmask_inputs, _resolve_axis_to_dim, _update_history
+
+__all__ = ["NSE", "NSEm", "NSElog", "rNSE", "mNSE", "PC", "KGE", "MAE", "MAPE", "MASE", "MSE"]
 
 
 def NSE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Nash-Sutcliffe Efficiency (NSE).
@@ -33,6 +37,8 @@ def NSE(
         Model predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute the statistic.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply for area-weighted statistics.
 
     Returns
     -------
@@ -46,30 +52,51 @@ def NSE(
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([1.1, 2.1, 2.9, 4.1])
     >>> NSE(obs, mod)
-    0.98
+    0.992
     """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+    # Standardize to DataArray if either input is a DataArray (Aero Protocol)
+    if isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray):
+        if not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, dims=mod.dims, coords=mod.coords)
+        if not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, dims=obs.dims, coords=obs.coords)
 
-        obs_mean = obs.mean(dim=dim)
-        numerator = ((obs - mod) ** 2).sum(dim=dim)
-        denominator = ((obs - obs_mean) ** 2).sum(dim=dim)
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+
+        if weights is not None:
+            # If weights is numpy, wrap it as DataArray to align
+            if not isinstance(weights, xr.DataArray):
+                weights = xr.DataArray(weights, dims=obs.dims, coords=obs.coords)
+            obs_mean = obs.weighted(weights).mean(dim=dim)
+            numerator = ((obs - mod) ** 2).weighted(weights).sum(dim=dim)
+            denominator = ((obs - obs_mean) ** 2).weighted(weights).sum(dim=dim)
+        else:
+            obs_mean = obs.mean(dim=dim)
+            numerator = ((obs - mod) ** 2).sum(dim=dim)
+            denominator = ((obs - obs_mean) ** 2).sum(dim=dim)
 
         # Handle division by zero
         result = 1.0 - (numerator / denominator)
         result = xr.where((numerator == 0) & (denominator == 0), 1.0, result)
         result = xr.where((numerator != 0) & (denominator == 0), -np.inf, result)
 
-        return _update_history(result, "NSE")
+        return _update_history(result, "NSE" if weights is None else "Weighted NSE")
     else:
-        obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
-        numerator = np.nansum((obs - mod) ** 2, axis=axis)
-        denominator = np.nansum((obs - obs_mean) ** 2, axis=axis)
+        obs = np.asanyarray(obs)
+        mod = np.asanyarray(mod)
+        if obs.size == 0:
+            return np.nan
+        o_, m_ = _nanmask_inputs(obs, mod)
+        if weights is not None:
+            w = np.asarray(weights)
+            obs_mean = np.ma.average(o_, axis=axis, weights=w, keepdims=True)
+            numerator = np.ma.sum(((o_ - m_) ** 2) * w, axis=axis)
+            denominator = np.ma.sum(((o_ - obs_mean) ** 2) * w, axis=axis)
+        else:
+            obs_mean = np.ma.mean(o_, axis=axis, keepdims=True)
+            numerator = np.ma.sum((o_ - m_) ** 2, axis=axis)
+            denominator = np.ma.sum((o_ - obs_mean) ** 2, axis=axis)
 
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (numerator / denominator)
@@ -82,6 +109,7 @@ def NSEm(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Nash-Sutcliffe Efficiency (NSE) - robust to masked arrays.
@@ -96,6 +124,8 @@ def NSEm(
         Model predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute the statistic.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply for area-weighted statistics.
 
     Returns
     -------
@@ -109,16 +139,20 @@ def NSEm(
     >>> obs = np.array([1, 2, np.nan, 4])
     >>> mod = np.array([1.1, 2.1, 3.0, 4.1])
     >>> NSEm(obs, mod)
-    0.985
+    0.995
     """
-    # Standard NSE implementation already handles NaNs if using nan-aware functions
-    return NSE(obs, mod, axis=axis)
+    # Standard NSE implementation already handles NaNs and mixed types
+    res = NSE(obs, mod, axis=axis, weights=weights)
+    if isinstance(res, xr.DataArray):
+        return _update_history(res, "NSEm")
+    return res
 
 
 def NSElog(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Log Nash-Sutcliffe Efficiency (NSElog).
@@ -133,6 +167,8 @@ def NSElog(
         Model predicted values (positive values only).
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute the statistic.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply for area-weighted statistics.
 
     Returns
     -------
@@ -149,10 +185,16 @@ def NSElog(
     0.988
     """
     epsilon = 1e-6
+    # Avoid double history update by using .data or being careful
+    # We apply log first, then call NSE. NSE will handle history if it's a DataArray.
     obs_log = np.log(obs + epsilon)
     mod_log = np.log(mod + epsilon)
-    result = NSE(obs_log, mod_log, axis=axis)
+    result = NSE(obs_log, mod_log, axis=axis, weights=weights)
+
+    # If it's a DataArray, NSE already updated history to "NSE".
+    # We might want to "fix" it to "NSElog".
     if isinstance(result, xr.DataArray):
+        # Update history specifically for NSElog
         return _update_history(result, "NSElog")
     return result
 
@@ -161,20 +203,24 @@ def rNSE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Relative Nash-Sutcliffe Efficiency (rNSE).
 
-    Normalizes errors by the range of observed values.
+    Normalizes errors by the magnitude of observed values.
+    Formula: 1 - [ sum( ((obs - mod)/obs)^2 ) / sum( ((obs - mean)/obs)^2 ) ]
 
     Parameters
     ----------
     obs : numpy.ndarray or xarray.DataArray
-        Observed values.
+        Observed values (should be non-zero for normalization).
     mod : numpy.ndarray or xarray.DataArray
         Model predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute the statistic.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply for area-weighted statistics.
 
     Returns
     -------
@@ -188,23 +234,30 @@ def rNSE(
     >>> obs = np.array([1, 2, 3, 4])
     >>> mod = np.array([1.1, 2.1, 2.9, 4.1])
     >>> rNSE(obs, mod)
-    0.992
+    0.994261721483555
     """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+    epsilon = 1e-8
+    if isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray):
+        if not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, dims=mod.dims, coords=mod.coords)
+        if not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, dims=obs.dims, coords=obs.coords)
+
         obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
+        dim = _resolve_axis_to_dim(obs, axis)
+
+        if weights is not None:
+            if not isinstance(weights, xr.DataArray):
+                weights = xr.DataArray(weights, dims=obs.dims, coords=obs.coords)
+            obs_mean = obs.weighted(weights).mean(dim=dim)
+            obs_safe = xr.where(abs(obs) < epsilon, epsilon, obs)
+            numerator = (((obs - mod) / obs_safe) ** 2).weighted(weights).sum(dim=dim)
+            denominator = (((obs - obs_mean) / obs_safe) ** 2).weighted(weights).sum(dim=dim)
         else:
-            dim = axis
-
-        obs_mean = obs.mean(dim=dim)
-        obs_range = obs.max(dim=dim) - obs.min(dim=dim)
-        # Avoid division by zero in normalization
-        obs_range_safe = xr.where(obs_range == 0, 1.0, obs_range)
-
-        numerator = (((obs - mod) / obs_range_safe) ** 2).sum(dim=dim)
-        denominator = (((obs - obs_mean) / obs_range_safe) ** 2).sum(dim=dim)
+            obs_mean = obs.mean(dim=dim)
+            obs_safe = xr.where(abs(obs) < epsilon, epsilon, obs)
+            numerator = (((obs - mod) / obs_safe) ** 2).sum(dim=dim)
+            denominator = (((obs - obs_mean) / obs_safe) ** 2).sum(dim=dim)
 
         result = 1.0 - (numerator / denominator)
         result = xr.where((numerator == 0) & (denominator == 0), 1.0, result)
@@ -212,13 +265,22 @@ def rNSE(
 
         return _update_history(result, "rNSE")
     else:
-        obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
-        obs_range = np.nanmax(obs, axis=axis, keepdims=True) - np.nanmin(obs, axis=axis, keepdims=True)
-        obs_range_safe = np.where(obs_range == 0, 1.0, obs_range)
+        obs = np.asanyarray(obs)
+        mod = np.asanyarray(mod)
+        if obs.size == 0:
+            return np.nan
+        if weights is not None:
+            obs_mean = np.ma.average(np.ma.masked_invalid(obs), axis=axis, weights=weights, keepdims=True)
+            obs_safe = np.where(np.abs(obs) < epsilon, epsilon, obs)
+            numerator = np.nansum((((obs - mod) / obs_safe) ** 2) * weights, axis=axis)
+            denominator = np.nansum((((obs - obs_mean) / obs_safe) ** 2) * weights, axis=axis)
+        else:
+            obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
+            obs_safe = np.where(np.abs(obs) < epsilon, epsilon, obs)
+            numerator = np.nansum(((obs - mod) / obs_safe) ** 2, axis=axis)
+            denominator = np.nansum(((obs - obs_mean) / obs_safe) ** 2, axis=axis)
 
         with np.errstate(divide="ignore", invalid="ignore"):
-            numerator = np.nansum(((obs - mod) / obs_range_safe) ** 2, axis=axis)
-            denominator = np.nansum(((obs - obs_mean) / obs_range_safe) ** 2, axis=axis)
             result = 1.0 - (numerator / denominator)
             result = np.where((numerator == 0) & (denominator == 0), 1.0, result)
             result = np.where((numerator != 0) & (denominator == 0), -np.inf, result)
@@ -229,6 +291,7 @@ def mNSE(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
     axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+    weights: Optional[Union[np.ndarray, xr.DataArray]] = None,
 ) -> Union[np.number, np.ndarray, xr.DataArray]:
     """
     Modified Nash-Sutcliffe Efficiency (mNSE).
@@ -243,6 +306,8 @@ def mNSE(
         Model predicted values.
     axis : int, str, or iterable of such, optional
         Axis or dimension along which to compute the statistic.
+    weights : numpy.ndarray or xarray.DataArray, optional
+        Weights to apply for area-weighted statistics.
 
     Returns
     -------
@@ -258,17 +323,25 @@ def mNSE(
     >>> mNSE(obs, mod)
     0.92
     """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+    if isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray):
+        if not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, dims=mod.dims, coords=mod.coords)
+        if not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, dims=obs.dims, coords=obs.coords)
 
-        obs_mean = obs.mean(dim=dim)
-        numerator = np.abs(obs - mod).sum(dim=dim)
-        denominator = np.abs(obs - obs_mean).sum(dim=dim)
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+
+        if weights is not None:
+            if not isinstance(weights, xr.DataArray):
+                weights = xr.DataArray(weights, dims=obs.dims, coords=obs.coords)
+            obs_mean = obs.weighted(weights).mean(dim=dim)
+            numerator = abs(obs - mod).weighted(weights).sum(dim=dim)
+            denominator = abs(obs - obs_mean).weighted(weights).sum(dim=dim)
+        else:
+            obs_mean = obs.mean(dim=dim)
+            numerator = abs(obs - mod).sum(dim=dim)
+            denominator = abs(obs - obs_mean).sum(dim=dim)
 
         result = 1.0 - (numerator / denominator)
         result = xr.where((numerator == 0) & (denominator == 0), 1.0, result)
@@ -276,9 +349,18 @@ def mNSE(
 
         return _update_history(result, "mNSE")
     else:
-        obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
-        numerator = np.nansum(np.abs(obs - mod), axis=axis)
-        denominator = np.nansum(np.abs(obs - obs_mean), axis=axis)
+        obs = np.asanyarray(obs)
+        mod = np.asanyarray(mod)
+        if obs.size == 0:
+            return np.nan
+        if weights is not None:
+            obs_mean = np.ma.average(np.ma.masked_invalid(obs), axis=axis, weights=weights, keepdims=True)
+            numerator = np.nansum(np.abs(obs - mod) * weights, axis=axis)
+            denominator = np.nansum(np.abs(obs - obs_mean) * weights, axis=axis)
+        else:
+            obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
+            numerator = np.nansum(np.abs(obs - mod), axis=axis)
+            denominator = np.nansum(np.abs(obs - obs_mean), axis=axis)
 
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (numerator / denominator)
@@ -324,17 +406,20 @@ def PC(
     >>> PC(obs, mod)
     75.0
     """
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        # Handle axis vs dim
-        if axis is not None and isinstance(axis, int):
-            dim = obs.dims[axis]
-        else:
-            dim = axis
+    if isinstance(obs, xr.DataArray) or isinstance(mod, xr.DataArray):
+        if not isinstance(obs, xr.DataArray):
+            obs = xr.DataArray(obs, dims=mod.dims, coords=mod.coords)
+        if not isinstance(mod, xr.DataArray):
+            mod = xr.DataArray(mod, dims=obs.dims, coords=obs.coords)
 
-        tol = tolerance * np.abs(obs)
-        correct = np.abs(obs - mod) <= tol
-        result = (correct.sum(dim=dim) / correct.count(dim=dim)) * 100.0
+        obs, mod = xr.align(obs, mod, join="inner")
+        dim = _resolve_axis_to_dim(obs, axis)
+
+        tol = tolerance * abs(obs)
+        correct = abs(obs - mod) <= tol
+        # Only consider where both obs and mod are not NaN
+        mask = obs.notnull() & mod.notnull()
+        result = (correct.where(mask).sum(dim=dim) / mask.sum(dim=dim)) * 100.0
 
         return _update_history(result, "PC")
     else:

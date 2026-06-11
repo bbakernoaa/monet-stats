@@ -285,6 +285,31 @@ print(f"Binary Brier Skill Score: {bss_score:.3f}")
 - Comparing against reference forecasts
 - Skill score calculations for categorical predictions
 
+---
+
+### BS(obs, mod)
+
+Calculate the Brier Score (BS).
+
+```python
+bs_score = BS(obs_precip, mod_probabilities)
+print(f"Brier Score: {bs_score:.3f}")
+```
+
+**Parameters:**
+
+- `obs`: Observed binary outcomes (0 or 1)
+- `mod`: Forecast probabilities (0 to 1)
+
+**Returns:**
+
+- `float`: Brier Score (0 to 1, where 0 is perfect)
+
+**Use Cases:**
+
+- Evaluating the accuracy of probabilistic binary forecasts
+- Standard measure of the mean squared error of probability forecasts
+
 ## Advanced Functions
 
 ### HSS_max_threshold(obs, mod, threshold_range)

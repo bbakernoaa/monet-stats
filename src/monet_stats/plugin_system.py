@@ -37,6 +37,30 @@ class PluginManager:
         """
         self._plugins[plugin.name()] = plugin
 
+    def register(self, name: str, description: str) -> Callable[[Callable], Callable]:
+        """
+        Decorator to register a function as a custom metric plugin.
+
+        Parameters
+        ----------
+        name : str
+            Name of the metric.
+        description : str
+            Description of the metric.
+
+        Returns
+        -------
+        Callable[[Callable], Callable]
+            The decorator function.
+        """
+
+        def decorator(func: Callable) -> Callable:
+            plugin = CustomMetric(name, description, func)
+            self.register_plugin(plugin)
+            return func
+
+        return decorator
+
     def unregister_plugin(self, name: str) -> None:
         """
         Unregister a plugin by name.
@@ -192,7 +216,10 @@ class CustomMetric(PluginInterface):
             The computed metric.
         """
         if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-            obs, mod = xr.align(obs, mod, join="inner")
+            # Alignment is already handled by stats() usually, but kept for direct calls
+            from .data_processing import align_arrays
+
+            obs, mod = align_arrays(obs, mod)
             res = self._func(obs, mod, **kwargs)
             return _update_history(res, self._name)
 
@@ -256,14 +283,17 @@ class ExampleMetrics:
             mod: Union[np.ndarray, xr.DataArray],
             axis: Optional[Union[int, str]] = None,
         ) -> Union[float, np.ndarray, xr.DataArray]:
-            # Xarray/Dask friendly implementation
+            # Xarray/Dask friendly implementation with zero handling
             if isinstance(obs, xr.DataArray):
                 numerator = (np.abs(mod - obs)).sum(dim=axis)
                 denominator = (np.abs(obs)).sum(dim=axis)
+                res = (numerator / denominator.where(denominator != 0, np.nan)) * 100.0
             else:
                 numerator = np.sum(np.abs(mod - obs), axis=axis)
                 denominator = np.sum(np.abs(obs), axis=axis)
-            return (numerator / denominator) * 100.0
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    res = (numerator / np.where(denominator != 0, denominator, np.nan)) * 100.0
+            return res
 
         return CustomMetric(
             name="WMAPE",
@@ -289,14 +319,23 @@ class ExampleMetrics:
             mod: Union[np.ndarray, xr.DataArray],
             axis: Optional[Union[int, str]] = None,
         ) -> Union[float, np.ndarray, xr.DataArray]:
-            pe = (mod - obs) / np.abs(obs)
-
-            if isinstance(pe, xr.DataArray):
-                pos_errors = pe.where(pe >= 0, 0).mean(dim=axis)
-                neg_errors = pe.where(pe < 0, 0).abs().mean(dim=axis)
+            # Avoid zero division in pe
+            if isinstance(obs, xr.DataArray):
+                abs_obs = np.abs(obs)
+                # Ensure we have NaNs where obs is zero to exclude them from mean correctly
+                pe = (mod - obs) / abs_obs.where(abs_obs != 0)
+                # Preserve NaNs during positive/negative splitting
+                pos_pe = xr.where(pe >= 0, pe, 0).where(~np.isnan(pe))
+                neg_pe = xr.where(pe < 0, np.abs(pe), 0).where(~np.isnan(pe))
+                pos_errors = pos_pe.mean(dim=axis)
+                neg_errors = neg_pe.mean(dim=axis)
             else:
-                pos_errors = np.mean(np.where(pe >= 0, pe, 0), axis=axis)
-                neg_errors = np.mean(np.where(pe < 0, np.abs(pe), 0), axis=axis)
+                abs_obs = np.abs(obs)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    pe = (mod - obs) / np.where(abs_obs != 0, abs_obs, np.nan)
+                # Use nanmean to ignore points where pe is NaN (i.e. obs was 0)
+                pos_errors = np.nanmean(np.where(np.isnan(pe), np.nan, np.where(pe >= 0, pe, 0)), axis=axis)
+                neg_errors = np.nanmean(np.where(np.isnan(pe), np.nan, np.where(pe < 0, np.abs(pe), 0)), axis=axis)
 
             return pos_errors - neg_errors
 

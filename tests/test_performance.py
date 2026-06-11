@@ -35,9 +35,7 @@ class TestPerformance:
         chunks = chunk_array(arr, chunk_size=3)
         assert len(chunks) == 4
         assert chunks[0].shape == (3,)
-        assert chunks[-1].shape == (1,)
-
-        # This test is incorrect and will be removed.
+        assert chunks[-1].shape == (2,)
 
     def test_vectorize_function(self):
         """Test that vectorize_function applies a function to an array."""
@@ -97,6 +95,27 @@ class TestPerformance:
         chunks = get_chunk_recommendation(data, target_mb=10.0)
         assert chunks["x"] == 1000
         assert chunks["y"] == 1000
+
+    def test_get_chunk_recommendation_multidim(self):
+        """Test multi-dimensional chunking recommendation."""
+        # 100x100x100 float64 is ~8 MB
+        data = xr.DataArray(np.random.rand(100, 100, 100), dims=["z", "y", "x"])
+
+        # Target 1 MB
+        # Each dimension is 100. Total elements 1,000,000.
+        # Target elements for 1MB is ~131,072.
+        # It should reduce 'z' first.
+        chunks = get_chunk_recommendation(data, target_mb=1.0)
+        assert chunks["z"] < 100
+        assert chunks["y"] == 100
+        assert chunks["x"] == 100
+
+        # Target 0.05 MB (~6,553 elements)
+        # Should reduce 'z' to 1 and then 'y'
+        chunks = get_chunk_recommendation(data, target_mb=0.05)
+        assert chunks["z"] == 1
+        assert chunks["y"] < 100
+        assert chunks["x"] == 100
 
     def test_apply_lazy_threshold(self):
         """Test apply_lazy_threshold converts to Dask when needed."""

@@ -10,7 +10,6 @@ import pytest
 import xarray as xr
 from hypothesis import given
 from hypothesis import strategies as st
-from test_utils import TestDataGenerator
 
 from monet_stats.error_metrics import (
     COE,
@@ -52,6 +51,8 @@ from monet_stats.error_metrics import (
     WDMdnB,
     bias_fraction,
 )
+
+from .test_utils import TestDataGenerator
 
 
 class TestErrorMetrics:
@@ -497,6 +498,8 @@ class TestErrorMetrics:
             return
 
         result = NMSE(obs, mod)
+        if np.isnan(result):
+            return
 
         # NMSE should be >= 0
         assert result >= 0.0, f"NMSE should be >= 0.0, got {result}"

@@ -8,6 +8,7 @@ Monet Stats is organized into several functional modules:
 
 ### Core Modules
 
+- **[Xarray Accessor](accessor.md)**: Pangeo-style integration for Xarray DataArrays and Datasets
 - **[Contingency Metrics](contingency-metrics.md)**: Binary event verification and categorical forecast evaluation
 - **[Correlation Metrics](correlation-metrics.md)**: Statistical correlation and skill score calculations
 - **[Error Metrics](error-metrics.md)**: Error analysis and bias quantification
@@ -15,6 +16,9 @@ Monet Stats is organized into several functional modules:
 - **[Relative Metrics](relative-metrics.md)**: Normalized and relative error measures
 - **[Spatial & Ensemble Metrics](spatial-ensemble-metrics.md)**: Spatial verification and ensemble analysis
 - **[Utility Functions](utils-stats.md)**: Helper functions and data processing utilities
+- **[Distributional Metrics](distribution-metrics.md)**: PDF and distribution comparison (Aero Protocol)
+- **[Temporal Metrics](temporal-metrics.md)**: Time-series alignment and frequency analysis (Aero Protocol)
+- **[Uncertainty Metrics](uncertainty.md)**: Confidence intervals and bootstrapping (Aero Protocol)
 
 ## Import Conventions
 
@@ -29,6 +33,22 @@ from monet_stats import contingency_metrics, correlation_metrics
 
 # Import specific functions
 from monet_stats import R2, RMSE, POD, FAR
+```
+
+### Xarray Accessor (Pangeo Style)
+
+The most recommended way to use Monet Stats with Xarray is via the `.monet_stats` accessor, which is automatically registered when you import `monet_stats`.
+
+```python
+import monet_stats
+import xarray as xr
+
+# Load data
+da = xr.open_dataarray("data.nc")
+
+# Use accessor for analysis
+climo = da.monet_stats.climatology(freq="month")
+mda8 = da.monet_stats.mda8()
 ```
 
 ### Recommended Import Style
@@ -211,7 +231,7 @@ obs = xr.open_dataset("obs_data.nc", chunks={"time": "auto", "lat": 100, "lon": 
 # Metrics stay lazy and don't trigger loading
 skill = ms.RMSE(obs.var, ds.var, axis="time")
 
-# Execution only happens on compute() or plotting
+# Execution only happens on compute()
 result = skill.compute()
 ```
 
@@ -259,6 +279,7 @@ def evaluate_model(observed, modeled):
         'NSE': ms.NSE(observed, modeled),
         'KGE': ms.KGE(observed, modeled),
         'IOA': ms.IOA(observed, modeled),
+        'FAC2': ms.FAC2(observed, modeled),
 
         # Relative measures
         'MPE': ms.MPE(observed, modeled),
@@ -290,6 +311,20 @@ contingency_metrics = {
 }
 ```
 
+### Distributional Analysis
+
+```python
+# Compare probability distributions
+obs = np.random.normal(0, 1, 1000)
+mod = np.random.normal(0.1, 1.1, 1000)
+
+dist_metrics = {
+    'Wasserstein': ms.WassersteinDistance(obs, mod),
+    'Sinkhorn': ms.SinkhornDistance(obs, mod), # Differentiable EMD
+    'JS_Divergence': ms.JensenShannonDivergence(obs, mod)
+}
+```
+
 ## API Reference
 
 The following sections provide auto-generated documentation for each core module based on docstrings.
@@ -312,8 +347,20 @@ The following sections provide auto-generated documentation for each core module
 ### Spatial & Ensemble Metrics
 ::: monet_stats.spatial_ensemble_metrics
 
+### Xarray Accessor
+::: monet_stats.accessor
+
 ### Utility Functions
 ::: monet_stats.utils_stats
+
+### Distributional Metrics
+::: monet_stats.distribution_metrics
+
+### Temporal Metrics
+::: monet_stats.temporal_metrics
+
+### Uncertainty Metrics
+::: monet_stats.uncertainty
 
 ## Contributing to API Documentation
 

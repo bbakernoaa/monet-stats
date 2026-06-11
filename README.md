@@ -7,11 +7,10 @@ A comprehensive statistics and utility library for atmospheric sciences, optimiz
 
 ## Core Mission
 
-Architect scientific pipelines that balance four competing goals:
-- **Speed**: Aggressive vectorization (Numpy/Xarray) and lazy evaluation (Dask).
+Architect scientific pipelines that balance three competing goals:
+- **Speed**: Aggressive vectorization (Numpy/Xarray) and lazy evaluation (Dask/Cubed).
 - **Maintainability**: Strictly typed code with NumPy-style docstrings.
 - **Provenance**: Automatically track data lineage (what happened to the data) via `attrs['history']`.
-- **Visualization**: A hybrid approach (Matplotlib for papers, HvPlot for interaction).
 
 ## Installation
 
@@ -21,7 +20,7 @@ pip install monet-stats
 
 Optional dependencies for Pangeo stack:
 ```bash
-pip install monet-stats[dask,docs,test]
+pip install monet-stats[dask,cubed,docs,test]
 ```
 
 ## Quick Start
@@ -53,6 +52,15 @@ from monet_stats.contingency_metrics import HSS, ETS
 skill = HSS(obs, mod, minval=50.0)
 ```
 
+### Xarray Accessor
+
+Chain operations directly on Xarray objects using the `.monet_stats` namespace:
+
+```python
+# Compute monthly climatology and area-weighted mean in one go
+result = obs.monet_stats.climatology(freq='month').monet_stats.weighted_spatial_mean()
+```
+
 ## Documentation
 
 Full API documentation and tutorials are available at:
@@ -62,7 +70,7 @@ Full API documentation and tutorials are available at:
 
 This project uses a comprehensive CI/CD pipeline with the following quality checks:
 
-- **Testing**: Multi-Python version testing (3.8-3.12) with 60%+ coverage
+- **Testing**: Multi-Python version testing (3.11-3.12) with 60%+ coverage
 - **Code Formatting**: Black and Ruff formatting enforcement
 - **Linting**: Ruff and Pycodestyle linting
 - **Type Checking**: MyPy static type analysis

@@ -5,7 +5,8 @@ Tests known values and mathematical correctness.
 
 import numpy as np
 import pytest
-from test_aliases import (
+
+from .test_aliases import (
     coefficient_of_determination,
     critical_success_index,
     equitable_threat_score,
@@ -19,7 +20,7 @@ from test_aliases import (
     root_mean_squared_error,
     spearman_correlation,
 )
-from test_utils import TestDataGenerator
+from .test_utils import TestDataGenerator
 
 
 class TestKnownValues:
