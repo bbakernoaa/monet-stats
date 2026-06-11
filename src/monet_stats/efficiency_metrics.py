@@ -9,7 +9,7 @@ import xarray as xr
 
 from .correlation_metrics import KGE  # noqa: F401
 from .error_metrics import MAE, MAPE, MASE, MSE  # noqa: F401
-from .utils_stats import _resolve_axis_to_dim, _update_history
+from .utils_stats import _nanmask_inputs, _resolve_axis_to_dim, _update_history
 
 __all__ = ["NSE", "NSEm", "NSElog", "rNSE", "mNSE", "PC", "KGE", "MAE", "MAPE", "MASE", "MSE"]
 
@@ -87,14 +87,16 @@ def NSE(
         mod = np.asanyarray(mod)
         if obs.size == 0:
             return np.nan
+        o_, m_ = _nanmask_inputs(obs, mod)
         if weights is not None:
-            obs_mean = np.ma.average(np.ma.masked_invalid(obs), axis=axis, weights=weights, keepdims=True)
-            numerator = np.nansum(((obs - mod) ** 2) * weights, axis=axis)
-            denominator = np.nansum(((obs - obs_mean) ** 2) * weights, axis=axis)
+            w = np.asarray(weights)
+            obs_mean = np.ma.average(o_, axis=axis, weights=w, keepdims=True)
+            numerator = np.ma.sum(((o_ - m_) ** 2) * w, axis=axis)
+            denominator = np.ma.sum(((o_ - obs_mean) ** 2) * w, axis=axis)
         else:
-            obs_mean = np.nanmean(obs, axis=axis, keepdims=True)
-            numerator = np.nansum((obs - mod) ** 2, axis=axis)
-            denominator = np.nansum((obs - obs_mean) ** 2, axis=axis)
+            obs_mean = np.ma.mean(o_, axis=axis, keepdims=True)
+            numerator = np.ma.sum((o_ - m_) ** 2, axis=axis)
+            denominator = np.ma.sum((o_ - obs_mean) ** 2, axis=axis)
 
         with np.errstate(divide="ignore", invalid="ignore"):
             result = 1.0 - (numerator / denominator)

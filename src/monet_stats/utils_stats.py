@@ -312,6 +312,41 @@ def circlebias(b: ArrayLike) -> Any:
     return res_arr
 
 
+def _nanmask_inputs(
+    obs: Any,
+    mod: Any,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Return a matched, NaN-masked pair of NumPy arrays (non-lazy path).
+
+    Both arrays are converted to float, invalid values (NaN, Inf) are masked
+    pairwise so that any position invalid in either array is masked in both.
+    This is the canonical helper for NumPy fallback paths that need consistent
+    NaN handling without triggering Dask computation on xarray inputs.
+
+    Parameters
+    ----------
+    obs : array-like
+        Observed values.
+    mod : array-like
+        Model or predicted values.
+
+    Returns
+    -------
+    Tuple[np.ma.MaskedArray, np.ma.MaskedArray]
+        Pairwise-masked arrays with a combined mask applied to both.
+
+    Notes
+    -----
+    NaN policy: pairwise deletion — any position where *either* input is NaN/Inf
+    is excluded from both outputs.
+    """
+    o = np.ma.masked_invalid(np.asarray(obs, dtype=float))
+    m = np.ma.masked_invalid(np.asarray(mod, dtype=float))
+    combined = np.ma.getmaskarray(o) | np.ma.getmaskarray(m)
+    return np.ma.masked_where(combined, o, copy=False), np.ma.masked_where(combined, m, copy=False)
+
+
 def circlebias_m(b: ArrayLike) -> Any:
     """
     Robust circular bias for wind direction (Alias for circlebias).

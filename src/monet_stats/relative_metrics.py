@@ -8,7 +8,14 @@ import numpy as np
 import xarray as xr
 
 from .error_metrics import MAE, MedAE
-from .utils_stats import _resolve_axis_to_dim, _update_history, circlebias, circlebias_m, ensure_single_chunk
+from .utils_stats import (
+    _nanmask_inputs,
+    _resolve_axis_to_dim,
+    _update_history,
+    circlebias,
+    circlebias_m,
+    ensure_single_chunk,
+)
 
 __all__ = [
     "NMB",
@@ -91,27 +98,31 @@ def NMB(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        valid = obs.notnull() & mod.notnull()
+        obs = obs.where(valid)
+        mod = mod.where(valid)
         dim = _resolve_axis_to_dim(obs, axis)
         diff = mod - obs
         if weights is not None:
-            res = (diff * weights).sum(dim=dim) / (obs * weights).sum(dim=dim) * 100.0
+            res = (diff * weights).sum(dim=dim, skipna=True) / (obs * weights).sum(dim=dim, skipna=True) * 100.0
             return _update_history(res, "Weighted Normalized Mean Bias (NMB)")
-        res = diff.sum(dim=dim) / obs.sum(dim=dim) * 100.0
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = diff.sum(dim=dim, skipna=True) / obs.sum(dim=dim, skipna=True) * 100.0
         return _update_history(res, "Normalized Mean Bias (NMB)")
     else:
-        obs_arr = np.asanyarray(obs)
-        mod_arr = np.asanyarray(mod)
-        if obs_arr.size == 0:
+        if np.asarray(obs).size == 0:
             return np.nan
-        diff_arr = mod_arr - obs_arr
+        o_, m_ = _nanmask_inputs(obs, mod)
         if weights is not None:
-            res = np.nansum(diff_arr * weights, axis=axis) / np.nansum(obs_arr * weights, axis=axis) * 100.0
+            res = np.ma.sum((m_ - o_) * weights, axis=axis) / np.ma.sum(o_ * weights, axis=axis) * 100.0
         else:
-            res = np.nansum(diff_arr, axis=axis) / np.nansum(obs_arr, axis=axis) * 100.0
-        # If denominator was zero or all NaN, return NaN instead of 0.0 or inf
+            with np.errstate(divide="ignore", invalid="ignore"):
+                res = np.ma.sum(m_ - o_, axis=axis) / np.ma.sum(o_, axis=axis) * 100.0
         if np.ndim(res) == 0:
-            return res.item() if np.isfinite(res) else np.nan
-        return np.where(np.isfinite(res), res, np.nan)
+            v = float(res) if not np.ma.is_masked(res) else np.nan
+            return v if np.isfinite(v) else np.nan
+        res_filled = np.ma.filled(res, np.nan)
+        return np.where(np.isfinite(res_filled), res_filled, np.nan)
 
 
 def WDNMB_m(
@@ -151,16 +162,20 @@ def WDNMB_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        valid = obs.notnull() & mod.notnull()
+        obs = obs.where(valid)
+        mod = mod.where(valid)
         dim = _resolve_axis_to_dim(obs, axis)
         diff = mod - obs
         cb = circlebias_m(diff)
-        res = cb.sum(dim=dim) / obs.sum(dim=dim) * 100.0
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = cb.sum(dim=dim, skipna=True) / obs.sum(dim=dim, skipna=True) * 100.0
         return _update_history(res, "Wind Direction Normalized Mean Bias (WDNMB_m)")
     else:
-        obs_arr = np.asanyarray(obs)
-        mod_arr = np.asanyarray(mod)
-        diff = mod_arr - obs_arr
-        res = circlebias_m(diff).sum(axis=axis) / obs_arr.sum(axis=axis) * 100.0
+        o_, m_ = _nanmask_inputs(obs, mod)
+        diff = m_ - o_
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = np.ma.sum(circlebias_m(diff), axis=axis) / np.ma.sum(o_, axis=axis) * 100.0
         return res.item() if np.ndim(res) == 0 else res
 
 
@@ -193,13 +208,17 @@ def NMB_ABS(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        valid = obs.notnull() & mod.notnull()
+        obs = obs.where(valid)
+        mod = mod.where(valid)
         dim = _resolve_axis_to_dim(obs, axis)
-        res = (mod - obs).sum(dim=dim) / abs(obs.sum(dim=dim)) * 100.0
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = (mod - obs).sum(dim=dim, skipna=True) / abs(obs.sum(dim=dim, skipna=True)) * 100.0
         return _update_history(res, "Normalized Mean Bias Absolute (NMB_ABS)")
     else:
-        obs_arr = np.asanyarray(obs)
-        mod_arr = np.asanyarray(mod)
-        res = (mod_arr - obs_arr).sum(axis=axis) / np.abs(obs_arr.sum(axis=axis)) * 100.0
+        o_, m_ = _nanmask_inputs(obs, mod)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = np.ma.sum(m_ - o_, axis=axis) / np.ma.abs(np.ma.sum(o_, axis=axis)) * 100.0
         return res.item() if np.ndim(res) == 0 else res
 
 
@@ -517,13 +536,17 @@ def NME_m(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        valid = obs.notnull() & mod.notnull()
+        obs = obs.where(valid)
+        mod = mod.where(valid)
         dim = _resolve_axis_to_dim(obs, axis)
-        res = (abs(mod - obs).sum(dim=dim) / obs.sum(dim=dim)) * 100
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = (abs(mod - obs).sum(dim=dim, skipna=True) / obs.sum(dim=dim, skipna=True)) * 100
         return _update_history(res, "Normalized Mean Error (NME_m)")
     else:
-        obs_arr = np.asanyarray(obs)
-        mod_arr = np.asanyarray(mod)
-        res = (np.abs(mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis)) * 100
+        o_, m_ = _nanmask_inputs(obs, mod)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = (np.ma.sum(np.ma.abs(m_ - o_), axis=axis) / np.ma.sum(o_, axis=axis)) * 100
         return res.item() if np.ndim(res) == 0 else res
 
 
@@ -566,13 +589,17 @@ def NME_m_ABS(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        valid = obs.notnull() & mod.notnull()
+        obs = obs.where(valid)
+        mod = mod.where(valid)
         dim = _resolve_axis_to_dim(obs, axis)
-        res = (abs(mod - obs).sum(dim=dim) / abs(obs.sum(dim=dim))) * 100
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = (abs(mod - obs).sum(dim=dim, skipna=True) / abs(obs.sum(dim=dim, skipna=True))) * 100
         return _update_history(res, "Normalized Mean Error Absolute (NME_m_ABS)")
     else:
-        obs_arr = np.asanyarray(obs)
-        mod_arr = np.asanyarray(mod)
-        res = (np.abs(mod_arr - obs_arr).sum(axis=axis) / np.abs(obs_arr.sum(axis=axis))) * 100
+        o_, m_ = _nanmask_inputs(obs, mod)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = (np.ma.sum(np.ma.abs(m_ - o_), axis=axis) / np.ma.abs(np.ma.sum(o_, axis=axis))) * 100
         return res.item() if np.ndim(res) == 0 else res
 
 
@@ -613,15 +640,19 @@ def NME(
     """
     if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
         obs, mod = xr.align(obs, mod, join="inner")
+        valid = obs.notnull() & mod.notnull()
+        obs = obs.where(valid)
+        mod = mod.where(valid)
         dim = _resolve_axis_to_dim(obs, axis)
-        res = (abs(mod - obs).sum(dim=dim) / obs.sum(dim=dim)) * 100
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = (abs(mod - obs).sum(dim=dim, skipna=True) / obs.sum(dim=dim, skipna=True)) * 100
         return _update_history(res, "Normalized Mean Error (NME)")
     else:
-        obs_arr = np.ma.asanyarray(obs)
-        mod_arr = np.ma.asanyarray(mod)
-        if obs_arr.size == 0:
+        if np.asarray(obs).size == 0:
             return np.nan
-        res = (np.ma.abs(mod_arr - obs_arr).sum(axis=axis) / obs_arr.sum(axis=axis)) * 100
+        o_, m_ = _nanmask_inputs(obs, mod)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res = (np.ma.sum(np.ma.abs(m_ - o_), axis=axis) / np.ma.sum(o_, axis=axis)) * 100
         return res.item() if np.ndim(res) == 0 else res
 
 
