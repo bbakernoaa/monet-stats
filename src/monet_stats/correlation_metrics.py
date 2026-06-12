@@ -332,60 +332,6 @@ def _vectorized_regression_stats(
     return res.item() if np.ndim(res) == 0 else res
 
 
-def _vectorized_regression_stats(
-    obs: Union[np.ndarray, xr.DataArray],
-    mod: Union[np.ndarray, xr.DataArray],
-    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
-    mode: str = "RMSEs",
-) -> Union[np.number, np.ndarray, xr.DataArray]:
-    """Internal helper for vectorized regression metrics."""
-    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
-        obs, mod = xr.align(obs, mod, join="inner")
-        if axis is None:
-            axis = obs.dims
-
-    # Core logic using NumPy broadcasting
-    x = np.asarray(obs)
-    y = np.asarray(mod)
-    mask = ~np.isnan(x) & ~np.isnan(y)
-    xv = np.where(mask, x, 0.0)
-    yv = np.where(mask, y, 0.0)
-
-    n = np.sum(mask, axis=axis)
-    s_x = np.sum(xv, axis=axis)
-    s_y = np.sum(yv, axis=axis)
-    s_xx = np.sum(xv * xv, axis=axis)
-    s_yy = np.sum(yv * yv, axis=axis)
-    s_xy = np.sum(xv * yv, axis=axis)
-
-    with np.errstate(divide="ignore", invalid="ignore"):
-        ss_xx = s_xx - (s_x**2) / n
-        ss_xy = s_xy - (s_x * s_y) / n
-        m = np.where(ss_xx != 0, ss_xy / ss_xx, 0.0)
-        b = np.where(n != 0, (s_y - m * s_x) / n, 0.0)
-
-        if mode == "RMSEs":
-            # sum((m*x + b - x)^2) = sum(((m-1)*x + b)^2)
-            sse = (m - 1) ** 2 * s_xx + 2 * b * (m - 1) * s_x + n * b**2
-            res = np.where(n > 0, np.sqrt(np.maximum(sse, 0) / n), np.nan)
-        else:  # RMSEu
-            # Residual sum of squares: SSyy - (SSxy^2 / SSxx)
-            ss_yy = s_yy - (s_y**2) / n
-            rss = np.where(ss_xx != 0, ss_yy - (ss_xy**2) / ss_xx, ss_yy)
-            res = np.where(n > 0, np.sqrt(np.maximum(rss, 0) / n), np.nan)
-
-    if isinstance(obs, xr.DataArray):
-        # Create DataArray with same dims as input minus axis
-        if axis is None or (isinstance(axis, (list, tuple)) and len(axis) == len(obs.dims)):
-            res_da = xr.DataArray(res, attrs=obs.attrs)
-        else:
-            # Handle dim reduction
-            dummy = obs.mean(dim=axis)
-            res_da = xr.DataArray(res, coords=dummy.coords, dims=dummy.dims, attrs=obs.attrs)
-        return res_da
-    return res
-
-
 def RMSEs(
     obs: Union[np.ndarray, xr.DataArray],
     mod: Union[np.ndarray, xr.DataArray],
