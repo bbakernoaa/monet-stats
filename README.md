@@ -2,6 +2,9 @@
 
 A comprehensive statistics and utility library for atmospheric sciences, optimized for the Pangeo ecosystem and fully **Aero Protocol** compliant.
 
+[![CI/CD Pipeline](https://github.com/noaa-oar-arl/monet-stats/actions/workflows/ci.yml/badge.svg)](https://github.com/noaa-oar-arl/monet-stats/actions/workflows/ci.yml)
+[![Docs](https://github.com/noaa-oar-arl/monet-stats/actions/workflows/docs.yml/badge.svg)](https://github.com/noaa-oar-arl/monet-stats/actions/workflows/docs.yml)
+[![codecov](https://codecov.io/gh/noaa-oar-arl/monet-stats/branch/main/graph/badge.svg)](https://codecov.io/gh/noaa-oar-arl/monet-stats)
 [![Documentation](https://img.shields.io/badge/docs-noaa--oar--arl.github.io-blue.svg)](https://noaa-oar-arl.github.io/monet-stats)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
