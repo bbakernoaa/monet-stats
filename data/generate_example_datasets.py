@@ -5,13 +5,15 @@ This script creates realistic synthetic climate datasets for various atmospheric
 and model-observation pairs that can be used in the example notebooks.
 """
 
-import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+
+OUTPUT_DIR = Path(__file__).resolve().parent
 
 
 def generate_temperature_data(n_years: int = 10, n_stations: int = 10, n_ensemble_members: int = 10) -> Dict[str, Any]:
@@ -171,7 +173,7 @@ def generate_wind_data(n_years: int = 5, n_stations: int = 5) -> Dict[str, Any]:
     """Generate synthetic wind data with direction and speed."""
     start_date = datetime(2015, 1, 1)
     end_date = datetime(2015 + n_years, 1, 1)
-    dates = pd.date_range(start=start_date, end=end_date, freq="H")  # Hourly data
+    dates = pd.date_range(start=start_date, end=end_date, freq="h")  # Hourly data
     n_hours = len(dates)
 
     station_ids = [f"STN{i:03d}" for i in range(1, n_stations + 1)]
@@ -332,22 +334,24 @@ def generate_spatial_data() -> Dict[str, Any]:
 
 def save_datasets() -> None:
     """Generate and save all example datasets."""
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
     print("Generating temperature dataset...")
     temp_data = generate_temperature_data()
-    temp_data["temp_df"].to_csv("data/temperature_obs_mod.csv", index=False)
+    temp_data["temp_df"].to_csv(OUTPUT_DIR / "temperature_obs_mod.csv", index=False)
 
     print("Generating precipitation dataset...")
     precip_data = generate_precipitation_data()
-    precip_data["precip_df"].to_csv("data/precipitation_obs_mod.csv", index=False)
+    precip_data["precip_df"].to_csv(OUTPUT_DIR / "precipitation_obs_mod.csv", index=False)
 
     print("Generating wind dataset...")
     wind_data = generate_wind_data()
-    wind_data["wind_df"].to_csv("data/wind_obs_mod.csv", index=False)
+    wind_data["wind_df"].to_csv(OUTPUT_DIR / "wind_obs_mod.csv", index=False)
 
     print("Generating spatial dataset...")
     spatial_data = generate_spatial_data()
-    spatial_data["observed_da"].to_netcdf("data/spatial_obs.nc")
-    spatial_data["modeled_da"].to_netcdf("data/spatial_mod.nc")
+    spatial_data["observed_da"].to_netcdf(OUTPUT_DIR / "spatial_obs.nc")
+    spatial_data["modeled_da"].to_netcdf(OUTPUT_DIR / "spatial_mod.nc")
 
     print("All datasets generated and saved successfully!")
 
@@ -367,13 +371,13 @@ Files created:
 - data/spatial_mod.nc
 """
 
-    with open("data/dataset_summary.txt", "w") as f:
+    with open(OUTPUT_DIR / "dataset_summary.txt", "w") as f:
         f.write(summary)
 
     print(summary)
 
 
 if __name__ == "__main__":
-    # Create data directory if it doesn't exist
-    os.makedirs("data", exist_ok=True)
+    # Save outputs next to this script regardless of current working directory.
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     save_datasets()
