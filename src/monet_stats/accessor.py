@@ -19,6 +19,7 @@ from . import (
     spatial_ensemble_metrics,
     spatial_skill_metrics,
     temporal_metrics,
+    track_metrics,
     uncertainty,
 )
 from .utils_stats import _update_history
@@ -1262,6 +1263,77 @@ class MonetDataArrayAccessor:
         """
         return distribution_metrics.KLDivergence(obs, self._obj, bins=bins, dim=dim)
 
+    def jensenshannon_divergence(
+        self, obs: xr.DataArray, bins: int = 100, dim: Optional[Union[str, List[str]]] = None
+    ) -> xr.DataArray:
+        """
+        Compute Jensen-Shannon Divergence.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        bins : int, optional
+            Number of bins.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the divergence.
+
+        Returns
+        -------
+        xarray.DataArray
+            JS divergence.
+        """
+        res = distribution_metrics.JensenShannonDivergence(obs, self._obj, bins=bins, dim=dim)
+        return _update_history(res, "Jensen-Shannon Divergence")
+
+    def energy_distance(self, obs: xr.DataArray, dim: Optional[Union[str, List[str]]] = None) -> xr.DataArray:
+        """
+        Compute Energy Distance.
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the distance.
+
+        Returns
+        -------
+        xarray.DataArray
+            Energy distance.
+        """
+        res = distribution_metrics.EnergyDistance(obs, self._obj, dim=dim)
+        return _update_history(res, "Energy Distance")
+
+    def sinkhorn_distance(
+        self,
+        obs: xr.DataArray,
+        epsilon: float = 0.1,
+        max_iter: int = 100,
+        dim: Optional[Union[str, List[str]]] = None,
+    ) -> xr.DataArray:
+        """
+        Compute Sinkhorn Distance (Differentiable Earth Mover's Distance).
+
+        Parameters
+        ----------
+        obs : xarray.DataArray
+            Observed values.
+        epsilon : float, optional
+            Entropy regularization parameter.
+        max_iter : int, optional
+            Maximum iterations.
+        dim : str or list of str, optional
+            Dimension(s) along which to compute the distance.
+
+        Returns
+        -------
+        xarray.DataArray
+            Sinkhorn distance.
+        """
+        res = distribution_metrics.SinkhornDistance(obs, self._obj, epsilon=epsilon, max_iter=max_iter, dim=dim)
+        return _update_history(res, "Sinkhorn Distance")
+
     def mutual_information(
         self, obs: xr.DataArray, bins: int = 30, dim: Optional[Union[str, List[str]]] = None
     ) -> xr.DataArray:
@@ -1847,6 +1919,169 @@ class MonetDataArrayAccessor:
         """
         res = relative_metrics.NMPE(obs, self._obj, paxis=paxis, axis=dim)
         return _update_history(res, "NMPE")
+
+    def track_error(self, obs_lat: xr.DataArray, obs_lon: xr.DataArray, mod_lon: xr.DataArray) -> xr.DataArray:
+        """
+        Compute Track Error (Great-circle distance).
+
+        Parameters
+        ----------
+        obs_lat : xarray.DataArray
+            Observed latitude.
+        obs_lon : xarray.DataArray
+            Observed longitude.
+        mod_lon : xarray.DataArray
+            Model longitude (self._obj is model latitude).
+
+        Returns
+        -------
+        xarray.DataArray
+            Track error in km.
+        """
+        return track_metrics.track_error(obs_lat, obs_lon, self._obj, mod_lon)
+
+    def along_track_error(
+        self,
+        obs_lat: xr.DataArray,
+        obs_lon: xr.DataArray,
+        mod_lon: xr.DataArray,
+        prev_obs_lat: xr.DataArray,
+        prev_obs_lon: xr.DataArray,
+    ) -> xr.DataArray:
+        """
+        Compute Along-track Error.
+
+        Parameters
+        ----------
+        obs_lat : xarray.DataArray
+            Observed latitude.
+        obs_lon : xarray.DataArray
+            Observed longitude.
+        mod_lon : xarray.DataArray
+            Model longitude (self._obj is model latitude).
+        prev_obs_lat : xarray.DataArray
+            Previous observed latitude.
+        prev_obs_lon : xarray.DataArray
+            Previous observed longitude.
+
+        Returns
+        -------
+        xarray.DataArray
+            Along-track error in km.
+        """
+        return track_metrics.along_track_error(obs_lat, obs_lon, self._obj, mod_lon, prev_obs_lat, prev_obs_lon)
+
+    def cross_track_error(
+        self,
+        obs_lat: xr.DataArray,
+        obs_lon: xr.DataArray,
+        mod_lon: xr.DataArray,
+        prev_obs_lat: xr.DataArray,
+        prev_obs_lon: xr.DataArray,
+    ) -> xr.DataArray:
+        """
+        Compute Cross-track Error.
+
+        Parameters
+        ----------
+        obs_lat : xarray.DataArray
+            Observed latitude.
+        obs_lon : xarray.DataArray
+            Observed longitude.
+        mod_lon : xarray.DataArray
+            Model longitude (self._obj is model latitude).
+        prev_obs_lat : xarray.DataArray
+            Previous observed latitude.
+        prev_obs_lon : xarray.DataArray
+            Previous observed longitude.
+
+        Returns
+        -------
+        xarray.DataArray
+            Cross-track error in km.
+        """
+        return track_metrics.cross_track_error(obs_lat, obs_lon, self._obj, mod_lon, prev_obs_lat, prev_obs_lon)
+
+    def translation_speed(
+        self, lon: xr.DataArray, time: Optional[xr.DataArray] = None, dim: str = "time"
+    ) -> xr.DataArray:
+        """
+        Compute Translation Speed.
+
+        Parameters
+        ----------
+        lon : xarray.DataArray
+            Longitude (self._obj is latitude).
+        time : xarray.DataArray, optional
+            Timestamps.
+        dim : str, optional
+            Dimension along which to compute speed.
+
+        Returns
+        -------
+        xarray.DataArray
+            Translation speed in km/h.
+        """
+        return track_metrics.translation_speed(self._obj, lon, time=time, dim=dim)
+
+    def find_storm_center(
+        self,
+        lat_dim: str = "lat",
+        lon_dim: str = "lon",
+        method: str = "min",
+        dim: Optional[Union[str, list]] = None,
+    ) -> xr.Dataset:
+        """
+        Find storm center coordinates.
+
+        Parameters
+        ----------
+        lat_dim : str, optional
+            Latitude dimension name.
+        lon_dim : str, optional
+            Longitude dimension name.
+        method : str, optional
+            'min' or 'max'.
+        dim : str or list, optional
+            Reduction dimension.
+
+        Returns
+        -------
+        xarray.Dataset
+            Center coordinates.
+        """
+        return track_metrics.find_storm_center(self._obj, lat_dim=lat_dim, lon_dim=lon_dim, method=method, dim=dim)
+
+    def find_storm_centers(
+        self,
+        lat_dim: str = "lat",
+        lon_dim: str = "lon",
+        method: str = "min",
+        window_size: int = 5,
+        threshold: Optional[float] = None,
+    ) -> xr.DataArray:
+        """
+        Find multiple storm centers.
+
+        Parameters
+        ----------
+        lat_dim, lon_dim : str
+            Spatial dimensions.
+        method : str, optional
+            'min' or 'max'.
+        window_size : int, optional
+            Neighborhood size.
+        threshold : float, optional
+            Value threshold.
+
+        Returns
+        -------
+        xarray.DataArray
+            Boolean mask of centers.
+        """
+        return track_metrics.find_storm_centers(
+            self._obj, lat_dim=lat_dim, lon_dim=lon_dim, method=method, window_size=window_size, threshold=threshold
+        )
 
     def verify(
         self,

@@ -6,7 +6,7 @@ from typing import Iterable, Optional, Union
 
 import numpy as np
 import xarray as xr
-from scipy.stats import entropy, wasserstein_distance
+from scipy.stats import energy_distance, entropy, wasserstein_distance
 
 from .utils_stats import _resolve_axis_to_dim, _update_history, ensure_single_chunk
 
@@ -211,6 +211,316 @@ def KLDivergence(
     # Standard library pattern for 2-array axis reduction:
     def _wrapper(o_slice, m_slice):
         return _kl_numpy(o_slice, m_slice, bins, bin_range)
+
+    o_rolled = np.rollaxis(o_arr, axis, -1)
+    m_rolled = np.rollaxis(m_arr, axis, -1)
+    shape_other = o_rolled.shape[:-1]
+    o_flat = o_rolled.reshape(-1, o_rolled.shape[-1])
+    m_flat = m_rolled.reshape(-1, m_rolled.shape[-1])
+    results = np.array([_wrapper(o, m) for o, m in zip(o_flat, m_flat)])
+    return results.reshape(shape_other) if shape_other else results.item()
+
+
+def JensenShannonDivergence(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    bins: int = 100,
+    bin_range: Optional[tuple] = None,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
+    """
+    Compute the Jensen-Shannon (JS) Divergence (Aero Protocol).
+
+    The JS divergence is a symmetric and smoothed version of the KL divergence.
+    It is always finite and bounded between 0 and 1 (when using base 2).
+
+    Typical Use Cases
+    -----------------
+    - Measuring similarity between two probability distributions.
+    - Symmetric alternative to KL Divergence.
+    - Comparing model and observation PDFs in a stable way.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    mod : xarray.DataArray or numpy.ndarray
+        Model or predicted values.
+    bins : int, optional
+        Number of bins for estimating the PDF, by default 100.
+    bin_range : tuple, optional
+        The lower and upper range of the bins. If None, uses the min/max of the data.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the divergence (xarray only).
+    axis : int, str, or iterable of int or str, optional
+        Axis or axes along which to compute the divergence (numpy only).
+
+    Returns
+    -------
+    xarray.DataArray, numpy.ndarray, or float
+        The JS divergence.
+    """
+
+    def _js_numpy(o: np.ndarray, m: np.ndarray, bins: int, r_val: Optional[tuple]) -> float:
+        o_flat = o.flatten()
+        m_flat = m.flatten()
+        o_valid = o_flat[~np.isnan(o_flat)]
+        m_valid = m_flat[~np.isnan(m_flat)]
+        if o_valid.size == 0 or m_valid.size == 0:
+            return np.nan
+
+        if r_val is None:
+            r_val = (min(o_valid.min(), m_valid.min()), max(o_valid.max(), m_valid.max()))
+
+        # Estimate PDFs
+        p_o, _ = np.histogram(o_valid, bins=bins, range=r_val, density=True)
+        p_m, _ = np.histogram(m_valid, bins=bins, range=r_val, density=True)
+
+        # Normalize
+        p_o /= p_o.sum() + 1e-10
+        p_m /= p_m.sum() + 1e-10
+
+        # M = 0.5 * (P + Q)
+        m_pdf = 0.5 * (p_o + p_m)
+
+        # JSD(P||Q) = 0.5 * KLD(P||M) + 0.5 * KLD(Q||M)
+        jsd = 0.5 * entropy(p_o, m_pdf) + 0.5 * entropy(p_m, m_pdf)
+        return float(jsd)
+
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        reduction_dim = _resolve_axis_to_dim(obs, dim if dim is not None else axis)
+
+        if isinstance(reduction_dim, str):
+            core_dims = [reduction_dim]
+        else:
+            core_dims = list(reduction_dim)
+
+        obs = ensure_single_chunk(obs, core_dims)
+        mod = ensure_single_chunk(mod, core_dims)
+
+        res = xr.apply_ufunc(
+            _js_numpy,
+            obs,
+            mod,
+            input_core_dims=[core_dims, core_dims],
+            output_core_dims=[[]],
+            kwargs={"bins": bins, "r_val": bin_range},
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[float],
+        )
+        return _update_history(res, "Jensen-Shannon Divergence")
+
+    # NumPy path
+    o_arr = np.asarray(obs)
+    m_arr = np.asarray(mod)
+
+    if axis is None:
+        return _js_numpy(o_arr, m_arr, bins, bin_range)
+
+    def _wrapper(o_slice, m_slice):
+        return _js_numpy(o_slice, m_slice, bins, bin_range)
+
+    o_rolled = np.rollaxis(o_arr, axis, -1)
+    m_rolled = np.rollaxis(m_arr, axis, -1)
+    shape_other = o_rolled.shape[:-1]
+    o_flat = o_rolled.reshape(-1, o_rolled.shape[-1])
+    m_flat = m_rolled.reshape(-1, m_rolled.shape[-1])
+    results = np.array([_wrapper(o, m) for o, m in zip(o_flat, m_flat)])
+    return results.reshape(shape_other) if shape_other else results.item()
+
+
+def EnergyDistance(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
+    """
+    Compute the Energy distance between two distributions (Aero Protocol).
+
+    Energy distance is a metric between probability distributions that characterizes
+    equality of distributions.
+
+    Typical Use Cases
+    -----------------
+    - Measuring distance between two multi-dimensional distributions.
+    - Robust alternative to Wasserstein distance.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    mod : xarray.DataArray or numpy.ndarray
+        Model or predicted values.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the distance (xarray only).
+    axis : int, str, or iterable of int or str, optional
+        Axis or axes along which to compute the distance (numpy only).
+
+    Returns
+    -------
+    xarray.DataArray, numpy.ndarray, or float
+        The Energy distance.
+    """
+
+    def _energy_numpy(o: np.ndarray, m: np.ndarray) -> float:
+        o_flat = o.flatten()
+        m_flat = m.flatten()
+        o_valid = o_flat[~np.isnan(o_flat)]
+        m_valid = m_flat[~np.isnan(m_flat)]
+        if o_valid.size == 0 or m_valid.size == 0:
+            return np.nan
+        return float(energy_distance(o_valid, m_valid))
+
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        reduction_dim = _resolve_axis_to_dim(obs, dim if dim is not None else axis)
+
+        if isinstance(reduction_dim, str):
+            core_dims = [reduction_dim]
+        else:
+            core_dims = list(reduction_dim)
+
+        obs = ensure_single_chunk(obs, core_dims)
+        mod = ensure_single_chunk(mod, core_dims)
+
+        res = xr.apply_ufunc(
+            _energy_numpy,
+            obs,
+            mod,
+            input_core_dims=[core_dims, core_dims],
+            output_core_dims=[[]],
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[float],
+        )
+        return _update_history(res, "Energy Distance")
+
+    # NumPy path
+    o_arr = np.asarray(obs)
+    m_arr = np.asarray(mod)
+
+    if axis is None:
+        return _energy_numpy(o_arr, m_arr)
+
+    def _wrapper(o_slice, m_slice):
+        return _energy_numpy(o_slice, m_slice)
+
+    o_rolled = np.rollaxis(o_arr, axis, -1)
+    m_rolled = np.rollaxis(m_arr, axis, -1)
+    shape_other = o_rolled.shape[:-1]
+    o_flat = o_rolled.reshape(-1, o_rolled.shape[-1])
+    m_flat = m_rolled.reshape(-1, m_rolled.shape[-1])
+    results = np.array([_wrapper(o, m) for o, m in zip(o_flat, m_flat)])
+    return results.reshape(shape_other) if shape_other else results.item()
+
+
+def SinkhornDistance(
+    obs: Union[xr.DataArray, np.ndarray],
+    mod: Union[xr.DataArray, np.ndarray],
+    epsilon: float = 0.1,
+    max_iter: int = 100,
+    dim: Optional[Union[str, Iterable[str]]] = None,
+    axis: Optional[Union[int, str, Iterable[Union[int, str]]]] = None,
+) -> Union[xr.DataArray, np.ndarray, float]:
+    """
+    Compute a differentiable approximation of the Earth Mover's Distance (Sinkhorn Distance).
+
+    Uses the Sinkhorn-Knopp algorithm to solve the entropic regularized optimal
+    transport problem.
+
+    Typical Use Cases
+    -----------------
+    - Differentiable alternative to Wasserstein distance for machine learning.
+    - Efficient approximation of EMD for large datasets.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray or numpy.ndarray
+        Observed values.
+    mod : xarray.DataArray or numpy.ndarray
+        Model or predicted values.
+    epsilon : float, optional
+        Entropy regularization parameter, by default 0.1.
+    max_iter : int, optional
+        Maximum number of Sinkhorn iterations, by default 100.
+    dim : str or iterable of str, optional
+        Dimension(s) along which to compute the distance (xarray only).
+    axis : int, str, or iterable of int or str, optional
+        Axis or axes along which to compute the distance (numpy only).
+
+    Returns
+    -------
+    xarray.DataArray, numpy.ndarray, or float
+        The Sinkhorn distance.
+    """
+
+    def _sinkhorn_numpy(o: np.ndarray, m: np.ndarray, eps: float, n_iter: int) -> float:
+        o_flat = o.flatten()
+        m_flat = m.flatten()
+        o_valid = o_flat[~np.isnan(o_flat)]
+        m_valid = m_flat[~np.isnan(m_flat)]
+        if o_valid.size == 0 or m_valid.size == 0:
+            return np.nan
+
+        # Normalize to probability distributions
+        p = np.ones(o_valid.size) / o_valid.size
+        q = np.ones(m_valid.size) / m_valid.size
+
+        # Cost matrix (Squared Euclidean distance)
+        # For 1D data, we use the values themselves
+        C = (o_valid[:, None] - m_valid[None, :]) ** 2
+
+        # Gibbs kernel
+        K = np.exp(-C / eps)
+
+        # Sinkhorn iterations
+        u = np.ones(o_valid.size) / o_valid.size
+        for _ in range(n_iter):
+            v = q / (K.T @ u + 1e-10)
+            u = p / (K @ v + 1e-10)
+
+        # Transport plan
+        P = u[:, None] * K * v[None, :]
+        return float(np.sum(P * C))
+
+    if isinstance(obs, xr.DataArray) and isinstance(mod, xr.DataArray):
+        obs, mod = xr.align(obs, mod, join="inner")
+        reduction_dim = _resolve_axis_to_dim(obs, dim if dim is not None else axis)
+
+        if isinstance(reduction_dim, str):
+            core_dims = [reduction_dim]
+        else:
+            core_dims = list(reduction_dim)
+
+        obs = ensure_single_chunk(obs, core_dims)
+        mod = ensure_single_chunk(mod, core_dims)
+
+        res = xr.apply_ufunc(
+            _sinkhorn_numpy,
+            obs,
+            mod,
+            input_core_dims=[core_dims, core_dims],
+            output_core_dims=[[]],
+            kwargs={"eps": epsilon, "n_iter": max_iter},
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[float],
+        )
+        return _update_history(res, "Sinkhorn Distance")
+
+    # NumPy path
+    o_arr = np.asarray(obs)
+    m_arr = np.asarray(mod)
+
+    if axis is None:
+        return _sinkhorn_numpy(o_arr, m_arr, epsilon, max_iter)
+
+    def _wrapper(o_slice, m_slice):
+        return _sinkhorn_numpy(o_slice, m_slice, epsilon, max_iter)
 
     o_rolled = np.rollaxis(o_arr, axis, -1)
     m_rolled = np.rollaxis(m_arr, axis, -1)

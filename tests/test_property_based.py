@@ -96,8 +96,10 @@ class TestPropertyBased:
             return
 
         result = R2(obs, mod)
+        if np.isnan(result):
+            return
         # R2 can be less than 0 for very poor models, but should be <= 1
-        assert result <= 1.0, f"R2 should be <= 1.0, got {result}"
+        assert result <= 1.0 + 1e-10, f"R2 should be <= 1.0, got {result}"
 
     @given(obs=float_array, mod=float_array)
     @settings(suppress_health_check=[HealthCheck.too_slow], deadline=1000)

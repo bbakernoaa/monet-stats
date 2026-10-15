@@ -311,6 +311,20 @@ contingency_metrics = {
 }
 ```
 
+### Distributional Analysis
+
+```python
+# Compare probability distributions
+obs = np.random.normal(0, 1, 1000)
+mod = np.random.normal(0.1, 1.1, 1000)
+
+dist_metrics = {
+    'Wasserstein': ms.WassersteinDistance(obs, mod),
+    'Sinkhorn': ms.SinkhornDistance(obs, mod), # Differentiable EMD
+    'JS_Divergence': ms.JensenShannonDivergence(obs, mod)
+}
+```
+
 ## API Reference
 
 The following sections provide auto-generated documentation for each core module based on docstrings.

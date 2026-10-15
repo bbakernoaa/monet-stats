@@ -17,10 +17,13 @@ pearson_r = mod_da.monet_stats.pearsonr(obs_da)
 ```
 
 Available metrics include:
-- **Error Metrics**: `mae`, `rmse`, `mb`, `ioa`, `crmse`, `mdnb`, `nmse`, `mnb`, `mne`, `nse`, `fac2`, `rmsle`
-- **Correlation Metrics**: `pearsonr`, `r2`, `kge`, `ccc`
-- **Relative Metrics**: `nmb`, `fb`, `mg`, `vg`
+- **Error Metrics**: `mae`, `rmse`, `mb`, `ioa`, `crmse`, `mdnb`, `nmse`, `mnb`, `mne`, `nse`, `fac2`, `rmsle`, `stdo`, `stdp`, `coe`, `corr_index`, `bias_fraction`, `log_error`, `volumetric_error`, `nrmse`
+- **Correlation Metrics**: `pearsonr`, `r2`, `kge`, `ccc`, `spearmanr`, `kendalltau`
+- **Relative Metrics**: `nmb`, `fb`, `mg`, `vg`, `nme`, `mdnnb`, `mdnne`, `mpe`, `nmpe`
 - **Categorical Metrics**: `hss`, `ets`, `csi`, `pod`, `far`, `fbi`, `tss`, `bss_binary`, `bs`
+- **Distributional Metrics**: `wasserstein_distance`, `kl_divergence`, `jensenshannon_divergence`, `energy_distance`, `sinkhorn_distance`, `mutual_information`
+- **Temporal Metrics**: `dtw`, `xwt`, `phase_error`
+- **Spatial & Ensemble Metrics**: `fss`, `vets`, `crps`, `sal`, `eds`, `spread_error`, `reliability_diagram`
 
 ### Verification Bundle
 
