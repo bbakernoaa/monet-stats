@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 <div class="ms-hero" markdown>
 
 # MONET Stats
