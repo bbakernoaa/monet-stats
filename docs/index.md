@@ -15,19 +15,19 @@ Evaluate forecasts against observations with a broad set of deterministic, categ
 
 <div class="ms-highlight">
 
-**149 metrics**  
+**149 metrics**
 Error, skill, correlation, distribution, and specialized verification methods.
 
 </div>
 <div class="ms-highlight">
 
-**Labeled workflows**  
+**Labeled workflows**
 Use Xarray dimensions and coordinates to reduce over time, space, or both.
 
 </div>
 <div class="ms-highlight">
 
-**Lazy by design**  
+**Lazy by design**
 Keep supported Xarray calculations Dask-backed until you choose to compute.
 
 </div>
