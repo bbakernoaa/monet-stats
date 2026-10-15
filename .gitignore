@@ -155,3 +155,11 @@ outputs/
 data/*.csv
 data/*.nc
 data/*.txt
+
+specs/
+.specify/
+.github/agents/
+.github/prompts/
+docs/superpowers/
+.agents/
+.github/skills/

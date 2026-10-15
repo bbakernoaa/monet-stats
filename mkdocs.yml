@@ -1,15 +1,49 @@
 site_name: MONET Stats
+site_description: Model evaluation and verification metrics for atmospheric science
+site_url: https://noaa-oar-arl.github.io/monet-stats/
 theme:
   name: material
+  language: en
+  logo: material/weather-cloudy
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: Roboto
+    code: Roboto Mono
+  palette:
+    - scheme: default
+      primary: blue grey
+      accent: cyan
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
 repo_url: https://github.com/noaa-oar-arl/monet-stats
 repo_name: noaa-oar-arl/monet-stats
+edit_uri: edit/main/docs/
+copyright: NOAA Air Resources Laboratory
 docs_dir: docs
 
 nav:
   - Home: index.md
-  - Installation: installation.md
-  - Getting Started: getting-started.md
-  - System Integration: system-integration.md
+  - Start Here:
+    - Installation: installation.md
+    - Getting Started: getting-started.md
+  - Guides:
+    - System Integration: system-integration.md
+    - Workflows:
+      - Climate Data Analysis: workflows/climate-data-analysis.md
+    - Notebooks:
+      - Notebooks Overview: notebooks/README.md
+    - Contributing: contributing.md
+    - FAQ: faq.md
   - API:
     - Overview: api/overview.md
     - Xarray Accessor: api/accessor.md
@@ -25,23 +59,14 @@ nav:
     - Plugin System: api/plugin-system.md
     - Relative Metrics: api/relative-metrics.md
     - Spatial & Ensemble Metrics: api/spatial-ensemble-metrics.md
+    - Spatial Skill Metrics: api/spatial-skill-metrics.md
+    - Track Metrics: api/track-metrics.md
     - Utility Functions: api/utils-stats.md
     - Distributional Metrics: api/distribution-metrics.md
     - Temporal Metrics: api/temporal-metrics.md
     - Uncertainty Metrics: api/uncertainty.md
-  - Math:
-    - Overview: math/overview.md
-  - Workflows:
-    - Climate Data Analysis: workflows/climate-data-analysis.md
-  - Notebooks:
-    - Basic Statistical Analysis: notebooks/01_basic_statistical_analysis.ipynb
-    - Model Observation Comparison: notebooks/02_model_observation_comparison.ipynb
-    - Spatial Analysis Downscaling: notebooks/03_spatial_analysis_downscaling_fixed.ipynb
-    - Ensemble Analysis Multi Model: notebooks/04_ensemble_analysis_multi_model.ipynb
-    - Performance Optimization: notebooks/05_performance_optimization_large_datasets.ipynb
-    - Integration Examples: notebooks/06_integration_examples.ipynb
-  - Contributing: contributing.md
-  - FAQ: faq.md
+  - Methods:
+    - Mathematical Overview: math/overview.md
 
 plugins:
   - search
@@ -49,15 +74,26 @@ plugins:
       handlers:
         python:
           paths: [src]
-  # mknotebooks plugin removed due to deprecation warnings and JSON parsing errors in notebooks
-  # - mknotebooks:
-  #     execute: false
+  # mknotebooks remains disabled because the plugin causes build warnings and notebook JSON errors.
 
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/noaa-oar-arl/monet-stats
+      name: MONET Stats on GitHub
 markdown_extensions:
+  - attr_list
+  - md_in_html
   - pymdownx.highlight
   - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
   - pymdownx.arithmatex:
       generic: true
+
+extra_css:
+  - stylesheets/extra.css
 
 extra_javascript:
   - javascripts/mathjax.js

@@ -1,3 +1,9 @@
+---
+type: reference
+category: reference
+tags: [api, reference, metrics]
+---
+
 # API Reference Overview
 
 The Monet Stats API provides a comprehensive collection of statistical metrics and utilities for atmospheric sciences applications. This reference covers all available functions, their parameters, return values, and use cases.
@@ -9,16 +15,24 @@ Monet Stats is organized into several functional modules:
 ### Core Modules
 
 - **[Xarray Accessor](accessor.md)**: Pangeo-style integration for Xarray DataArrays and Datasets
+- **[Advanced Analysis](analysis.md)**: Resampling, climatology, KZ filter, MDA8, FFT, anomalies, detrending
 - **[Contingency Metrics](contingency-metrics.md)**: Binary event verification and categorical forecast evaluation
 - **[Correlation Metrics](correlation-metrics.md)**: Statistical correlation and skill score calculations
 - **[Error Metrics](error-metrics.md)**: Error analysis and bias quantification
 - **[Efficiency Metrics](efficiency-metrics.md)**: Model efficiency and performance measures
 - **[Relative Metrics](relative-metrics.md)**: Normalized and relative error measures
-- **[Spatial & Ensemble Metrics](spatial-ensemble-metrics.md)**: Spatial verification and ensemble analysis
-- **[Utility Functions](utils-stats.md)**: Helper functions and data processing utilities
+- **[Spatial & Ensemble Metrics](spatial-ensemble-metrics.md)**: Ensemble verification (EDS, CRPS, SAL, BSS)
+- **[Spatial Skill Metrics](spatial-skill-metrics.md)**: Fractions Skill Score (FSS) and VETS
+- **[Track Metrics](track-metrics.md)**: Tropical cyclone / storm track verification
+- **[Temporal Metrics](temporal-metrics.md)**: DTW, cross-wavelet transform, phase error
 - **[Distributional Metrics](distribution-metrics.md)**: PDF and distribution comparison (Aero Protocol)
-- **[Temporal Metrics](temporal-metrics.md)**: Time-series alignment and frequency analysis (Aero Protocol)
-- **[Uncertainty Metrics](uncertainty.md)**: Confidence intervals and bootstrapping (Aero Protocol)
+- **[Uncertainty Metrics](uncertainty.md)**: Block bootstrapping and confidence intervals
+- **[Data Processing](data-processing.md)**: Alignment, normalization, missing-value handling
+- **[Performance](performance.md)**: Chunking, lazy evaluation, and parallel-compute helpers
+- **[Plugin System](plugin-system.md)**: Registering custom metric plugins
+- **[Interfaces](interfaces.md)**: Abstract base classes for metrics and processors
+- **[Benchmarks](benchmarks.md)**: Performance and accuracy benchmarking utilities
+- **[Utility Functions](utils-stats.md)**: Helper functions and data processing utilities
 
 ## Import Conventions
 
@@ -80,7 +94,7 @@ rmse = ms.RMSE(obs, mod)
 obs_2d = np.random.normal(20, 2, (50, 50))
 mod_2d = obs_2d + np.random.normal(0, 1, (50, 50))
 
-fss = ms.FSS(obs_2d, mod_2d, window=5)
+fss = ms.FSS(obs_2d, mod_2d, window_size=5)
 ```
 
 ### Pandas DataFrames
@@ -136,8 +150,11 @@ Most metrics accept these common parameters:
 
 - `obs`: Observed values (array-like)
 - `mod`: Modeled/predicted values (array-like)
-- `axis`: Axis along which to compute metrics (int, optional)
-- `nan_policy`: How to handle NaN values ('omit', 'propagate', 'raise')
+- `axis`: Axis along which to compute metrics (int, str, or iterable, optional)
+
+NaN values are handled unconditionally by **pairwise deletion**: pairs where
+either observation or model value is missing are dropped before the metric is
+computed. There is no `nan_policy` switch.
 
 ### Threshold Parameters
 
@@ -150,8 +167,10 @@ Many metrics use threshold parameters for categorical analysis:
 
 Spatial metrics often include:
 
-- `window`: Size of spatial window (int)
+- `window_size`: Size of the spatial verification window (int, `FSS`)
 - `threshold`: Event threshold for spatial analysis
+- `lat_dim` / `lon_dim`: Names of the latitude/longitude dimensions (`SAL`,
+  `weighted_spatial_mean`)
 
 ## Return Value Types
 
@@ -186,8 +205,10 @@ skill = ms.R2(obs_da, mod_da)  # DataArray with coordinates
 ### Data Shape Validation
 
 ```python
+# Mismatched shapes: NumPy arrays raise ValueError, xarray inputs are
+# inner-joined on their coordinates instead.
 try:
-    result = ms.R2(obs_1d, mod_2d)  # Will raise ValueError
+    result = ms.R2(obs_1d, mod_2d)  # ValueError: not broadcastable
 except ValueError as e:
     print(f"Shape mismatch: {e}")
 ```
@@ -206,7 +227,7 @@ rmse = ms.RMSE(obs_with_nan, mod_with_nan)  # Uses valid pairs only
 ### Type Validation
 
 ```python
-# Invalid types will raise TypeError
+# Non-numeric inputs raise TypeError from NumPy
 try:
     result = ms.R2("invalid", "data")  # TypeError
 except TypeError as e:
@@ -246,6 +267,7 @@ When using Xarray DataArrays, `monet-stats` automatically updates the `attrs['hi
 ```python
 import monet_stats as ms
 import numpy as np
+from monet_stats.relative_metrics import NME
 
 # Sample data
 obs = np.array([1.0, 2.5, 3.2, 4.8, 5.0])
@@ -257,13 +279,16 @@ error_analysis = {
     'MAE': ms.MAE(obs, mod),
     'MB': ms.MB(obs, mod),
     'NMB': ms.NMB(obs, mod),
-    'NME': ms.NME(obs, mod)
+    'NME': NME(obs, mod)
 }
 ```
 
 ### Comprehensive Model Evaluation
 
 ```python
+from monet_stats.relative_metrics import NME
+
+
 def evaluate_model(observed, modeled):
     """Comprehensive model evaluation suite"""
 
@@ -283,7 +308,7 @@ def evaluate_model(observed, modeled):
 
         # Relative measures
         'MPE': ms.MPE(observed, modeled),
-        'NME': ms.NME(observed, modeled)
+        'NME': NME(observed, modeled)
     }
 
     return metrics
@@ -303,11 +328,11 @@ mod_events = np.array([0, 1, 0, 0, 1, 1, 1, 0, 0, 1])
 
 # Contingency table metrics
 contingency_metrics = {
-    'POD': ms.POD(obs_events, mod_events, threshold=0.5),
-    'FAR': ms.FAR(obs_events, mod_events, threshold=0.5),
-    'CSI': ms.CSI(obs_events, mod_events, threshold=0.5),
-    'HSS': ms.HSS(obs_events, mod_events, threshold=0.5),
-    'ETS': ms.ETS(obs_events, mod_events, threshold=0.5)
+    'POD': ms.POD(obs_events, mod_events, 0.5),
+    'FAR': ms.FAR(obs_events, mod_events, 0.5),
+    'CSI': ms.CSI(obs_events, mod_events, 0.5),
+    'HSS': ms.HSS(obs_events, mod_events, 0.5),
+    'ETS': ms.ETS(obs_events, mod_events, 0.5)
 }
 ```
 
@@ -325,42 +350,32 @@ dist_metrics = {
 }
 ```
 
-## API Reference
+## Module Reference
 
-The following sections provide auto-generated documentation for each core module based on docstrings.
+Each module has its own auto-generated reference page. Use the table below to
+jump directly to the documentation for a specific area.
 
-### Contingency Metrics
-::: monet_stats.contingency_metrics
-
-### Correlation Metrics
-::: monet_stats.correlation_metrics
-
-### Error Metrics
-::: monet_stats.error_metrics
-
-### Efficiency Metrics
-::: monet_stats.efficiency_metrics
-
-### Relative Metrics
-::: monet_stats.relative_metrics
-
-### Spatial & Ensemble Metrics
-::: monet_stats.spatial_ensemble_metrics
-
-### Xarray Accessor
-::: monet_stats.accessor
-
-### Utility Functions
-::: monet_stats.utils_stats
-
-### Distributional Metrics
-::: monet_stats.distribution_metrics
-
-### Temporal Metrics
-::: monet_stats.temporal_metrics
-
-### Uncertainty Metrics
-::: monet_stats.uncertainty
+| Module | Reference Page |
+| ------ | -------------- |
+| Contingency Metrics | [contingency-metrics.md](contingency-metrics.md) |
+| Correlation Metrics | [correlation-metrics.md](correlation-metrics.md) |
+| Error Metrics | [error-metrics.md](error-metrics.md) |
+| Efficiency Metrics | [efficiency-metrics.md](efficiency-metrics.md) |
+| Relative Metrics | [relative-metrics.md](relative-metrics.md) |
+| Spatial & Ensemble Metrics | [spatial-ensemble-metrics.md](spatial-ensemble-metrics.md) |
+| Spatial Skill Metrics | [spatial-skill-metrics.md](spatial-skill-metrics.md) |
+| Track Metrics | [track-metrics.md](track-metrics.md) |
+| Xarray Accessor | [accessor.md](accessor.md) |
+| Advanced Analysis | [analysis.md](analysis.md) |
+| Utility Functions | [utils-stats.md](utils-stats.md) |
+| Data Processing | [data-processing.md](data-processing.md) |
+| Distributional Metrics | [distribution-metrics.md](distribution-metrics.md) |
+| Temporal Metrics | [temporal-metrics.md](temporal-metrics.md) |
+| Uncertainty Metrics | [uncertainty.md](uncertainty.md) |
+| Performance | [performance.md](performance.md) |
+| Plugin System | [plugin-system.md](plugin-system.md) |
+| Interfaces | [interfaces.md](interfaces.md) |
+| Benchmarks | [benchmarks.md](benchmarks.md) |
 
 ## Contributing to API Documentation
 

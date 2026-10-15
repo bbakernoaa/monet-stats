@@ -1,3 +1,9 @@
+---
+type: howto
+category: how_to
+tags: [installation, pip, dependencies]
+---
+
 # Installation and Setup Guide
 
 This guide covers the installation process, system requirements, and setup instructions for Monet Stats.
@@ -13,13 +19,15 @@ This guide covers the installation process, system requirements, and setup instr
 
 ### Software Dependencies
 
-Monet Stats requires the following Python packages:
+Monet Stats requires the following Python packages (installed automatically by pip):
 
-- **NumPy**: ≥1.19.0
-- **Pandas**: ≥1.3.0
+- **NumPy**: ≥1.20.0
+- **Pandas**: ≥2.0.0
 - **SciPy**: ≥1.7.0
-- **Statsmodels**: ≥0.12.0
-- **XArray**: ≥0.18.0 (optional, for xarray support)
+- **XArray**: ≥2023.5.0
+
+Optional backends are provided as extras: `dask` (Dask + distributed) and
+`cubed` (Cubed + cubed-xarray). See [Optional Dependencies](#optional-dependencies).
 
 ## Installation Methods
 
@@ -66,26 +74,30 @@ To run pre-commit checks manually on all files:
 pre-commit run --all-files
 ```
 
-### Option 3: Conda Installation
+### Option 3: uv Installation
 
 ```bash
-# Install with conda-forge
-conda install -c conda-forge monet-stats
+# Install with uv
+uv pip install monet-stats
 
-# Or install from the local environment
-conda env create -f environment.yml
-conda activate monet-stats
+# Install from source with all extras
+uv pip install -e ".[dev,test,docs]"
 ```
+
+> **Note:** Monet Stats is not currently published on conda-forge. Install it
+> with pip or uv.
 
 ## Verification
 
 After installation, verify the installation by running the following Python code:
 
 ```python
+import importlib.metadata
+
 import monet_stats
 
-# Check version
-print(f"Monet Stats version: {monet_stats.__version__}")
+# Check version (the package does not define __version__; use package metadata)
+print(f"Monet Stats version: {importlib.metadata.version('monet-stats')}")
 
 # Test basic imports
 from monet_stats import R2, RMSE, POD
@@ -107,20 +119,21 @@ print(f"✓ Sample calculation - R²: {r2:.3f}, RMSE: {rmse:.3f}")
 
 #### XArray Support
 
+Xarray is a **required** core dependency — no extra install is needed. For
+NetCDF/Zarr file access, install the IO engines separately:
+
 ```bash
-pip install xarray dask netcdf4
+pip install netcdf4 zarr
 ```
 
-#### Enhanced Statistical Testing
+#### Lazy and Parallel Computation
 
 ```bash
-pip install statsmodels pingouin
-```
+# Dask backend
+pip install "monet-stats[dask]"
 
-#### Parallel Processing
-
-```bash
-pip install dask joblib
+# Cubed backend
+pip install "monet-stats[cubed]"
 ```
 
 #### Visualization
@@ -128,6 +141,9 @@ pip install dask joblib
 ```bash
 pip install matplotlib seaborn plotly
 ```
+
+Visualization packages are not required by Monet Stats itself; they are
+convenient for plotting metric results.
 
 ## Development Installation
 
@@ -153,39 +169,23 @@ pre-commit install
 
 The `dev` extra includes:
 
-- **Code Quality**: black, flake8, isort, mypy
-- **Testing**: pytest, pytest-cov, hypothesis
-- **Documentation**: mkdocs, mkdocstrings
-- **Build**: setuptools, wheel, build
+- **Pre-commit hooks**: `pre-commit`
+- **Testing**: `pytest`, `pytest-cov`, `pytest-benchmark`
+
+The `test` extra adds `hypothesis`, `coverage`, and `psutil`. Code formatting
+and linting are handled by **ruff** through the pre-commit hooks (see
+[Contributing Guide](contributing.md)). Documentation builds use the `docs`
+extra (`mkdocs`, `mkdocstrings`, `mkdocs-material`).
 
 ## Configuration
 
-### Environment Variables
-
-Set `MONET_STATS_CACHE_DIR` to control the cache location:
-
-```bash
-export MONET_STATS_CACHE_DIR=/path/to/cache
-```
-
-### Configuration File
-
-Create a `.monet-stats.toml` file in your home directory:
-
-```toml
-# .monet-stats.toml
-[cache]
-directory = "~/.cache/monet-stats"
-max_size = "1GB"
-
-[performance]
-parallel_processing = true
-chunk_size = 10000
-
-[output]
-decimal_places = 3
-scientific_notation = false
-```
+Monet Stats has no configuration file or environment variables. All behavior
+is controlled through function arguments — for example, `axis`/`dim` for
+reduction, `weights` for weighted metrics, and the `threshold`/`minval`/
+`maxval` arguments for categorical scores. Lazy computation is activated by
+passing chunked (Dask-backed) xarray objects; see the
+[Getting Started Guide](getting-started.md) and
+[Performance reference](api/performance.md).
 
 ## Common Issues and Solutions
 
@@ -219,11 +219,12 @@ pip cache purge
 #### Missing Dependencies
 
 ```bash
-# Install specific versions
-pip install numpy==1.21.0 pandas==1.3.0
+# Install specific versions (must satisfy the package requirements:
+# numpy>=1.20.0, pandas>=2.0.0, scipy>=1.7.0, xarray>=2023.5.0)
+pip install "numpy>=1.20.0" "pandas>=2.0.0" "scipy>=1.7.0" "xarray>=2023.5.0"
 
-# Use conda for better dependency resolution
-conda install numpy pandas scipy
+# Or let pip resolve compatible versions automatically
+pip install --force-reinstall monet-stats
 ```
 
 ### Runtime Issues
@@ -281,75 +282,54 @@ mod_da = xr.DataArray(mod, dims=['time'])
 r2 = ms.R2(obs_da, mod_da)  # Works with xarray
 ```
 
-## Docker Installation
+## Containerized Deployment
 
-### Using Docker
+Monet Stats does not ship a `Dockerfile`. To run it in a container, install
+the package from PyPI inside any Python ≥3.11 base image:
 
-```bash
-# Build the Docker image
-docker build -t monet-stats .
-
-# Run in container
-docker run -it monet-stats
-
-# Use with mounted volume
-docker run -v $(pwd)/data:/data monet-stats python -c "
-import monet_stats as ms
-import numpy as np
-# Your analysis code here
-"
+```dockerfile
+FROM python:3.12-slim
+RUN pip install monet-stats
 ```
 
-### Docker Compose
+```bash
+docker build -t monet-stats-app .
 
-```yaml
-version: "3.8"
-services:
-  monet-stats:
-    build: .
-    volumes:
-      - ./data:/data
-      - ./output:/output
-    environment:
-      - PYTHONPATH=/app
+# Run an analysis script with a mounted data directory
+docker run --rm -v $(pwd)/data:/data monet-stats-app python /data/analysis.py
 ```
 
 ## Performance Optimization
 
 ### For Large Datasets
 
-```python
-# Use NumPy arrays for best performance
-import numpy as np
-obs = np.array(obs_data)  # Convert to NumPy array
-mod = np.array(mod_data)
-
-# Batch processing
-from monet_stats import batch_metrics
-
-results = batch_metrics(
-    obs, mod,
-    metrics=['R2', 'RMSE', 'MAE'],
-    batch_size=50000
-)
-```
-
-### Parallel Processing
+For datasets that do not fit in memory, prefer chunked xarray/Dask inputs so
+metrics stay lazy and are computed only when `.compute()` is called:
 
 ```python
-# Enable parallel processing (if available)
-import monet_stats
-monet_stats.set_config(parallel_processing=True)
+import xarray as xr
 
-# Process multiple metrics simultaneously
-metrics = {
-    'correlation': monet_stats.R2,
-    'error': monet_stats.RMSE,
-    'bias': monet_stats.MB
-}
+obs = xr.open_dataset("obs.nc", chunks={"time": 1000}).temperature
+mod = xr.open_dataset("mod.nc", chunks={"time": 1000}).temperature
 
-results = monet_stats.parallel_compute(obs, mod, metrics)
+rmse_lazy = monet_stats.RMSE(obs, mod, axis="time")  # lazy
+rmse = rmse_lazy.compute()  # executes only now
 ```
+
+For plain NumPy arrays, the `monet_stats.performance` helpers provide
+chunking utilities:
+
+```python
+from monet_stats.performance import get_chunk_recommendation, parallel_compute
+
+# Chunk-size recommendation for a target memory budget
+chunks = get_chunk_recommendation(obs, target_mb=100.0)
+
+# Apply one metric function across chunks of a single array
+result = parallel_compute(monet_stats.RMSE, obs, chunk_size=1_000_000, axis=0)
+```
+
+See the [Performance reference](api/performance.md) for the full API.
 
 ## Next Steps
 

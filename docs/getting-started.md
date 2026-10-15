@@ -1,3 +1,9 @@
+---
+type: tutorial
+category: tutorials
+tags: [quickstart, python, metrics]
+---
+
 # Getting Started with Monet Stats
 
 This guide will help you get up and running with Monet Stats quickly. You'll learn how to import the library, load your data, and perform common statistical analyses used in atmospheric sciences.
@@ -15,10 +21,12 @@ pip install monet-stats
 ### Basic Import and Setup
 
 ```python
+import importlib.metadata
+
 import numpy as np
 import monet_stats as ms
 
-print(f"Monet Stats version: {ms.__version__}")
+print(f"Monet Stats version: {importlib.metadata.version('monet-stats')}")
 ```
 
 ### Simple Example: Temperature Forecast Evaluation
@@ -56,13 +64,15 @@ print(f"Mean Bias: {mb:.3f}°C")
 ### 1. Error Metrics Analysis
 
 ```python
+from monet_stats.relative_metrics import NME
+
 # Comprehensive error analysis
 error_metrics = {
     'RMSE': ms.RMSE(observed_temps, model_temps),
     'MAE': ms.MAE(observed_temps, model_temps),
     'Mean Bias': ms.MB(observed_temps, model_temps),
     'Normalized Mean Bias': ms.NMB(observed_temps, model_temps),
-    'Normalized Mean Error': ms.NME(observed_temps, model_temps)
+    'Normalized Mean Error': NME(observed_temps, model_temps)
 }
 
 print("Error Metrics:")
@@ -76,7 +86,7 @@ for metric, value in error_metrics.items():
 # Correlation metrics
 correlation_metrics = {
     'R²': ms.R2(observed_temps, model_temps),
-    'Pearson Correlation': ms.pearsonr(observed_temps, model_temps)[0],
+    'Pearson Correlation': ms.pearsonr(observed_temps, model_temps),
     'Index of Agreement': ms.IOA(observed_temps, model_temps),
     'Kling-Gupta Efficiency': ms.KGE(observed_temps, model_temps)
 }
@@ -180,8 +190,13 @@ climo = obs_da.monet_stats.climatology(freq="month")
 ds = xr.Dataset({"Obs": obs_da, "Mod": mod_da})
 stats_dict = ds.monet_stats.stats()
 
-# Chain operations
-spatial_mean = obs_da.monet_stats.resample_data(freq="D").monet_stats.weighted_spatial_mean()
+# Chain operations on a 2-D lat/lon field (area-weighted spatial mean)
+da_2d = xr.DataArray(
+    np.random.normal(20, 2, (10, 20)),
+    dims=["lat", "lon"],
+    coords={"lat": np.linspace(30, 40, 10), "lon": np.linspace(-100, -90, 20)},
+)
+spatial_mean = da_2d.monet_stats.weighted_spatial_mean(lat_dim="lat", lon_dim="lon")
 
 # Perform verification directly on the DataArray
 rmse = mod_da.monet_stats.rmse(obs_da, dim="time")
@@ -220,10 +235,10 @@ obs_precip = np.array([0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1])
 mod_precip = np.array([0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1])
 
 # Contingency table metrics
-pod = ms.POD(obs_precip, mod_precip, threshold=0.1)  # Probability of Detection
-far = ms.FAR(obs_precip, mod_precip, threshold=0.1)  # False Alarm Rate
-csi = ms.CSI(obs_precip, mod_precip, threshold=0.1)  # Critical Success Index
-hss = ms.HSS(obs_precip, mod_precip, threshold=0.1)  # Heidke Skill Score
+pod = ms.POD(obs_precip, mod_precip, 0.1)  # Probability of Detection
+far = ms.FAR(obs_precip, mod_precip, 0.1)  # False Alarm Rate
+csi = ms.CSI(obs_precip, mod_precip, 0.1)  # Critical Success Index
+hss = ms.HSS(obs_precip, mod_precip, 0.1)  # Heidke Skill Score
 
 print("\nPrecipitation Verification:")
 print(f"  POD: {pod:.3f}")
@@ -271,7 +286,7 @@ obs_field = np.maximum(obs_field, 0)
 mod_field = np.maximum(mod_field, 0)
 
 # Spatial verification metrics
-fss = ms.FSS(obs_field, mod_field, window=5, threshold=10)
+fss = ms.FSS(obs_field, mod_field, window_size=5, threshold=10)
 sal_s, sal_a, sal_l = ms.SAL(obs_field, mod_field, threshold=5)
 
 print(f"\nSpatial Verification:")
@@ -380,6 +395,9 @@ print(f"  Circular Bias: {circular_bias:.1f}°")
 ### Processing Multiple Metrics
 
 ```python
+from monet_stats.relative_metrics import NME
+
+
 def comprehensive_analysis(obs, mod):
     """Perform comprehensive statistical analysis"""
 
@@ -398,7 +416,7 @@ def comprehensive_analysis(obs, mod):
 
         # Relative metrics
         'Mean Percentage Error': ms.MPE(obs, mod),
-        'Normalized Mean Error': ms.NME(obs, mod)
+        'Normalized Mean Error': NME(obs, mod)
     }
 
     return metrics
@@ -467,5 +485,5 @@ If you need assistance:
 
 - 📖 [Full Documentation](https://noaa-oar-arl.github.io/monet-stats)
 - 🐛 [Report Issues](https://github.com/noaa-oar-arl/monet-stats/issues)
-- 💬 [Community Discussions](https://github.com/noaa-oar-arl/monet/discussions)
+- 💬 [Community Discussions](https://github.com/noaa-oar-arl/monet-stats/discussions)
 - 📧 Email: arl.webmaster@noaa.gov

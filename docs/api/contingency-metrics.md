@@ -1,3 +1,9 @@
+---
+type: reference
+category: reference
+tags: [contingency, categorical, verification]
+---
+
 # Contingency Metrics
 
 The contingency metrics module provides comprehensive metrics for evaluating categorical forecasts, particularly useful for binary event prediction in atmospheric sciences. These metrics are based on contingency table analysis and are commonly used for precipitation verification, air quality exceedance predictions, and other categorical forecast evaluations.
@@ -25,7 +31,7 @@ from monet_stats import HSS
 obs_precip = np.array([0, 1, 1, 0, 0, 1, 1, 1, 0, 0])  # 1 = rain, 0 = no rain
 mod_precip = np.array([0, 1, 0, 0, 0, 1, 1, 0, 0, 1])  # Model predictions
 
-hss_score = HSS(obs_precip, mod_precip, threshold=0.1)
+hss_score = HSS(obs_precip, mod_precip, 0.1)
 print(f"Heidke Skill Score: {hss_score:.3f}")
 ```
 
@@ -59,7 +65,7 @@ print(f"Heidke Skill Score: {hss_score:.3f}")
 Calculate the Equitable Threat Score (ETS), also known as the Gilbert Skill Score.
 
 ```python
-ets_score = ETS(obs_precip, mod_precip, threshold=0.1)
+ets_score = ETS(obs_precip, mod_precip, 0.1)
 print(f"Equitable Threat Score: {ets_score:.3f}")
 ```
 
@@ -87,7 +93,7 @@ print(f"Equitable Threat Score: {ets_score:.3f}")
 Calculate the Critical Success Index (CSI), also known as the Threat Score.
 
 ```python
-csi_score = CSI(obs_precip, mod_precip, threshold=0.1)
+csi_score = CSI(obs_precip, mod_precip, 0.1)
 print(f"Critical Success Index: {csi_score:.3f}")
 ```
 
@@ -115,7 +121,7 @@ print(f"Critical Success Index: {csi_score:.3f}")
 Calculate the Probability of Detection (POD), also known as the Hit Rate.
 
 ```python
-pod_score = POD(obs_precip, mod_precip, threshold=0.1)
+pod_score = POD(obs_precip, mod_precip, 0.1)
 print(f"Probability of Detection: {pod_score:.3f}")
 ```
 
@@ -143,7 +149,7 @@ print(f"Probability of Detection: {pod_score:.3f}")
 Calculate the False Alarm Rate (FAR).
 
 ```python
-far_score = FAR(obs_precip, mod_precip, threshold=0.1)
+far_score = FAR(obs_precip, mod_precip, 0.1)
 print(f"False Alarm Rate: {far_score:.3f}")
 ```
 
@@ -171,7 +177,7 @@ print(f"False Alarm Rate: {far_score:.3f}")
 Calculate the False Bias Index.
 
 ```python
-fbi_score = FBI(obs_precip, mod_precip, threshold=0.1)
+fbi_score = FBI(obs_precip, mod_precip, 0.1)
 print(f"False Bias Index: {fbi_score:.3f}")
 ```
 
@@ -198,7 +204,7 @@ print(f"False Bias Index: {fbi_score:.3f}")
 Calculate the True Skill Statistic (TSS), also known as the Hanssen-Kuipers Discriminant.
 
 ```python
-tss_score = TSS(obs_precip, mod_precip, threshold=0.1)
+tss_score = TSS(obs_precip, mod_precip, 0.1)
 print(f"True Skill Statistic: {tss_score:.3f}")
 ```
 
@@ -221,16 +227,15 @@ print(f"True Skill Statistic: {tss_score:.3f}")
 
 ---
 
-### scores(obs, mod, minval, maxval=None)
+### scores(obs, mod, minval, maxval=None, axis=None)
 
-Calculate a comprehensive set of contingency table metrics.
+Compute the raw 2x2 contingency table counts.
 
 ```python
-# Get all contingency metrics at once
-contingency_results = scores(obs_precip, mod_precip, threshold=0.1)
-print("Contingency Metrics:")
-for metric, value in contingency_results.items():
-    print(f"  {metric}: {value:.3f}")
+# Get the contingency table counts
+hits, misses, false_alarms, correct_negatives = scores(obs_precip, mod_precip, 0.1)
+print(f"Hits: {hits}, Misses: {misses}, "
+      f"False alarms: {false_alarms}, Correct negatives: {correct_negatives}")
 ```
 
 **Parameters:**
@@ -239,45 +244,40 @@ for metric, value in contingency_results.items():
 - `mod`: Modeled values (array-like)
 - `minval`: Threshold value for event definition
 - `maxval`: Maximum threshold (optional)
+- `axis`: Axis along which to compute the counts (optional)
 
 **Returns:**
 
-- `dict`: Dictionary containing all contingency metrics:
-  - `hits`: Number of hits (A)
-  - `misses`: Number of misses (B)
-  - `false_alarms`: Number of false alarms (C)
-  - `correct_negatives`: Number of correct negatives (D)
-  - `POD`: Probability of Detection
-  - `FAR`: False Alarm Rate
-  - `CSI`: Critical Success Index
-  - `HSS`: Heidke Skill Score
-  - `ETS`: Equitable Threat Score
-  - `TSS`: True Skill Statistic
+- `tuple`: The four contingency counts `(hits, misses, false_alarms,
+  correct_negatives)` — each a scalar, `np.ndarray`, or `xr.DataArray`
+  depending on the input. Use these counts to build custom scores; the
+  individual metrics (`POD`, `FAR`, `CSI`, `HSS`, `ETS`, `TSS`) are computed
+  by their own functions, not returned here.
 
 ---
 
-### BSS_binary(obs, mod, threshold)
+### BSS_binary(obs, mod, threshold, axis=None)
 
-Calculate the Binary Brier Skill Score for categorical forecasts.
+Calculate the Binary Brier Skill Score for deterministic forecasts. The
+`threshold` is **required** and is used internally to convert the inputs to
+binary events.
 
 ```python
-# Convert probabilities to binary predictions
-obs_binary = (obs_precip >= threshold).astype(int)
-mod_binary = (mod_precip >= threshold).astype(int)
-
-bss_score = BSS_binary(obs_binary, mod_binary)
+bss_score = BSS_binary(obs_precip, mod_precip, threshold=0.5)
 print(f"Binary Brier Skill Score: {bss_score:.3f}")
 ```
 
 **Parameters:**
 
-- `obs`: Observed binary outcomes (0 or 1)
-- `mod`: Forecast binary predictions (0 or 1)
-- `threshold`: Decision threshold
+- `obs`: Observed binary outcomes (0 or 1) or continuous values
+- `mod`: Forecast binary predictions (0 or 1) or continuous values
+- `threshold`: Decision threshold used to binarize the inputs
+- `axis`: Axis along which to compute the score (optional)
 
 **Returns:**
 
-- `float`: Binary Brier Skill Score
+- `float`: Binary Brier Skill Score (-∞ to 1; 1 = perfect, 0 = reference
+  skill, negative = worse than the reference)
 
 **Use Cases:**
 
@@ -312,86 +312,65 @@ print(f"Brier Score: {bs_score:.3f}")
 
 ## Advanced Functions
 
-### HSS_max_threshold(obs, mod, threshold_range)
-
-Find the optimal threshold that maximizes the Heidke Skill Score.
+The threshold optimizers scan a **range of `minval` thresholds** and return
+the best threshold together with its score. They live in
+`monet_stats.contingency_metrics` (not re-exported at the top level), so
+import them from the module:
 
 ```python
-# Test multiple thresholds to find optimal performance
-thresholds = np.arange(0.1, 10.0, 0.5)
-optimal_threshold = HSS_max_threshold(obs_precip, mod_precip, thresholds)
-print(f"Optimal threshold for HSS: {optimal_threshold:.1f}")
+from monet_stats.contingency_metrics import HSS_max_threshold
+
+# Scan minval from 0.2 to 0.8 in steps of 0.1
+optimal_threshold, best_score = HSS_max_threshold(obs_precip, mod_precip,
+                                                  0.2, 0.8, step_size=0.1)
+print(f"Optimal HSS threshold: {optimal_threshold:.2f} (HSS = {best_score:.3f})")
 ```
+
+### HSS_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0)
+
+Find the threshold that maximizes the Heidke Skill Score.
 
 **Parameters:**
 
-- `obs`: Observed values (array-like)
-- `mod`: Modeled values (array-like)
-- `threshold_range`: Array of threshold values to test
+- `obs`, `mod`: Observed and modeled values (array-like)
+- `minval_range`: Lowest threshold to test
+- `maxval_range`: Highest threshold to test
+- `step_size`: Spacing between tested thresholds (default `1.0`)
 
-**Returns:**
+**Returns:** `tuple[float, float]` — `(optimal_threshold, max_score)`
 
-- `float`: Threshold that maximizes HSS
+---
+
+### ETS_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0)
+
+As above, maximizing the Equitable Threat Score. Returns
+`(optimal_threshold, max_score)`.
+
+---
+
+### POD_max_threshold(obs, mod, minval_range, maxval_range, step_size=1.0)
+
+As above, maximizing the Probability of Detection. Returns
+`(optimal_threshold, max_score)`.
+
+---
+
+### FAR_min_threshold(obs, mod, minval_range, maxval_range, step_size=1.0)
+
+As above, minimizing the False Alarm Rate. Returns
+`(optimal_threshold, min_score)`.
+
+---
+
+### CSI_max_threshold / TSS_max_threshold
+
+The same pattern for the Critical Success Index and True Skill Statistic.
 
 **Use Cases:**
 
-- Optimizing forecast thresholds
+- Optimizing forecast thresholds for a specific application
 - Comparing model performance across different event definitions
 - Calibration analysis
-
----
-
-### POD_max_threshold(obs, mod, threshold_range)
-
-Find the optimal threshold that maximizes the Probability of Detection.
-
-```python
-optimal_pod_threshold = POD_max_threshold(obs_precip, mod_precip, thresholds)
-print(f"Optimal threshold for POD: {optimal_pod_threshold:.1f}")
-```
-
-**Parameters:**
-
-- `obs`: Observed values (array-like)
-- `mod`: Modeled values (array-like)
-- `threshold_range`: Array of threshold values to test
-
-**Returns:**
-
-- `float`: Threshold that maximizes POD
-
-**Use Cases:**
-
-- Maximizing event detection sensitivity
-- Optimizing warning systems
-- High-impact weather verification
-
----
-
-### FAR_min_threshold(obs, mod, threshold_range)
-
-Find the optimal threshold that minimizes the False Alarm Rate.
-
-```python
-optimal_far_threshold = FAR_min_threshold(obs_precip, mod_precip, thresholds)
-print(f"Optimal threshold for FAR minimization: {optimal_far_threshold:.1f}")
-```
-
-**Parameters:**
-
-- `obs`: Observed values (array-like)
-- `mod`: Modeled values (array-like)
-- `threshold_range`: Array of threshold values to test
-
-**Returns:**
-
-- `float`: Threshold that minimizes FAR
-
-**Use Cases:**
-
-- Minimizing false positive rates
-- Optimizing resource allocation
-- Cost-sensitive forecasting
 
 ## Examples
 
@@ -399,7 +378,7 @@ print(f"Optimal threshold for FAR minimization: {optimal_far_threshold:.1f}")
 
 ```python
 import numpy as np
-from monet_stats import scores, POD, FAR, CSI
+from monet_stats import CSI, FAR, HSS, POD, scores
 
 # Sample precipitation data (0 = no rain, 1 = rain)
 observed = np.array([0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0])
@@ -412,14 +391,16 @@ print("Precipitation Verification Results:")
 print("-" * 50)
 for threshold in thresholds:
     print(f"\nThreshold: {threshold} mm")
-    results = scores(observed, modeled, threshold)
 
-    print(f"  Events: {results['hits'] + results['misses']} observed, "
-          f"{results['hits'] + results['false_alarms']} predicted")
-    print(f"  POD: {results['POD']:.3f}")
-    print(f"  FAR: {results['FAR']:.3f}")
-    print(f"  CSI: {results['CSI']:.3f}")
-    print(f"  HSS: {results['HSS']:.3f}")
+    # scores() returns the raw contingency counts
+    hits, misses, false_alarms, correct_negatives = scores(observed, modeled, threshold)
+    print(f"  Events: {hits + misses} observed, {hits + false_alarms} predicted")
+
+    # Individual scores are computed by their own functions
+    print(f"  POD: {POD(observed, modeled, threshold):.3f}")
+    print(f"  FAR: {FAR(observed, modeled, threshold):.3f}")
+    print(f"  CSI: {CSI(observed, modeled, threshold):.3f}")
+    print(f"  HSS: {HSS(observed, modeled, threshold):.3f}")
 ```
 
 ### Air Quality Exceedance Analysis
@@ -449,17 +430,20 @@ print(f"  Heidke Skill Score: {hss:.3f}")
 print(f"  Equitable Threat Score: {ets:.3f}")
 print(f"  Probability of Detection: {pod:.3f}")
 
-# Find optimal threshold
-thresholds = np.arange(50, 120, 5)
-optimal_hss_threshold = HSS_max_threshold(obs_binary, mod_binary, thresholds)
-print(f"  Optimal threshold for HSS: {optimal_hss_threshold} µg/m³")
+# Find optimal threshold (scalar min/max range, not an array)
+optimal_hss_threshold, best_hss = HSS_max_threshold(observed_conc, modeled_conc,
+                                                    50, 120, step_size=5)
+print(f"  Optimal threshold for HSS: {optimal_hss_threshold} µg/m³ (HSS = {best_hss:.3f})")
 ```
 
 ### Multi-Event Contingency Analysis
 
+`scores()` returns the four raw counts, so build a summary DataFrame from the
+individual metric functions:
+
 ```python
 import pandas as pd
-from monet_stats import scores
+from monet_stats import CSI, FAR, HSS, POD
 
 # Multiple event types
 events_data = pd.DataFrame({
@@ -470,19 +454,32 @@ events_data = pd.DataFrame({
 
 # Analyze by event type
 event_analysis = events_data.groupby('event_type').apply(
-    lambda x: scores(x['observed'], x['modeled'], threshold=0.5)
-).unstack()
+    lambda x: pd.Series({
+        'POD': POD(x['observed'], x['modeled'], 0.5),
+        'FAR': FAR(x['observed'], x['modeled'], 0.5),
+        'CSI': CSI(x['observed'], x['modeled'], 0.5),
+        'HSS': HSS(x['observed'], x['modeled'], 0.5),
+    })
+)
 
 print("Multi-Event Contingency Analysis:")
-print(event_analysis[['POD', 'FAR', 'CSI', 'HSS']].round(3))
+print(event_analysis.round(3))
 ```
 
 ## Threshold Optimization
 
+The `*_max_threshold` / `*_min_threshold` helpers scan a scalar threshold range
+and return the best threshold with its score. Import them from the module:
+
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from monet_stats import HSS_max_threshold, POD_max_threshold, FAR_min_threshold
+from monet_stats import FAR, HSS, POD
+from monet_stats.contingency_metrics import (
+    FAR_min_threshold,
+    HSS_max_threshold,
+    POD_max_threshold,
+)
 
 # Generate synthetic verification data
 np.random.seed(42)
@@ -493,58 +490,51 @@ observed = np.random.binomial(1, 0.1, n_samples)  # 10% event rate
 
 # Model with skill but different bias
 modeled = observed.copy()
-# Add some misses and false alarms
 misses = (observed == 1) & (np.random.rand(n_samples) < 0.3)
 false_alarms = (observed == 0) & (np.random.rand(n_samples) < 0.2)
 modeled[misses] = 0
 modeled[false_alarms] = 1
 
-# Test threshold range
+# Sweep thresholds manually to plot the full curve
 threshold_range = np.linspace(0, 1, 21)
+hss_values, pod_values, far_values = [], [], []
+for t in threshold_range:
+    obs_binary = (observed >= t).astype(int)
+    mod_binary = (modeled >= t).astype(int)
+    hss_values.append(HSS(obs_binary, mod_binary, t))
+    pod_values.append(POD(obs_binary, mod_binary, t))
+    far_values.append(FAR(obs_binary, mod_binary, t))
 
-# Calculate metrics for different thresholds
-hss_values = []
-pod_values = []
-far_values = []
-
-for threshold in threshold_range:
-    obs_binary = (observed >= threshold).astype(int)
-    mod_binary = (modeled >= threshold).astype(int)
-
-    hss_values.append(HSS(obs_binary, mod_binary, threshold))
-    pod_values.append(POD(obs_binary, mod_binary, threshold))
-    far_values.append(FAR(obs_binary, mod_binary, threshold))
-
-# Find optimal thresholds
-optimal_hss = HSS_max_threshold(observed, modeled, threshold_range)
-optimal_pod = POD_max_threshold(observed, modeled, threshold_range)
-optimal_far = FAR_min_threshold(observed, modeled, threshold_range)
+# Find optimal thresholds (returns (threshold, score) tuples)
+optimal_hss, best_hss = HSS_max_threshold(observed, modeled, 0.0, 1.0, step_size=0.05)
+optimal_pod, best_pod = POD_max_threshold(observed, modeled, 0.0, 1.0, step_size=0.05)
+optimal_far, best_far = FAR_min_threshold(observed, modeled, 0.0, 1.0, step_size=0.05)
 
 # Plot results
 plt.figure(figsize=(12, 4))
 
 plt.subplot(1, 3, 1)
-plt.plot(threshold_range, hss_values, 'b-', label='HSS')
-plt.axvline(optimal_hss, color='r', linestyle='--', label=f'Optimal HSS: {optimal_hss:.2f}')
-plt.xlabel('Threshold')
-plt.ylabel('HSS')
-plt.title('Heidke Skill Score')
+plt.plot(threshold_range, hss_values, "b-", label="HSS")
+plt.axvline(optimal_hss, color="r", linestyle="--", label=f"Optimal HSS: {optimal_hss:.2f}")
+plt.xlabel("Threshold")
+plt.ylabel("HSS")
+plt.title("Heidke Skill Score")
 plt.legend()
 
 plt.subplot(1, 3, 2)
-plt.plot(threshold_range, pod_values, 'g-', label='POD')
-plt.axvline(optimal_pod, color='r', linestyle='--', label=f'Optimal POD: {optimal_pod:.2f}')
-plt.xlabel('Threshold')
-plt.ylabel('POD')
-plt.title('Probability of Detection')
+plt.plot(threshold_range, pod_values, "g-", label="POD")
+plt.axvline(optimal_pod, color="r", linestyle="--", label=f"Optimal POD: {optimal_pod:.2f}")
+plt.xlabel("Threshold")
+plt.ylabel("POD")
+plt.title("Probability of Detection")
 plt.legend()
 
 plt.subplot(1, 3, 3)
-plt.plot(threshold_range, far_values, 'orange', label='FAR')
-plt.axvline(optimal_far, color='r', linestyle='--', label=f'Optimal FAR: {optimal_far:.2f}')
-plt.xlabel('Threshold')
-plt.ylabel('FAR')
-plt.title('False Alarm Rate')
+plt.plot(threshold_range, far_values, "orange", label="FAR")
+plt.axvline(optimal_far, color="r", linestyle="--", label=f"Optimal FAR: {optimal_far:.2f}")
+plt.xlabel("Threshold")
+plt.ylabel("FAR")
+plt.title("False Alarm Rate")
 plt.legend()
 
 plt.tight_layout()
@@ -588,15 +578,17 @@ For rare events (<5% occurrence rate):
 obs_clean = obs[~np.isnan(obs) & ~np.isnan(mod)]
 mod_clean = mod[~np.isnan(obs) & ~np.isnan(mod)]
 
-metrics = scores(obs_clean, mod_clean, threshold)
+hits, misses, false_alarms, correct_negatives = scores(obs_clean, mod_clean, threshold)
 ```
 
 ### Issue: Zero Division in FAR Calculation
 
 ```python
-# Solution: Add small epsilon to avoid division by zero
+# Solution: Guard the denominator using the contingency counts
+from monet_stats import scores
+
 def safe_far(obs, mod, threshold):
-    hits, misses, false_alarms, correct_negatives = contingency_table(obs, mod, threshold)
+    hits, misses, false_alarms, correct_negatives = scores(obs, mod, threshold)
     if hits + false_alarms == 0:
         return 0.0
     return false_alarms / (hits + false_alarms)
@@ -612,3 +604,7 @@ far = safe_far(obs, mod, threshold)
 ets_score = ETS(obs, mod, threshold)
 hss_score = HSS(obs, mod, threshold)
 ```
+
+## API Reference
+
+::: monet_stats.contingency_metrics

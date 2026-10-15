@@ -1,3 +1,9 @@
+---
+type: howto
+category: how_to
+tags: [workflow, climate, verification]
+---
+
 # Climate Data Analysis Workflows
 
 This guide provides comprehensive workflows for analyzing climate data using Monet Stats. These workflows cover common scenarios in climate model evaluation, atmospheric data analysis, and environmental monitoring.
@@ -168,10 +174,10 @@ for threshold in thresholds:
         mod_extreme = (precip_data[model_name] >= np.percentile(precip_data['observed'], threshold)).astype(int)
 
         # Contingency table metrics
-        pod = ms.POD(obs_extreme, mod_extreme, threshold=0.5)
-        far = ms.FAR(obs_extreme, mod_extreme, threshold=0.5)
-        csi = ms.CSI(obs_extreme, mod_extreme, threshold=0.5)
-        hss = ms.HSS(obs_extreme, mod_extreme, threshold=0.5)
+        pod = ms.POD(obs_extreme, mod_extreme, 0.5)
+        far = ms.FAR(obs_extreme, mod_extreme, 0.5)
+        csi = ms.CSI(obs_extreme, mod_extreme, 0.5)
+        hss = ms.HSS(obs_extreme, mod_extreme, 0.5)
 
         print(f"  {model_name}: POD={pod:.3f}, FAR={far:.3f}, CSI={csi:.3f}, HSS={hss:.3f}")
 ```
@@ -358,7 +364,7 @@ spread, skill = calculate_spread_skill(
 )
 
 # Analyze correlation
-spread_skill_corr = ms.pearsonr(spread, skill)[0]
+spread_skill_corr = ms.pearsonr(spread, skill)
 print(f"\nSpread-Skill Correlation: {spread_skill_corr:.3f}")
 
 # Plot spread-skill relationship
@@ -458,8 +464,8 @@ print("\nSpatial Gradient Statistics:")
 print(gradient_stats.set_index('Statistic'))
 
 # Spatial verification metrics
-fss1 = ms.FSS(observed_spatial, model1_spatial, window=5, threshold=np.percentile(observed_spatial, 75))
-fss2 = ms.FSS(observed_spatial, model2_spatial, window=5, threshold=np.percentile(observed_spatial, 75))
+fss1 = ms.FSS(observed_spatial, model1_spatial, window_size=5, threshold=np.percentile(observed_spatial, 75))
+fss2 = ms.FSS(observed_spatial, model2_spatial, window_size=5, threshold=np.percentile(observed_spatial, 75))
 
 sal_s1, sal_a1, sal_l1 = ms.SAL(observed_spatial, model1_spatial)
 sal_s2, sal_a2, sal_l2 = ms.SAL(observed_spatial, model2_spatial)
@@ -517,7 +523,7 @@ def quality_control_analysis(observed, modeled):
     # Temporal consistency
     obs_diff = np.diff(observed)
     mod_diff = np.diff(modeled)
-    qc_results['temporal_correlation'] = ms.pearsonr(obs_diff, mod_diff)[0]
+    qc_results['temporal_correlation'] = ms.pearsonr(obs_diff, mod_diff)
 
     # Outlier detection (using IQR method)
     obs_q75, obs_q25 = np.percentile(observed, [75, 25])

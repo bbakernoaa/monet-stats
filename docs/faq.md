@@ -1,3 +1,9 @@
+---
+type: howto
+category: how_to
+tags: [troubleshooting, faq, errors]
+---
+
 # FAQ and Troubleshooting Guide
 
 This FAQ addresses common questions and issues encountered when using Monet Stats for atmospheric sciences applications. If you don't find your question here, please check the [GitHub Issues](https://github.com/noaa-oar-arl/monet-stats/issues) or submit a new issue.
@@ -24,17 +30,21 @@ pip install -e .
 
 ### Q: I need additional dependencies like xarray or pandas
 
-**A:** Install the optional dependencies:
+**A:** NumPy, pandas, SciPy, and xarray are installed automatically as core
+dependencies. Install the optional extras for additional backends or tooling:
 
 ```bash
-# Install with xarray support
-pip install monet-stats[xarray]
+# Install with Dask support (lazy/parallel computation)
+pip install "monet-stats[dask]"
 
-# Install with all optional dependencies
-pip install monet-stats[dev,test]
+# Install with Cubed support
+pip install "monet-stats[cubed]"
 
-# Install specific dependencies
-pip install xarray pandas scipy matplotlib
+# Install with all development and test dependencies
+pip install "monet-stats[dev,test]"
+
+# Install documentation dependencies
+pip install "monet-stats[docs]"
 ```
 
 ### Q: How do I set up a development environment?
@@ -104,12 +114,16 @@ obs = np.array([1, 2, 3, 4, 5])
 mod = np.array([1.1, 2.1, 2.9, 4.1, 4.8])
 
 # Error: Different shapes
-# obs = np.array([1, 2, 3])  # This will raise ValueError
+# obs = np.array([1, 2, 3])  # Raises ValueError for NumPy arrays
 # mod = np.array([1.1, 2.1, 2.9, 4.1, 4.8])
 
-# Solution: Align your data first
-obs, mod = obs[:len(mod)], mod[:len(obs)]  # Truncate to shorter length
+# Solution for NumPy arrays: truncate to the shorter length
+obs, mod = obs[:len(mod)], mod[:len(obs)]
 ```
+
+For **xarray** inputs you do not need to truncate manually — metrics align
+coordinates with `xr.align(..., join="inner")` automatically, and mismatched
+coordinate labels are handled by the inner join.
 
 ## Metric Calculation Issues
 
@@ -149,10 +163,10 @@ obs_precip = np.array([0, 1, 1, 0, 0])  # 0 = no rain, 1 = rain
 mod_precip = np.array([0, 1, 0, 0, 1])
 
 # Correct threshold for binary events
-pod = ms.POD(obs_precip, mod_precip, threshold=0.5)
+pod = ms.POD(obs_precip, mod_precip, 0.5)
 
 # Wrong threshold (should be 0.5 for binary data)
-# pod = ms.POD(obs_precip, mod_precip, threshold=10.0)  # Wrong!
+# pod = ms.POD(obs_precip, mod_precip, 10.0)  # Wrong!
 ```
 
 ### Q: Wind direction metrics give strange results
@@ -341,10 +355,10 @@ obs_2d = np.random.normal(20, 2, (10, 10))  # 10x10 grid
 mod_2d = obs_2d + np.random.normal(0, 1, (10, 10))
 
 # This works with spatial metrics
-fss = ms.FSS(obs_2d, mod_2d, window=5)
+fss = ms.FSS(obs_2d, mod_2d, window_size=5)
 
 # This fails (1D data)
-# fss = ms.FSS(obs_1d, mod_1d, window=5)  # Error!
+# fss = ms.FSS(obs_1d, mod_1d, window_size=5)  # Error!
 ```
 
 ### Q: How do I verify ensemble forecasts?
@@ -375,7 +389,7 @@ print(f"Ensemble CRPS: {crps:.3f}")
 print(f"Ensemble BSS: {bss:.3f}")
 
 # Spread-skill relationship
-spread_skill_corr = ms.pearsonr(ensemble_std, 1/ensemble_mean)[0]
+spread_skill_corr = ms.pearsonr(ensemble_std, 1/ensemble_mean)
 print(f"Spread-Skill Correlation: {spread_skill_corr:.3f}")
 ```
 
@@ -516,6 +530,9 @@ r2 = safe_metric_calculation(obs, mod, ms.R2)
 ### 3. Comprehensive Analysis
 
 ```python
+from monet_stats.relative_metrics import NME
+
+
 def comprehensive_verification(obs, mod):
     """Perform comprehensive model verification"""
     results = {}
@@ -533,7 +550,7 @@ def comprehensive_verification(obs, mod):
 
     # Relative metrics
     results['MPE'] = ms.MPE(obs, mod)
-    results['NME'] = ms.NME(obs, mod)
+    results['NME'] = NME(obs, mod)
 
     return results
 
@@ -549,7 +566,7 @@ for metric, value in verification_results.items():
 
 1. **Documentation**: [Full Documentation](https://noaa-oar-arl.github.io/monet-stats)
 2. **GitHub Issues**: [Report bugs or request features](https://github.com/noaa-oar-arl/monet-stats/issues)
-3. **Community Discussions**: [GitHub Discussions](https://github.com/noaa-oar-arl/monet/discussions)
+3. **Community Discussions**: [GitHub Discussions](https://github.com/noaa-oar-arl/monet-stats/discussions)
 4. **Email Support**: arl.webmaster@noaa.gov
 
 ### How to Report Issues
@@ -559,8 +576,9 @@ When reporting issues, please include:
 1. **Environment Information**:
 
    ```python
-   import monet_stats
-   print(f"Monet Stats version: {monet_stats.__version__}")
+   import importlib.metadata
+
+   print(f"Monet Stats version: {importlib.metadata.version('monet-stats')}")
    import sys
    print(f"Python version: {sys.version}")
    ```
@@ -571,12 +589,12 @@ When reporting issues, please include:
    import numpy as np
    import monet_stats as ms
 
-   # Your problematic code here
    obs = np.array([1, 2, 3])
    mod = np.array([1.1, 2.1, 2.9])
 
-   # This causes the error
-   result = ms.YourMetric(obs, mod)  # Replace with actual call
+   # Replace ms.RMSE with the metric call that fails for you
+   result = ms.RMSE(obs, mod)
+   print(result)
    ```
 
 3. **Expected vs. Actual Behavior**:

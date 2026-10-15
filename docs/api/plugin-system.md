@@ -1,3 +1,9 @@
+---
+type: reference
+category: reference
+tags: [plugin, extensibility]
+---
+
 # Plugin System
 
 Framework for extending Monet Stats with custom metrics and functionality.

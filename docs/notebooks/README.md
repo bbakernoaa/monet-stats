@@ -1,3 +1,9 @@
+---
+type: tutorial
+category: tutorials
+tags: [notebooks, examples, jupyter]
+---
+
 # Jupyter Notebooks for Monet Stats
 
 This directory contains comprehensive Jupyter notebooks demonstrating the usage of Monet Stats for climate analysis and model evaluation.
@@ -81,7 +87,7 @@ Each notebook follows a consistent structure:
 
 ### Statistical Metrics
 
-- Error metrics (MAE, RMSE, MBE, MAPE, MPE)
+- Error metrics (MAE, RMSE, MB, MAPE, MPE)
 - Correlation metrics (Pearson, Spearman, R²)
 - Skill scores (NSE, mNSE, rNSE, NSEm)
 - Contingency analysis for categorical data

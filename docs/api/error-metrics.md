@@ -1,3 +1,9 @@
+---
+type: reference
+category: reference
+tags: [error-metrics, bias, rmse]
+---
+
 # Error Metrics
 
 Error analysis and bias quantification for model evaluation.

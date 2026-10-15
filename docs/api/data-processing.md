@@ -1,3 +1,9 @@
+---
+type: reference
+category: reference
+tags: [data-processing, preprocessing]
+---
+
 # Data Processing
 
 Utilities for data input, output, and preprocessing.

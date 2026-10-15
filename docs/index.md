@@ -1,157 +1,143 @@
-# Monet Stats
+<div class="ms-hero" markdown>
 
-A comprehensive statistics and utility library designed for atmospheric sciences applications, providing a wide range of metrics for model evaluation, verification, and analysis.
+# MONET Stats
 
-## Overview
+## Model verification for atmospheric science
 
-Monet Stats is a Python library focused on statistical evaluation methods commonly used in atmospheric sciences, meteorology, and environmental modeling. It provides a comprehensive suite of metrics for:
+Evaluate forecasts against observations with a broad set of deterministic, categorical, spatial, ensemble, and temporal statistics. Work with NumPy, pandas, or labeled Xarray data, and keep large workflows lazy with Dask.
 
-- **Model Verification**: Evaluate the performance of numerical weather prediction and air quality models
-- **Contingency Table Analysis**: Assess categorical forecast skill for events like precipitation and air quality exceedances
-- **Error Metrics**: Quantify the magnitude and characteristics of model errors
-- **Skill Scores**: Measure forecast skill relative to reference forecasts
-- **Spatial Verification**: Evaluate the spatial structure and location of modeled fields
-- **Ensemble Verification**: Assess probabilistic forecast performance from ensemble systems
+[Get started](getting-started.md){ .md-button .md-button--primary }
+[Browse the API](api/overview.md){ .md-button }
 
-## Key Features
+</div>
 
-- 📊 **Comprehensive Metric Coverage**: 50+ statistical metrics for atmospheric sciences
-- 🔧 **Multiple Data Formats**: Support for NumPy arrays, xarray DataArrays, and pandas DataFrames
-- 🌪️ **Specialized Metrics**: Wind direction handling, circular statistics, and spatial verification
-- 📈 **Skill Score Framework**: Built-in support for Brier, Heidke, and other skill scores
-- 🧮 **Mathematical Rigor**: Well-documented mathematical formulations and use cases
-- 🍃⚡ **Aero Protocol Compliant**: Optimized for the Pangeo ecosystem with full Dask/Xarray support, lazy evaluation, and strict data provenance.
+<div class="ms-highlights" markdown>
 
-## Quick Start
+<div class="ms-highlight">
 
-```python
-import numpy as np
-from monet_stats import R2, RMSE, POD, FAR
+**149 metrics**  
+Error, skill, correlation, distribution, and specialized verification methods.
 
-# Sample data
-obs = np.array([1.2, 2.5, 3.7, 4.1, 5.0])
-mod = np.array([1.1, 2.6, 3.5, 4.3, 4.8])
+</div>
+<div class="ms-highlight">
 
-# Calculate basic metrics
-r_squared = R2(obs, mod)
-rmse_value = RMSE(obs, mod)
-print(f"R²: {r_squared:.3f}")
-print(f"RMSE: {rmse_value:.3f}")
-```
+**Labeled workflows**  
+Use Xarray dimensions and coordinates to reduce over time, space, or both.
 
-## Installation
+</div>
+<div class="ms-highlight">
+
+**Lazy by design**  
+Keep supported Xarray calculations Dask-backed until you choose to compute.
+
+</div>
+
+</div>
+
+## Start with a few metrics
+
+Install the core package and calculate common scores with NumPy arrays:
 
 ```bash
 pip install monet-stats
 ```
 
-## Supported Metrics
+```python
+import numpy as np
+import monet_stats as ms
 
-### By Category
+obs = np.array([1.2, 2.5, 3.7, 4.1, 5.0])
+mod = np.array([1.1, 2.6, 3.5, 4.3, 4.8])
 
-#### Contingency Table Metrics
+scores = {
+    "RMSE": ms.RMSE(obs, mod),
+    "Mean bias": ms.MB(obs, mod),
+    "Correlation": ms.pearsonr(obs, mod),
+    "Nash–Sutcliffe efficiency": ms.NSE(obs, mod),
+}
+```
 
-- Heidke Skill Score (HSS)
-- Equitable Threat Score (ETS)
-- Critical Success Index (CSI)
-- Probability of Detection (POD)
-- False Alarm Rate (FAR)
-- True Skill Statistic (TSS)
+For larger gridded datasets, install the optional Dask dependencies and open data in chunks:
 
-#### Error Metrics
+```bash
+pip install 'monet-stats[dask]'
+```
 
-- Root Mean Square Error (RMSE)
-- Mean Absolute Error (MAE)
-- Mean Bias (MB)
-- Normalized Mean Error (NME)
-- Wind Direction RMSE
+```python
+import xarray as xr
+import monet_stats as ms
 
-#### Correlation Metrics
+obs = xr.open_dataset("observations.nc", chunks={"time": 120})["temperature"]
+mod = xr.open_dataset("forecast.nc", chunks={"time": 120})["temperature"]
 
-- Coefficient of Determination (R²)
-- Pearson Correlation
-- Taylor Skill Score
-- Kling-Gupta Efficiency (KGE)
+rmse_map = ms.RMSE(obs, mod, axis="time")  # remains lazy
+rmse_map = rmse_map.compute()               # calculate when needed
+```
 
-#### Skill Scores
+Choose chunks that fit comfortably in worker memory. Some distribution and sequence metrics need all values along their reduction dimensions in one chunk; see the [performance guide](api/performance.md) for details.
 
-- Brier Skill Score (BSS)
-- Nash-Sutcliffe Efficiency (NSE)
-- Index of Agreement (IOA)
-- Mean Absolute Percentage Error (MAPE)
+## Explore the toolkit
 
-#### Spatial & Ensemble Metrics
+<div class="grid cards" markdown>
 
-- Fractions Skill Score (FSS)
-- Continuous Ranked Probability Score (CRPS)
-- Structure-Amplitude-Location (SAL)
-- Ensemble mean and spread
-- Rank histograms
+-   :material-chart-box:{ .lg .middle } **Model scores**
 
-#### Analysis & Utility Methods
+    ---
 
-- Anomalies (Monthly, Seasonal, Daily)
-- Detrending (Linear, Constant)
-- Kolmogorov-Zurbenko (KZ) Filter
-- Diurnal Cycle Analysis
-- Weighted Spatial Mean
-- FFT and Power Spectrum Analysis
+    Summarize continuous forecasts with error, bias, efficiency, and correlation metrics.
 
-## Documentation Structure
+    [Error metrics](api/error-metrics.md) · [Efficiency](api/efficiency-metrics.md) · [Correlation](api/correlation-metrics.md)
 
-- [Installation Guide](installation.md) - Setup and configuration
-- [Getting Started](getting-started.md) - Basic usage and examples
-- [User Guides](workflows/climate-data-analysis.md) - Domain-specific workflows
-- [API Reference](api/overview.md) - Complete function documentation
-- [Mathematical Formulations](math/overview.md) - Theory and equations
-- [Examples](notebooks/01_basic_statistical_analysis.ipynb) - Practical use cases
-- [Performance Guide](api/performance.md) - Optimization tips
-- [Integration Guide](system-integration.md) - Framework integration
+-   :material-check-decagram:{ .lg .middle } **Forecast verification**
 
-## Use Cases
+    ---
 
-### Climate Model Evaluation
+    Evaluate event forecasts, thresholds, probabilistic predictions, and ensembles.
 
-- Compare model outputs against observations
-- Analyze seasonal and temporal variations
-- Assess extreme event performance
+    [Contingency scores](api/contingency-metrics.md) · [Spatial and ensemble](api/spatial-ensemble-metrics.md)
 
-### Weather Forecast Verification
+-   :material-earth:{ .lg .middle } **Spatial and temporal analysis**
 
-- Evaluate deterministic and probabilistic forecasts
-- Analyze categorical event predictions
-- Optimize forecast thresholds
+    ---
 
-### Air Quality Assessment
+    Compare structures, tracks, timing, distributions, and gridded fields.
 
-- Monitor pollutant concentration forecasts
-- Evaluate exceedance predictions
-- Assess spatial distribution accuracy
+    [Spatial skill](api/spatial-skill-metrics.md) · [Track metrics](api/track-metrics.md) · [Temporal metrics](api/temporal-metrics.md)
 
-### Ensemble Analysis
+-   :material-code-braces:{ .lg .middle } **Build a workflow**
 
-- Evaluate ensemble spread-skill relationships
-- Assess probabilistic forecast performance
-- Analyze ensemble member contributions
+    ---
 
-## Contributing
+    Use the Xarray accessor, performance helpers, plugins, and worked examples.
 
-We welcome contributions! Please see our [Contributing Guide](contributing.md) for details on:
+    [Xarray accessor](api/accessor.md) · [Climate workflow](workflows/climate-data-analysis.md) · [Notebooks](notebooks/README.md)
 
-- Setting up the development environment
-- Submitting bug reports and feature requests
-- Contributing new metrics and improvements
+</div>
 
-## License
+## Pick the right entry point
 
-Monet Stats is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details.
+=== "I have arrays"
 
-## Support
+    Use top-level functions such as `RMSE`, `NSE`, and `pearsonr` for NumPy arrays. Functions accept an `axis` argument when you want a score for each slice.
 
-- 📧 Email: arl.webmaster@noaa.gov
-- 🐛 Issues: [GitHub Issues](https://github.com/noaa-oar-arl/monet-stats/issues)
-- 📖 Documentation: [Full Documentation](https://noaa-oar-arl.github.io/monet-stats)
+    [See the API overview](api/overview.md)
 
----
+=== "I have gridded data"
 
-_Monet Stats is developed and maintained by the NOAA Air Resources Laboratory_
+    Pass Xarray `DataArray` objects to retain coordinates and metadata. Reduce over named dimensions such as `time` or `lat` and `lon`.
+
+    [Read the Xarray guide](api/accessor.md)
+
+=== "I need a complete example"
+
+    Follow the getting started guide, then browse the climate workflow and notebooks for end-to-end patterns.
+
+    [Open the tutorial](getting-started.md)
+
+## About MONET Stats
+
+MONET Stats is an atmospheric-science library in the MONET ecosystem. It brings commonly used verification methods into a consistent Python interface and supports metadata-aware analysis with Xarray.
+
+[Installation](installation.md){ .md-button }
+[Mathematical methods](math/overview.md){ .md-button }
+[Contributing](contributing.md){ .md-button }

@@ -1,3 +1,9 @@
+---
+type: explanation
+category: explanation
+tags: [mathematics, metric-formulations, statistics]
+---
+
 # Mathematical Formulations
 
 This section provides the mathematical foundations and theoretical background for the statistical metrics implemented in Monet Stats. Understanding these formulations helps in proper interpretation and application of the metrics in atmospheric sciences research.

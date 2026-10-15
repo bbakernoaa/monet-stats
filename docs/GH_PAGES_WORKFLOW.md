@@ -1,12 +1,21 @@
+---
+type: howto
+category: how_to
+tags: [deployment, github-pages, ci]
+---
+
 # GitHub Pages Deployment Workflow
 
-This file contains the GitHub Actions workflow configuration to deploy the MkDocs documentation to GitHub Pages.
+Documentation is built and published to GitHub Pages automatically by the
+repository's own workflow file,
+[`.github/workflows/docs.yml`](https://github.com/noaa-oar-arl/monet-stats/blob/main/.github/workflows/docs.yml).
+You do not need to create it — this page describes what it does.
 
-## Steps to Create the Workflow
+## Triggers
 
-1. Create a new file in your repository at `.github/workflows/deploy.yml`.
-2. Copy the content from the "Workflow Configuration" section below into this new file.
-3. Commit and push the new workflow file to your repository.
+- A `push` to `main` — builds **and** deploys the site.
+- A `pull_request` targeting `main` — builds the site to validate it, without
+  deploying.
 
 ## Workflow Configuration
 
@@ -35,20 +44,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
-    - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/checkout@v6
+    - name: Set up Python
+      uses: actions/setup-python@v6
       with:
-        python-version: '3.11'
+        python-version: "3.11"
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -e .[test,dev]
+        uv pip install --system -e .[test,dev,docs]
     - name: Build documentation
       run: |
         mkdocs build
     - name: Upload documentation artifact
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@v5
       with:
         path: './site'
 
@@ -62,27 +74,28 @@ jobs:
     steps:
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@v5
 ```
 
 ## Workflow Explanation
 
 - **Trigger**: The workflow runs on pushes and pull requests to the `main` branch.
 - **Permissions**: It requires write permissions for `pages` and `id-token` to deploy to GitHub Pages.
-- **Concurrency**: It cancels any in-progress deployments for the same branch to avoid conflicts.
+- **Concurrency**: A shared `pages` concurrency group serialises deployments so two runs never publish at once.
 - **Build Job**:
-  - Checks out the repository.
-  - Sets up Python.
-  - Installs project dependencies, including MkDocs and MkDocs plugins.
-  - Builds the documentation using `mkdocs build`.
-  - Uploads the built site as an artifact.
+  - Checks out the repository and sets up Python 3.11.
+  - Installs [uv](https://docs.astral.sh/uv/) with caching enabled.
+  - Installs the package with the `test`, `dev`, and `docs` extras — the `docs`
+    extra provides `mkdocs`, `mkdocstrings`, and `mkdocs-material`.
+  - Builds the documentation using `mkdocs build` (output in `./site`).
+  - Uploads the built site as the Pages artifact.
 - **Deploy Job**:
-  - Runs only on pushes to the `main` branch.
+  - Runs only on pushes to `main` (pull requests stop after the build).
   - Deploys the artifact to GitHub Pages using the official `actions/deploy-pages` action.
 
-## Next Steps
+## Enabling GitHub Pages
 
-After creating the workflow file, you will need to enable GitHub Pages for your repository:
+The workflow assumes the repository's Pages **source** is set to *GitHub Actions*:
 
 1. Go to your repository on GitHub.
 2. Click on the **Settings** tab.
@@ -91,3 +104,13 @@ After creating the workflow file, you will need to enable GitHub Pages for your 
 5. Click **Save**.
 
 Your documentation will be automatically built and deployed to GitHub Pages every time you push to the `main` branch.
+
+## Testing a Documentation Build Locally
+
+Before pushing, build the site locally to catch broken nav entries or mkdocstrings errors:
+
+```bash
+pip install -e ".[docs]"
+mkdocs serve      # live-reload preview at http://127.0.0.1:8000
+mkdocs build      # the same non-strict build CI performs
+```

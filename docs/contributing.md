@@ -1,3 +1,9 @@
+---
+type: wow
+category: reference
+tags: [contributing, workflow, testing, ruff]
+---
+
 # Contributing to Monet Stats
 
 We welcome contributions to the Monet Stats library! This guide provides instructions for developers who want to contribute new metrics, improvements, or bug fixes.
@@ -32,10 +38,12 @@ pre-commit install
 
 The development setup includes:
 
-- **Code Quality**: `black`, `flake8`, `isort`, `mypy`
-- **Testing**: `pytest`, `pytest-cov`, `hypothesis`
-- **Documentation**: `mkdocs`, `mkdocstrings`
-- **Build**: `setuptools`, `wheel`
+- **Pre-commit hooks**: `pre-commit` (runs `ruff-check` and `ruff-format`)
+- **Testing**: `pytest`, `pytest-cov`, `pytest-benchmark`
+
+The `test` extra adds `hypothesis`, `coverage`, and `psutil`. Documentation
+tooling (`mkdocs`, `mkdocstrings`, `mkdocs-material`) lives in the separate
+`docs` extra.
 
 ## Development Workflow
 
@@ -59,10 +67,8 @@ The development setup includes:
 
 5. Run code quality checks:
    ```bash
-   black src/
-   isort src/
-   flake8 src/
-   mypy src/
+   ruff check src/ --fix
+   ruff format src/
    ```
 
 ### 6. Pre-commit Hooks
@@ -98,18 +104,12 @@ pre-commit run --files file1.py file2.py
 
 The pre-commit configuration is defined in `.pre-commit-config.yaml` and includes:
 
-- **Black**: Code formatting following PEP 8 standards
-- **Isort**: Import organization and sorting
-- **Flake8**: Code linting
-- **Pycodestyle**: Additional style checks
-- **MyPy**: Static type checking
-- **Gitlint**: Commit message formatting
+- **Ruff (`ruff-check`)**: Linting with `--fix`, failing if anything was changed
+- **Ruff (`ruff-format`)**: Code formatting (replaces `black`)
 - **Trailing whitespace removal**: Removes trailing whitespace
 - **End-of-file fixer**: Ensures files end with a newline
 - **Large file checker**: Prevents accidentally committing large files
-- **Merge conflict checker**: Detects merge conflict markers
-- **JSON/YAML validators**: Ensures configuration files are valid
-- **Debug statement checker**: Prevents committing debug statements
+- **YAML validator**: Ensures configuration files are valid
 
 ### 2. Adding New Metrics
 
@@ -223,7 +223,8 @@ def test_new_metric_edge_cases():
 
 #### Test Coverage
 
-- Aim for >95% test coverage
+- Aim to keep coverage above the CI gate of 60%
+  (`pytest --cov-fail-under=60`)
 - Use `pytest-cov` to measure coverage:
   ```bash
   pytest --cov=src/monet_stats/new_metrics tests/test_new_metrics.py
@@ -258,8 +259,9 @@ def test_new_metric_properties(obs, mod):
 
 #### Formatting
 
-- Use `black` for code formatting (line length: 88)
-- Use `isort` for import sorting
+- Use `ruff format` for code formatting (line length: 120)
+- Use `ruff check` for linting and import sorting (the `I` rule set replaces
+  `isort`)
 - Follow PEP 8 style guidelines
 
 #### Type Hints
@@ -408,14 +410,16 @@ Brief description of changes made
 
 Follow semantic versioning:
 
-- **Patch**: Bug fixes (0.0.x)
-- **Minor**: New features (0.x.0)
-- **Major**: Breaking changes (x.0.0)
+- **Patch**: Bug fixes (e.g. 1.0.x)
+- **Minor**: New features (e.g. 1.x.0)
+- **Major**: Breaking changes (e.g. x.0.0)
 
 ### Release Checklist
 
 1. Update version in `pyproject.toml`
-2. Update `CHANGELOG.md`
+2. Draft the release notes on the GitHub Releases page
+   (`pyproject.toml` points `Changelog` at the GitHub releases list; the repo
+   does not keep a `CHANGELOG.md` file)
 3. Run full test suite
 4. Build and test documentation
 5. Create release tag
