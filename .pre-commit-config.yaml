@@ -3,6 +3,14 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-yaml
+        exclude: ^mkdocs\.yml$
+      # mkdocs.yml uses !!python/name: tags, which a safe loader refuses to
+      # construct, so it only gets a syntax-only check.
+      - id: check-yaml
+        name: check yaml (mkdocs.yml, syntax only)
+        alias: check-yaml-mkdocs
+        args: [--unsafe]
+        files: ^mkdocs\.yml$
       - id: check-added-large-files
       - id: end-of-file-fixer
       - id: trailing-whitespace
