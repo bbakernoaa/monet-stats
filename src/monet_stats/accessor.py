@@ -1301,6 +1301,10 @@ class MonetDataArrayAccessor:
         -------
         xarray.DataArray
             Energy distance.
+
+        See Also
+        --------
+        distribution_metrics.EnergyDistance
         """
         res = distribution_metrics.EnergyDistance(obs, self._obj, dim=dim)
         return _update_history(res, "Energy Distance")
